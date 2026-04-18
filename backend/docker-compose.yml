@@ -1,0 +1,291 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.4.8
+    container_name: quickbite-mysql
+    env_file: .env
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./init-databases.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - quickbite-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  redis:
+    image: redis:7.4.8-alpine
+    container_name: quickbite-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - quickbite-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      timeout: 20s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:4.2.5-management-alpine
+    container_name: quickbite-rabbitmq
+    env_file: .env
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - quickbite-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      timeout: 20s
+      retries: 10
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.7.8
+    container_name: quickbite-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - quickbite-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.7.8
+    container_name: quickbite-kafka
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    ports:
+      - "9092:9092"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    networks:
+      - quickbite-network
+
+  sonarqube:
+    image: sonarqube:lts-community
+    container_name: quickbite-sonarqube
+    ports:
+      - "9000:9000"
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_logs:/opt/sonarqube/logs
+      - sonarqube_extensions:/opt/sonarqube/extensions
+    networks:
+      - quickbite-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/api/system/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  eureka-server:
+    build: ./eureka-server
+    image: ${DOCKER_USERNAME:-quickbite}/eureka-server:latest
+    container_name: quickbite-eureka-server
+    env_file: .env
+    ports:
+      - "8761:8761"
+    networks:
+      - quickbite-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  gateway:
+    build: ./quickbite-gateway
+    image: ${DOCKER_USERNAME:-quickbite}/quickbite-gateway:latest
+    container_name: quickbite-gateway
+    env_file: .env
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    networks:
+      - quickbite-network
+    restart: unless-stopped
+
+  auth-service:
+    build: ./auth-service
+    image: ${DOCKER_USERNAME:-quickbite}/auth-service:latest
+    container_name: quickbite-auth-service
+    env_file: .env
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    ports:
+      - "8001:8001"
+    networks:
+      - quickbite-network
+    restart: unless-stopped
+
+  restaurant-service:
+    build: ./restaurant-service
+    image: ${DOCKER_USERNAME:-quickbite}/restaurant-service:latest
+    container_name: quickbite-restaurant-service
+    env_file: .env
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    ports:
+      - "8002:8002"
+    networks:
+      - quickbite-network
+    restart: unless-stopped
+
+  menu-service:
+    build: ./menu-service
+    image: ${DOCKER_USERNAME:-quickbite}/menu-service:latest
+    container_name: quickbite-menu-service
+    env_file: .env
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    ports:
+      - "8003:8003"
+    networks:
+      - quickbite-network
+    restart: unless-stopped
+
+  cart-service:
+    build: ./cart-service
+    image: ${DOCKER_USERNAME:-quickbite}/cart-service:latest
+    container_name: quickbite-cart-service
+    env_file: .env
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    ports:
+      - "8004:8004"
+    networks:
+      - quickbite-network
+    restart: unless-stopped
+
+  order-service:
+    build: ./order-service
+    image: ${DOCKER_USERNAME:-quickbite}/order-service:latest
+    container_name: quickbite-order-service
+    env_file: .env
+    depends_on:
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    ports:
+      - "8005:8005"
+    networks:
+      - quickbite-network
+    restart: unless-stopped
+
+  payment-service:
+    build: ./payment-service
+    image: ${DOCKER_USERNAME:-quickbite}/payment-service:latest
+    container_name: quickbite-payment-service
+    env_file: .env
+    depends_on:
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    ports:
+      - "8006:8006"
+    networks:
+      - quickbite-network
+    restart: unless-stopped
+
+  delivery-service:
+    build: ./delivery-service
+    image: ${DOCKER_USERNAME:-quickbite}/delivery-service:latest
+    container_name: quickbite-delivery-service
+    env_file: .env
+    depends_on:
+      mysql:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      eureka-server:
+        condition: service_healthy
+    ports:
+      - "8007:8007"
+    networks:
+      - quickbite-network
+    restart: unless-stopped
+
+  review-service:
+    build: ./review-service
+    image: ${DOCKER_USERNAME:-quickbite}/review-service:latest
+    container_name: quickbite-review-service
+    env_file: .env
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    ports:
+      - "8008:8008"
+    networks:
+      - quickbite-network
+    restart: unless-stopped
+
+  notification-service:
+    build: ./notification-service
+    image: ${DOCKER_USERNAME:-quickbite}/notification-service:latest
+    container_name: quickbite-notification-service
+    env_file: .env
+    depends_on:
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    ports:
+      - "8009:8009"
+    networks:
+      - quickbite-network
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
+  redis_data:
+  rabbitmq_data:
+  kafka_data:
+  sonarqube_data:
+  sonarqube_logs:
+  sonarqube_extensions:
+
+networks:
+  quickbite-network:
+    driver: bridge

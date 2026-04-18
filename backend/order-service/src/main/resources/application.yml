@@ -1,0 +1,47 @@
+spring:
+  application:
+    name: order-service
+  datasource:
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/quickbite_order?createDatabaseIfNotExist=true
+    username: ${MYSQL_USER:root}
+    password: ${MYSQL_PASSWORD:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect
+        format_sql: true
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+
+server:
+  port: ${ORDER_SERVICE_PORT:8085}
+  servlet:
+    context-path: /
+
+eureka:
+  instance:
+    hostname: ${EUREKA_HOST:localhost}
+    prefer-ip-address: true
+    status-page-url-path: /actuator/info
+    health-check-url-path: /actuator/health
+    lease-renewal-interval-in-seconds: 10
+    lease-expiration-duration-in-seconds: 30
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+    register-with-eureka: true
+    fetch-registry: true
+
+logging:
+  level:
+    root: INFO
+    com.quickbite: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"

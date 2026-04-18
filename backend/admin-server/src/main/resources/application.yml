@@ -1,0 +1,78 @@
+spring:
+  application:
+    name: admin-server
+  security:
+    user:
+      name: admin
+      password: admin123
+
+server:
+  port: 8762
+  servlet:
+    context-path: /
+
+eureka:
+  instance:
+    hostname: localhost
+    prefer-ip-address: false
+    status-page-url-path: /actuator/info
+    health-check-url-path: /actuator/health
+    lease-renewal-interval-in-seconds: 10
+    lease-expiration-duration-in-seconds: 30
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+    region: default
+    availability-zones:
+      default: default
+    register-with-eureka: true
+    fetch-registry: true
+
+spring.boot.admin:
+  ui:
+    title: QuickBite Admin Dashboard
+    brand: QuickBite Platform
+  monitor:
+    read-timeout: 30000
+    connect-timeout: 5000
+  discovery:
+    enabled: true
+    management:
+      base-url: ${ADMIN_BASE_URL}
+
+# Actuator endpoints
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,env,metrics,logfile,threaddump,heapdump
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+      show-components: always
+    metrics:
+      enabled: true
+  metrics:
+    export:
+      simple:
+        enabled: true
+  health:
+    circuitbreaker:
+      enabled: true
+    defaults:
+      enabled: true
+
+logging:
+  level:
+    root: INFO
+    com.quickbite: DEBUG
+    de.codecentric.boot.admin: INFO
+    org.springframework.cloud: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} - %logger{36} - %msg%n"
+  file:
+    name: logs/admin-server.log
+    max-size: 10MB
+    max-history: 10

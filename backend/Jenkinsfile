@@ -1,0 +1,112 @@
+pipeline {
+    agent any
+
+    tools {
+        maven 'Maven'
+        jdk 'JDK 21'
+    }
+
+    environment {
+        DOCKER_USERNAME = 'quickbite' // Default Docker Hub username, can be overridden by credentials
+        DOCKER_COMPOSE_CMD = 'docker-compose'
+        SONAR_HOST_URL = 'http://sonarqube:9000' // Using local SonarQube via docker network or just localhost if running outside
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                echo 'Checking out source code...'
+                checkout scm
+            }
+        }
+
+        stage('Test') {
+            steps {
+                echo 'Running unit tests...'
+                // Run tests for all services
+                sh 'mvn test'
+            }
+            post {
+                always {
+                    // Archive test results if available
+                    junit '**/target/surefire-reports/*.xml'
+                }
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
+                echo 'Running SonarQube Code Analysis...'
+                // Run SonarQube analysis
+                // Note: In a real environment, you should use withSonarQubeEnv('SonarQube') 
+                // and configure SonarQube server in Jenkins global configuration.
+                // This is a generic call assuming a local sonar server.
+                script {
+                    try {
+                        sh 'mvn sonar:sonar -Dsonar.host.url=http://localhost:9000 -Dsonar.login=admin -Dsonar.password=admin'
+                    } catch (Exception e) {
+                        echo "SonarQube analysis failed or server not available, continuing pipeline. Error: ${e.message}"
+                    }
+                }
+            }
+        }
+
+        stage('Build with Maven') {
+            steps {
+                echo 'Building all microservices...'
+                sh 'mvn clean package -DskipTests'
+            }
+        }
+
+        stage('Docker Build & Push') {
+            steps {
+                echo 'Building Docker images and pushing to Docker Hub...'
+                // In a real scenario, use Jenkins credentials:
+                // withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                //     sh "echo \$DOCKER_PASS | docker login -u \$DOCKER_USER --password-stdin"
+                //     env.DOCKER_USERNAME = DOCKER_USER
+                // }
+                
+                script {
+                    def services = [
+                        'eureka-server', 'quickbite-gateway', 'auth-service', 
+                        'restaurant-service', 'menu-service', 'cart-service', 
+                        'order-service', 'payment-service', 'delivery-service', 
+                        'review-service', 'notification-service'
+                    ]
+                    
+                    for (String service : services) {
+                        echo "Building and pushing image for ${service}..."
+                        sh "docker build -t ${DOCKER_USERNAME}/${service}:latest ./${service}"
+                        
+                        // Uncomment the line below to actually push to Docker Hub
+                        // sh "docker push ${DOCKER_USERNAME}/${service}:latest"
+                    }
+                }
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                echo 'Deploying services via Docker Compose...'
+                // Pull the latest images from Docker Hub
+                // sh '${DOCKER_COMPOSE_CMD} pull'
+                
+                // Start the containers
+                sh '${DOCKER_COMPOSE_CMD} up -d'
+            }
+        }
+    }
+
+    post {
+        always {
+            echo 'Pipeline execution complete.'
+        }
+        success {
+            echo 'Pipeline succeeded! Services should be up and running.'
+        }
+        failure {
+            echo 'Pipeline failed. Check logs for details.'
+        }
+    }
+}

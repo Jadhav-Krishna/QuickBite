@@ -5,6 +5,7 @@ import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -72,21 +73,24 @@ public class RabbitMQConfig {
 
     // Bindings
     @Bean
-    public Binding notificationBinding(Queue notificationQueue, TopicExchange notificationExchange) {
+    public Binding notificationBinding(@Qualifier("notificationQueue") Queue notificationQueue, 
+                                       @Qualifier("notificationExchange") TopicExchange notificationExchange) {
         return BindingBuilder.bind(notificationQueue)
                 .to(notificationExchange)
                 .with(NOTIFICATION_ROUTING_KEY);
     }
 
     @Bean
-    public Binding orderNotificationBinding(Queue orderNotificationQueue, TopicExchange orderExchange) {
+    public Binding orderNotificationBinding(@Qualifier("orderNotificationQueue") Queue orderNotificationQueue, 
+                                            @Qualifier("orderExchange") TopicExchange orderExchange) {
         return BindingBuilder.bind(orderNotificationQueue)
                 .to(orderExchange)
                 .with(ORDER_ROUTING_KEY);
     }
 
     @Bean
-    public Binding paymentNotificationBinding(Queue paymentNotificationQueue, TopicExchange paymentExchange) {
+    public Binding paymentNotificationBinding(@Qualifier("paymentNotificationQueue") Queue paymentNotificationQueue, 
+                                              @Qualifier("paymentExchange") TopicExchange paymentExchange) {
         return BindingBuilder.bind(paymentNotificationQueue)
                 .to(paymentExchange)
                 .with(PAYMENT_ROUTING_KEY);

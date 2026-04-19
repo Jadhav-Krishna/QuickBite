@@ -14,6 +14,11 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.MySQL8Dialect
         format_sql: true
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
 
 server:
   port: ${PAYMENT_SERVICE_PORT:8086}
@@ -36,8 +41,8 @@ eureka:
 
 razorpay:
   key:
-    id: ${RAZORPAY_KEY_ID}
-    secret: ${RAZORPAY_KEY_SECRET}
+    id: ${RAZORPAY_KEY_ID:dummy_id}
+    secret: ${RAZORPAY_KEY_SECRET:dummy_secret}
 
 logging:
   level:

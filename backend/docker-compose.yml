@@ -277,6 +277,20 @@ services:
       - quickbite-network
     restart: unless-stopped
 
+  admin-server:
+    build: ./admin-server
+    image: ${DOCKER_USERNAME:-quickbite}/admin-server:latest
+    container_name: quickbite-admin-server
+    env_file: .env
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+    ports:
+      - "8762:8762"
+    networks:
+      - quickbite-network
+    restart: unless-stopped
+
 volumes:
   mysql_data:
   redis_data:

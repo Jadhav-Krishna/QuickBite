@@ -43,7 +43,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     @Query("SELECT COUNT(o) FROM Order o WHERE o.createdAt >= :startDate AND o.createdAt <= :endDate AND o.status = 'DELIVERED'")
     long countOrdersInDateRange(@Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
 
-    List<Order> findByOrderDateBetween(LocalDateTime startDate, LocalDateTime endDate);
+    List<Order> findByCreatedAtBetween(LocalDateTime startDate, LocalDateTime endDate);
 
     long countByRestaurantId(Long restaurantId);
 }

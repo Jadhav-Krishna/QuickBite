@@ -8,16 +8,16 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-@ConfigurationProperties(prefix = "razorpay")
+@ConfigurationProperties(prefix = "razorpay.key")
 @Getter
 @Setter
 public class RazorpayConfig {
 
-    private String keyId;
-    private String keySecret;
+    private String id;
+    private String secret;
 
     @Bean
     public RazorpayClient razorpayClient() throws Exception {
-        return new RazorpayClient(keyId, keySecret);
+        return new RazorpayClient(id, secret);
     }
 }

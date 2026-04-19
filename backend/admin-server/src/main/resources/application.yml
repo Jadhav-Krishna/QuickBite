@@ -19,6 +19,9 @@ eureka:
     health-check-url-path: /actuator/health
     lease-renewal-interval-in-seconds: 10
     lease-expiration-duration-in-seconds: 30
+    metadata-map:
+      user.name: admin
+      user.password: admin123
   client:
     service-url:
       defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}

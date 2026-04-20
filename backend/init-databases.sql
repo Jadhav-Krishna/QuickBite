@@ -10,6 +10,17 @@ CREATE DATABASE IF NOT EXISTS quickbite_delivery;
 CREATE DATABASE IF NOT EXISTS quickbite_review;
 CREATE DATABASE IF NOT EXISTS quickbite_notification;
 
+GRANT ALL PRIVILEGES ON quickbite_auth.* TO 'quickbite'@'%';
+GRANT ALL PRIVILEGES ON quickbite_restaurant.* TO 'quickbite'@'%';
+GRANT ALL PRIVILEGES ON quickbite_menu.* TO 'quickbite'@'%';
+GRANT ALL PRIVILEGES ON quickbite_cart.* TO 'quickbite'@'%';
+GRANT ALL PRIVILEGES ON quickbite_order.* TO 'quickbite'@'%';
+GRANT ALL PRIVILEGES ON quickbite_payment.* TO 'quickbite'@'%';
+GRANT ALL PRIVILEGES ON quickbite_delivery.* TO 'quickbite'@'%';
+GRANT ALL PRIVILEGES ON quickbite_review.* TO 'quickbite'@'%';
+GRANT ALL PRIVILEGES ON quickbite_notification.* TO 'quickbite'@'%';
+FLUSH PRIVILEGES;
+
 -- Use auth database and create users table with OAuth support
 USE quickbite_auth;
 

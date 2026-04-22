@@ -19,7 +19,6 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/payments")
 @Slf4j
-@CrossOrigin(origins = "*", maxAge = 3600)
 public class PaymentController {
 
     @Autowired
@@ -34,16 +33,16 @@ public class PaymentController {
 
     @PostMapping("/verify")
     public ResponseEntity<PaymentResponse> verifyPayment(
-            @RequestParam String paymentId,
-            @RequestParam String signature,
-            @RequestParam String orderId) {
+            @RequestParam("paymentId") String paymentId,
+            @RequestParam("signature") String signature,
+            @RequestParam("orderId") String orderId) {
         log.info("Verifying payment: {}", paymentId);
         PaymentResponse response = paymentService.verifyPayment(paymentId, signature, orderId);
         return ResponseEntity.ok(response);
     }
 
     @GetMapping("/order/{orderId}")
-    public ResponseEntity<PaymentResponse> getPaymentByOrderId(@PathVariable Long orderId) {
+    public ResponseEntity<PaymentResponse> getPaymentByOrderId(@PathVariable("orderId") Long orderId) {
         log.info("Fetching payment for order: {}", orderId);
         PaymentResponse response = paymentService.getPaymentByOrderId(orderId);
         return ResponseEntity.ok(response);
@@ -51,8 +50,8 @@ public class PaymentController {
 
     @PostMapping("/refund/{paymentId}")
     public ResponseEntity<PaymentResponse> refundPayment(
-            @PathVariable Long paymentId,
-            @RequestParam String reason) {
+            @PathVariable("paymentId") Long paymentId,
+            @RequestParam("reason") String reason) {
         log.info("Processing refund for payment: {}", paymentId);
         PaymentResponse response = paymentService.refundPayment(paymentId, reason);
         return ResponseEntity.ok(response);
@@ -78,33 +77,33 @@ public class PaymentController {
     // ==================== Wallet Endpoints ====================
 
     @GetMapping("/wallet/balance/{customerId}")
-    public ResponseEntity<com.quickbite.dto.WalletResponse> getWalletBalance(@PathVariable Long customerId) {
+    public ResponseEntity<com.quickbite.dto.WalletResponse> getWalletBalance(@PathVariable("customerId") Long customerId) {
         return ResponseEntity.ok(paymentService.getWalletBalance(customerId));
     }
 
     @PostMapping("/wallet/deposit")
     public ResponseEntity<com.quickbite.dto.WalletResponse> depositToWallet(
-            @RequestParam Long customerId,
-            @RequestParam BigDecimal amount) {
+            @RequestParam("customerId") Long customerId,
+            @RequestParam("amount") BigDecimal amount) {
         log.info("Depositing {} to wallet for customer: {}", amount, customerId);
         return ResponseEntity.ok(paymentService.addToWallet(customerId, amount));
     }
 
     @PostMapping("/wallet/pay")
     public ResponseEntity<PaymentResponse> payFromWallet(
-            @RequestParam Long customerId,
-            @RequestParam Long orderId) {
+            @RequestParam("customerId") Long customerId,
+            @RequestParam("orderId") Long orderId) {
         log.info("Paying from wallet for order: {} by customer: {}", orderId, customerId);
         return ResponseEntity.ok(paymentService.payFromWallet(customerId, orderId));
     }
 
     @GetMapping("/wallet/statements/{customerId}")
-    public ResponseEntity<List<com.quickbite.dto.WalletStatementDTO>> getWalletStatements(@PathVariable Long customerId) {
+    public ResponseEntity<List<com.quickbite.dto.WalletStatementDTO>> getWalletStatements(@PathVariable("customerId") Long customerId) {
         return ResponseEntity.ok(paymentService.getWalletStatements(customerId));
     }
 
     @GetMapping("/customer/{customerId}")
-    public ResponseEntity<List<PaymentResponse>> getCustomerPayments(@PathVariable Long customerId) {
+    public ResponseEntity<List<PaymentResponse>> getCustomerPayments(@PathVariable("customerId") Long customerId) {
         return ResponseEntity.ok(paymentService.getPaymentsByCustomer(customerId));
     }
 }

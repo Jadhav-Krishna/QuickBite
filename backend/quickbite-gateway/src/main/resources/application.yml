@@ -1,6 +1,24 @@
 spring:
   application:
     name: api-gateway
+  cloud:
+    gateway:
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_UNIQUE
+      globalcors:
+        add-to-simple-url-handler-mapping: true
+        cors-configurations:
+          '[/**]':
+            allowedOrigins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - PATCH
+              - OPTIONS
+            allowedHeaders: "*"
+            allowCredentials: true
 
 server:
   port: ${GATEWAY_PORT:8080}
@@ -24,6 +42,7 @@ logging:
 
 springdoc:
   swagger-ui:
+    cors: false
     path: /swagger-ui.html
     urls:
       - name: Auth Service

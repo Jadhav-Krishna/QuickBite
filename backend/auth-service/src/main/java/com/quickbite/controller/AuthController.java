@@ -16,7 +16,6 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/auth")
 @Slf4j
-@CrossOrigin(origins = "*", maxAge = 3600)
 public class AuthController {
 
     @Autowired
@@ -121,13 +120,13 @@ public class AuthController {
     // ==================== User Lookup (inter-service) ====================
 
     @GetMapping("/user/{userId}")
-    public ResponseEntity<UserDTO> getUserById(@PathVariable Long userId) {
+    public ResponseEntity<UserDTO> getUserById(@PathVariable("userId") Long userId) {
         UserDTO user = authService.getUserById(userId);
         return ResponseEntity.ok(user);
     }
 
     @GetMapping("/users/role/{role}")
-    public ResponseEntity<List<UserDTO>> getUsersByRole(@PathVariable String role) {
+    public ResponseEntity<List<UserDTO>> getUsersByRole(@PathVariable("role") String role) {
         List<UserDTO> users = authService.getUsersByRole(role);
         return ResponseEntity.ok(users);
     }
@@ -141,7 +140,7 @@ public class AuthController {
     }
 
     @PutMapping("/users/{userId}/suspend")
-    public ResponseEntity<Map<String, String>> suspendUser(@PathVariable Long userId) {
+    public ResponseEntity<Map<String, String>> suspendUser(@PathVariable("userId") Long userId) {
         log.info("Suspend user request for userId: {}", userId);
         authService.suspendUser(userId);
         Map<String, String> response = new HashMap<>();
@@ -150,7 +149,7 @@ public class AuthController {
     }
 
     @PutMapping("/users/{userId}/reactivate")
-    public ResponseEntity<Map<String, String>> reactivateUser(@PathVariable Long userId) {
+    public ResponseEntity<Map<String, String>> reactivateUser(@PathVariable("userId") Long userId) {
         log.info("Reactivate user request for userId: {}", userId);
         authService.reactivateUser(userId);
         Map<String, String> response = new HashMap<>();
@@ -159,7 +158,7 @@ public class AuthController {
     }
 
     @DeleteMapping("/users/{userId}")
-    public ResponseEntity<Void> deleteUser(@PathVariable Long userId) {
+    public ResponseEntity<Void> deleteUser(@PathVariable("userId") Long userId) {
         log.info("Delete user request for userId: {}", userId);
         authService.deleteUser(userId);
         return ResponseEntity.noContent().build();

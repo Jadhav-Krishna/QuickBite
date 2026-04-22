@@ -14,7 +14,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/cart")
 @Slf4j
-@CrossOrigin(origins = "*", maxAge = 3600)
 public class CartController {
 
     @Autowired

@@ -61,6 +61,12 @@ public class DeliveryService {
         return mapToDTO(agent);
     }
 
+    public DeliveryAgentDTO getDeliveryAgentByUserId(Long userId) {
+        DeliveryAgent agent = agentRepository.findByUserId(userId)
+                .orElseThrow(() -> new RuntimeException("Delivery agent not found for userId: " + userId));
+        return mapToDTO(agent);
+    }
+
     public void updateLiveLocation(Long agentId, LocationUpdateDTO locationUpdate) {
         try {
             log.info("Updating live location for agent: {} at lat: {}, lng: {}", 

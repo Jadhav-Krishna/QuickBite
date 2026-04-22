@@ -17,7 +17,6 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/v1/menu")
 @Slf4j
-@CrossOrigin(origins = "*", maxAge = 3600)
 public class MenuController {
 
     @Autowired
@@ -34,7 +33,7 @@ public class MenuController {
     }
 
     @GetMapping("/categories/restaurant/{restaurantId}")
-    public ResponseEntity<List<CategoryDTO>> getRestaurantCategories(@PathVariable Long restaurantId) {
+    public ResponseEntity<List<CategoryDTO>> getRestaurantCategories(@PathVariable("restaurantId") Long restaurantId) {
         List<CategoryDTO> categories = menuService.getRestaurantCategories(restaurantId).stream()
                 .map(this::mapCategoryToDTO)
                 .collect(Collectors.toList());
@@ -43,20 +42,20 @@ public class MenuController {
 
     @PutMapping("/categories/{id}")
     public ResponseEntity<CategoryDTO> updateCategory(
-            @PathVariable Long id, @RequestBody CategoryDTO dto) {
+            @PathVariable("id") Long id, @RequestBody CategoryDTO dto) {
         Category updateData = new Category();
         updateData.setName(dto.getName());
         updateData.setDescription(dto.getDescription());
         updateData.setDisplayOrder(dto.getDisplayOrder());
         updateData.setIsActive(dto.getIsActive());
         updateData.setImageUrl(dto.getImageUrl());
-        
+
         Category updated = menuService.updateCategory(id, updateData);
         return ResponseEntity.ok(mapCategoryToDTO(updated));
     }
 
     @DeleteMapping("/categories/{id}")
-    public ResponseEntity<Void> deleteCategory(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteCategory(@PathVariable("id") Long id) {
         menuService.deleteCategory(id);
         return ResponseEntity.noContent().build();
     }
@@ -74,13 +73,13 @@ public class MenuController {
     }
 
     @GetMapping("/items/{id}")
-    public ResponseEntity<MenuItemDTO> getMenuItem(@PathVariable Long id) {
+    public ResponseEntity<MenuItemDTO> getMenuItem(@PathVariable("id") Long id) {
         MenuItem item = menuService.getMenuItem(id);
         return ResponseEntity.ok(mapMenuItemToDTO(item));
     }
 
     @GetMapping("/items/restaurant/{restaurantId}")
-    public ResponseEntity<List<MenuItemDTO>> getRestaurantMenu(@PathVariable Long restaurantId) {
+    public ResponseEntity<List<MenuItemDTO>> getRestaurantMenu(@PathVariable("restaurantId") Long restaurantId) {
         List<MenuItemDTO> items = menuService.getRestaurantMenu(restaurantId).stream()
                 .map(this::mapMenuItemToDTO)
                 .collect(Collectors.toList());
@@ -88,7 +87,7 @@ public class MenuController {
     }
 
     @GetMapping("/items/category/{categoryId}")
-    public ResponseEntity<List<MenuItemDTO>> getCategoryItems(@PathVariable Long categoryId) {
+    public ResponseEntity<List<MenuItemDTO>> getCategoryItems(@PathVariable("categoryId") Long categoryId) {
         List<MenuItemDTO> items = menuService.getCategoryItems(categoryId).stream()
                 .map(this::mapMenuItemToDTO)
                 .collect(Collectors.toList());
@@ -96,7 +95,7 @@ public class MenuController {
     }
 
     @GetMapping("/items/restaurant/{restaurantId}/available")
-    public ResponseEntity<List<MenuItemDTO>> getAvailableItems(@PathVariable Long restaurantId) {
+    public ResponseEntity<List<MenuItemDTO>> getAvailableItems(@PathVariable("restaurantId") Long restaurantId) {
         List<MenuItemDTO> items = menuService.getAvailableItems(restaurantId).stream()
                 .map(this::mapMenuItemToDTO)
                 .collect(Collectors.toList());
@@ -104,7 +103,7 @@ public class MenuController {
     }
 
     @GetMapping("/items/restaurant/{restaurantId}/veg")
-    public ResponseEntity<List<MenuItemDTO>> getVegetarianItems(@PathVariable Long restaurantId) {
+    public ResponseEntity<List<MenuItemDTO>> getVegetarianItems(@PathVariable("restaurantId") Long restaurantId) {
         List<MenuItemDTO> items = menuService.getVegetarianItems(restaurantId).stream()
                 .map(this::mapMenuItemToDTO)
                 .collect(Collectors.toList());
@@ -112,7 +111,7 @@ public class MenuController {
     }
 
     @GetMapping("/items/search")
-    public ResponseEntity<List<MenuItemDTO>> searchMenuItems(@RequestParam String keyword) {
+    public ResponseEntity<List<MenuItemDTO>> searchMenuItems(@RequestParam("keyword") String keyword) {
         List<MenuItemDTO> items = menuService.searchMenuItems(keyword).stream()
                 .map(this::mapMenuItemToDTO)
                 .collect(Collectors.toList());
@@ -121,7 +120,7 @@ public class MenuController {
 
     @PutMapping("/items/{id}")
     public ResponseEntity<MenuItemDTO> updateMenuItem(
-            @PathVariable Long id, @RequestBody MenuItemDTO dto) {
+            @PathVariable("id") Long id, @RequestBody MenuItemDTO dto) {
         MenuItem updateData = new MenuItem();
         updateData.setName(dto.getName());
         updateData.setDescription(dto.getDescription());
@@ -130,20 +129,20 @@ public class MenuController {
         updateData.setPreparationTime(dto.getPreparationTime());
         updateData.setIsAvailable(dto.getIsAvailable());
         updateData.setImageUrl(dto.getImageUrl());
-        
+
         MenuItem updated = menuService.updateMenuItem(id, updateData);
         return ResponseEntity.ok(mapMenuItemToDTO(updated));
     }
 
     @DeleteMapping("/items/{id}")
-    public ResponseEntity<Void> deleteMenuItem(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteMenuItem(@PathVariable("id") Long id) {
         menuService.deleteMenuItem(id);
         return ResponseEntity.noContent().build();
     }
 
     @PutMapping("/items/{id}/availability")
     public ResponseEntity<Void> updateItemAvailability(
-            @PathVariable Long id, @RequestParam Boolean isAvailable) {
+            @PathVariable("id") Long id, @RequestParam("isAvailable") Boolean isAvailable) {
         menuService.updateItemAvailability(id, isAvailable);
         return ResponseEntity.ok().build();
     }

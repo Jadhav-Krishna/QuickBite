@@ -66,6 +66,14 @@ public class KafkaConfig {
         return factory;
     }
 
+    @Bean
+    public org.apache.kafka.clients.admin.NewTopic locationUpdatesTopic() {
+        return org.springframework.kafka.config.TopicBuilder.name(LOCATION_UPDATE_TOPIC)
+                .partitions(3)
+                .replicas(1)
+                .build();
+    }
+
     // Topic names
     public static final String LOCATION_UPDATE_TOPIC = "delivery.location.updates";
     public static final String DELIVERY_STATUS_TOPIC = "delivery.status.updates";

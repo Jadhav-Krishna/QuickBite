@@ -14,7 +14,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/orders")
 @Slf4j
-@CrossOrigin(origins = "*", maxAge = 3600)
 public class OrderController {
 
     @Autowired
@@ -28,31 +27,31 @@ public class OrderController {
     }
 
     @GetMapping("/{orderNumber}")
-    public ResponseEntity<OrderDTO> getOrder(@PathVariable String orderNumber) {
+    public ResponseEntity<OrderDTO> getOrder(@PathVariable("orderNumber") String orderNumber) {
         OrderDTO order = orderService.getOrder(orderNumber);
         return ResponseEntity.ok(order);
     }
 
     @GetMapping("/customer/{customerId}")
-    public ResponseEntity<List<OrderDTO>> getCustomerOrders(@PathVariable Long customerId) {
+    public ResponseEntity<List<OrderDTO>> getCustomerOrders(@PathVariable("customerId") Long customerId) {
         List<OrderDTO> orders = orderService.getCustomerOrders(customerId);
         return ResponseEntity.ok(orders);
     }
 
     @GetMapping("/restaurant/{restaurantId}")
-    public ResponseEntity<List<OrderDTO>> getRestaurantActiveOrders(@PathVariable Long restaurantId) {
+    public ResponseEntity<List<OrderDTO>> getRestaurantActiveOrders(@PathVariable("restaurantId") Long restaurantId) {
         List<OrderDTO> orders = orderService.getRestaurantActiveOrders(restaurantId);
         return ResponseEntity.ok(orders);
     }
 
     @GetMapping("/delivery-agent/{agentId}")
-    public ResponseEntity<List<OrderDTO>> getDeliveryAgentOrders(@PathVariable Long agentId) {
+    public ResponseEntity<List<OrderDTO>> getDeliveryAgentOrders(@PathVariable("agentId") Long agentId) {
         List<OrderDTO> orders = orderService.getDeliveryAgentOrders(agentId);
         return ResponseEntity.ok(orders);
     }
 
     @PutMapping("/{orderNumber}/confirm")
-    public ResponseEntity<OrderDTO> confirmOrder(@PathVariable String orderNumber) {
+    public ResponseEntity<OrderDTO> confirmOrder(@PathVariable("orderNumber") String orderNumber) {
         log.info("Confirming order: {}", orderNumber);
         OrderDTO updatedOrder = orderService.confirmOrder(orderNumber);
         return ResponseEntity.ok(updatedOrder);
@@ -60,8 +59,8 @@ public class OrderController {
 
     @PutMapping("/{orderNumber}/status")
     public ResponseEntity<OrderDTO> updateOrderStatus(
-            @PathVariable String orderNumber,
-            @RequestParam OrderStatus status) {
+            @PathVariable("orderNumber") String orderNumber,
+            @RequestParam("status") OrderStatus status) {
         log.info("Updating order {} status to {}", orderNumber, status);
         OrderDTO updatedOrder = orderService.updateOrderStatus(orderNumber, status);
         return ResponseEntity.ok(updatedOrder);
@@ -69,8 +68,8 @@ public class OrderController {
 
     @PutMapping("/{orderNumber}/assign-delivery")
     public ResponseEntity<OrderDTO> assignDeliveryAgent(
-            @PathVariable String orderNumber,
-            @RequestParam Long deliveryAgentId) {
+            @PathVariable("orderNumber") String orderNumber,
+            @RequestParam("deliveryAgentId") Long deliveryAgentId) {
         log.info("Assigning delivery agent {} to order {}", deliveryAgentId, orderNumber);
         OrderDTO updatedOrder = orderService.assignDeliveryAgent(orderNumber, deliveryAgentId);
         return ResponseEntity.ok(updatedOrder);
@@ -78,8 +77,8 @@ public class OrderController {
 
     @PutMapping("/{orderNumber}/cancel")
     public ResponseEntity<OrderDTO> cancelOrder(
-            @PathVariable String orderNumber,
-            @RequestParam(required = false) String reason) {
+            @PathVariable("orderNumber") String orderNumber,
+            @RequestParam(name = "reason", required = false) String reason) {
         log.info("Cancelling order: {}", orderNumber);
         OrderDTO cancelledOrder = orderService.cancelOrder(orderNumber, reason != null ? reason : "Cancelled by user");
         return ResponseEntity.ok(cancelledOrder);

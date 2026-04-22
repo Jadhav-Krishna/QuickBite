@@ -14,7 +14,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/delivery")
 @Slf4j
-@CrossOrigin(origins = "*", maxAge = 3600)
 public class DeliveryController {
 
     @Autowired
@@ -27,13 +26,18 @@ public class DeliveryController {
     }
 
     @GetMapping("/agents/{agentId}")
-    public ResponseEntity<DeliveryAgentDTO> getAgent(@PathVariable Long agentId) {
+    public ResponseEntity<DeliveryAgentDTO> getAgent(@PathVariable("agentId") Long agentId) {
         return ResponseEntity.ok(deliveryService.getDeliveryAgent(agentId));
+    }
+
+    @GetMapping("/agents/user/{userId}")
+    public ResponseEntity<DeliveryAgentDTO> getAgentByUserId(@PathVariable("userId") Long userId) {
+        return ResponseEntity.ok(deliveryService.getDeliveryAgentByUserId(userId));
     }
 
     @PutMapping("/agents/{agentId}/location")
     public ResponseEntity<Void> updateLocation(
-            @PathVariable Long agentId,
+            @PathVariable("agentId") Long agentId,
             @RequestBody LocationUpdateDTO locationUpdate) {
         deliveryService.updateLiveLocation(agentId, locationUpdate);
         return ResponseEntity.ok().build();
@@ -41,38 +45,38 @@ public class DeliveryController {
 
     @PutMapping("/agents/{agentId}/availability")
     public ResponseEntity<Void> toggleAvailability(
-            @PathVariable Long agentId,
-            @RequestParam Boolean isOnline) {
+            @PathVariable("agentId") Long agentId,
+            @RequestParam("isOnline") Boolean isOnline) {
         deliveryService.toggleAgentAvailability(agentId, isOnline);
         return ResponseEntity.ok().build();
     }
 
     @PutMapping("/agents/{agentId}/orders/{orderId}/pickup")
     public ResponseEntity<Void> markPickedUp(
-            @PathVariable Long agentId,
-            @PathVariable Long orderId) {
+            @PathVariable("agentId") Long agentId,
+            @PathVariable("orderId") Long orderId) {
         deliveryService.markOrderPickedUp(agentId, orderId);
         return ResponseEntity.ok().build();
     }
 
     @PutMapping("/agents/{agentId}/orders/{orderId}/deliver")
     public ResponseEntity<Void> markDelivered(
-            @PathVariable Long agentId,
-            @PathVariable Long orderId) {
+            @PathVariable("agentId") Long agentId,
+            @PathVariable("orderId") Long orderId) {
         deliveryService.markOrderDelivered(agentId, orderId);
         return ResponseEntity.ok().build();
     }
 
     @GetMapping("/agents/{agentId}/earnings")
-    public ResponseEntity<DeliveryAgentDTO> getAgentEarnings(@PathVariable Long agentId) {
+    public ResponseEntity<DeliveryAgentDTO> getAgentEarnings(@PathVariable("agentId") Long agentId) {
         return ResponseEntity.ok(deliveryService.getAgentEarnings(agentId));
     }
 
     @GetMapping("/agents/nearby")
     public ResponseEntity<List<DeliveryAgentDTO>> getAvailableAgents(
-            @RequestParam Double latitude,
-            @RequestParam Double longitude,
-            @RequestParam(defaultValue = "5.0") Double radiusKm) {
+            @RequestParam("latitude") Double latitude,
+            @RequestParam("longitude") Double longitude,
+            @RequestParam(name = "radiusKm", defaultValue = "5.0") Double radiusKm) {
         return ResponseEntity.ok(deliveryService.getAvailableAgents(latitude, longitude, radiusKm));
     }
 }

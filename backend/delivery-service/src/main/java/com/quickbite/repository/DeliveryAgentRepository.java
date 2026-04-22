@@ -7,9 +7,12 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface DeliveryAgentRepository extends JpaRepository<DeliveryAgent, Long> {
+
+    Optional<DeliveryAgent> findByUserId(Long userId);
 
     @Query("""
             SELECT a FROM DeliveryAgent a

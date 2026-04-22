@@ -18,7 +18,6 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/v1/restaurants")
 @Slf4j
-@CrossOrigin(origins = "*", maxAge = 3600)
 public class RestaurantController {
 
     @Autowired
@@ -34,7 +33,7 @@ public class RestaurantController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<RestaurantDTO> getRestaurant(@PathVariable Long id) {
+    public ResponseEntity<RestaurantDTO> getRestaurant(@PathVariable("id") Long id) {
         Restaurant restaurant = restaurantService.getRestaurantById(id);
         return ResponseEntity.ok(mapToDTO(restaurant));
     }
@@ -56,7 +55,7 @@ public class RestaurantController {
     }
 
     @GetMapping("/owner/{ownerId}")
-    public ResponseEntity<List<RestaurantDTO>> getRestaurantsByOwner(@PathVariable Long ownerId) {
+    public ResponseEntity<List<RestaurantDTO>> getRestaurantsByOwner(@PathVariable("ownerId") Long ownerId) {
         List<RestaurantDTO> restaurants = restaurantService.getRestaurantsByOwner(ownerId).stream()
                 .map(this::mapToDTO)
                 .collect(Collectors.toList());
@@ -64,7 +63,7 @@ public class RestaurantController {
     }
 
     @GetMapping("/search")
-    public ResponseEntity<List<RestaurantDTO>> searchRestaurants(@RequestParam String keyword) {
+    public ResponseEntity<List<RestaurantDTO>> searchRestaurants(@RequestParam("keyword") String keyword) {
         List<RestaurantDTO> restaurants = restaurantService.searchRestaurants(keyword).stream()
                 .map(this::mapToDTO)
                 .collect(Collectors.toList());
@@ -73,9 +72,9 @@ public class RestaurantController {
 
     @GetMapping("/nearby")
     public ResponseEntity<List<RestaurantDTO>> getNearbyRestaurants(
-            @RequestParam Double latitude,
-            @RequestParam Double longitude,
-            @RequestParam(defaultValue = "10.0") Double radiusKm) {
+            @RequestParam("latitude") Double latitude,
+            @RequestParam("longitude") Double longitude,
+            @RequestParam(name = "radiusKm", defaultValue = "10.0") Double radiusKm) {
         List<RestaurantDTO> restaurants = restaurantService.getNearbyRestaurants(latitude, longitude, radiusKm).stream()
                 .map(this::mapToDTO)
                 .collect(Collectors.toList());
@@ -84,10 +83,10 @@ public class RestaurantController {
 
     @GetMapping("/nearby/cuisine")
     public ResponseEntity<List<RestaurantDTO>> getNearbyRestaurantsByCuisine(
-            @RequestParam Double latitude,
-            @RequestParam Double longitude,
-            @RequestParam String cuisineType,
-            @RequestParam(defaultValue = "10.0") Double radiusKm) {
+            @RequestParam("latitude") Double latitude,
+            @RequestParam("longitude") Double longitude,
+            @RequestParam("cuisineType") String cuisineType,
+            @RequestParam(name = "radiusKm", defaultValue = "10.0") Double radiusKm) {
         List<RestaurantDTO> restaurants = restaurantService.getNearbyRestaurantsByCuisine(
                 latitude, longitude, radiusKm, cuisineType).stream()
                 .map(this::mapToDTO)
@@ -96,7 +95,7 @@ public class RestaurantController {
     }
 
     @GetMapping("/city/{city}")
-    public ResponseEntity<List<RestaurantDTO>> getRestaurantsByCity(@PathVariable String city) {
+    public ResponseEntity<List<RestaurantDTO>> getRestaurantsByCity(@PathVariable("city") String city) {
         List<RestaurantDTO> restaurants = restaurantService.getRestaurantsByCity(city).stream()
                 .map(this::mapToDTO)
                 .collect(Collectors.toList());
@@ -104,7 +103,7 @@ public class RestaurantController {
     }
 
     @GetMapping("/cuisine/{cuisineType}")
-    public ResponseEntity<List<RestaurantDTO>> getRestaurantsByCuisine(@PathVariable String cuisineType) {
+    public ResponseEntity<List<RestaurantDTO>> getRestaurantsByCuisine(@PathVariable("cuisineType") String cuisineType) {
         List<RestaurantDTO> restaurants = restaurantService.getRestaurantsByCuisine(cuisineType).stream()
                 .map(this::mapToDTO)
                 .collect(Collectors.toList());
@@ -113,7 +112,7 @@ public class RestaurantController {
 
     @PutMapping("/{id}")
     public ResponseEntity<RestaurantDTO> updateRestaurant(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             @RequestBody RestaurantDTO restaurantDTO) {
         Restaurant restaurant = mapToEntity(restaurantDTO);
         Restaurant updated = restaurantService.updateRestaurant(id, restaurant);
@@ -121,21 +120,21 @@ public class RestaurantController {
     }
 
     @PutMapping("/{id}/approve")
-    public ResponseEntity<RestaurantDTO> approveRestaurant(@PathVariable Long id) {
+    public ResponseEntity<RestaurantDTO> approveRestaurant(@PathVariable("id") Long id) {
         log.info("Approve restaurant request for id: {}", id);
         Restaurant approved = restaurantService.approveRestaurant(id);
         return ResponseEntity.ok(mapToDTO(approved));
     }
 
     @PutMapping("/{id}/toggle-open")
-    public ResponseEntity<RestaurantDTO> toggleOpen(@PathVariable Long id) {
+    public ResponseEntity<RestaurantDTO> toggleOpen(@PathVariable("id") Long id) {
         log.info("Toggle open request for restaurant id: {}", id);
         Restaurant toggled = restaurantService.toggleOpen(id);
         return ResponseEntity.ok(mapToDTO(toggled));
     }
 
     @PutMapping("/{id}/toggle-active")
-    public ResponseEntity<RestaurantDTO> toggleActive(@PathVariable Long id) {
+    public ResponseEntity<RestaurantDTO> toggleActive(@PathVariable("id") Long id) {
         log.info("Toggle active request for restaurant id: {}", id);
         Restaurant toggled = restaurantService.toggleActive(id);
         return ResponseEntity.ok(mapToDTO(toggled));
@@ -143,16 +142,16 @@ public class RestaurantController {
 
     @PutMapping("/{id}/rating")
     public ResponseEntity<RestaurantDTO> updateRating(
-            @PathVariable Long id,
-            @RequestParam Double newAvgRating,
-            @RequestParam Integer newReviewCount) {
+            @PathVariable("id") Long id,
+            @RequestParam("newAvgRating") Double newAvgRating,
+            @RequestParam("newReviewCount") Integer newReviewCount) {
         log.info("Update rating request for restaurant id: {}", id);
         Restaurant updated = restaurantService.updateRating(id, newAvgRating, newReviewCount);
         return ResponseEntity.ok(mapToDTO(updated));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteRestaurant(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteRestaurant(@PathVariable("id") Long id) {
         restaurantService.deleteRestaurant(id);
         return ResponseEntity.noContent().build();
     }

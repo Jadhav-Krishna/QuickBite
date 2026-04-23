@@ -41,6 +41,15 @@ public class PaymentController {
         return ResponseEntity.ok(response);
     }
 
+    @PostMapping("/fail")
+    public ResponseEntity<PaymentResponse> markPaymentFailed(
+            @RequestParam("orderId") String orderId,
+            @RequestParam(value = "reason", required = false) String reason) {
+        log.info("Marking payment as failed for orderId: {}", orderId);
+        PaymentResponse response = paymentService.markPaymentFailed(orderId, reason);
+        return ResponseEntity.ok(response);
+    }
+
     @GetMapping("/order/{orderId}")
     public ResponseEntity<PaymentResponse> getPaymentByOrderId(@PathVariable("orderId") Long orderId) {
         log.info("Fetching payment for order: {}", orderId);
@@ -95,6 +104,15 @@ public class PaymentController {
             @RequestParam("orderId") Long orderId) {
         log.info("Paying from wallet for order: {} by customer: {}", orderId, customerId);
         return ResponseEntity.ok(paymentService.payFromWallet(customerId, orderId));
+    }
+
+    @PostMapping("/wallet/pay-amount")
+    public ResponseEntity<PaymentResponse> payAmountFromWallet(
+            @RequestParam("customerId") Long customerId,
+            @RequestParam("amount") BigDecimal amount,
+            @RequestParam(value = "description", required = false) String description) {
+        log.info("Paying amount {} from wallet for customer: {}", amount, customerId);
+        return ResponseEntity.ok(paymentService.payAmountFromWallet(customerId, amount, description));
     }
 
     @GetMapping("/wallet/statements/{customerId}")

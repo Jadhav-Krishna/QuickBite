@@ -20,9 +20,7 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.time.LocalDateTime;
-import java.util.Base64;
 import java.util.HexFormat;
 import java.util.Optional;
 
@@ -59,21 +57,25 @@ public class PaymentServiceImpl implements PaymentService {
             orderRequest.put("payment_capture", 1);
 
             Order razorpayOrder = razorpayClient.orders.create(orderRequest);
+                String razorpayOrderId = razorpayOrder.get("id").toString();
 
             // Save payment record
             Payment payment = Payment.builder()
                     .orderId(request.getOrderId())
                     .customerId(request.getCustomerId())
                     .amount(request.getAmount().doubleValue())
+                    // `transactionId` is non-null in DB schema; use Razorpay order id until payment is captured.
+                    .transactionId(razorpayOrderId)
+                    .currency(request.getCurrency().trim().toUpperCase())
                     .paymentMethod(mapPaymentMethod(request.getPaymentMethod()))
                     .status(PaymentStatus.PENDING)
-                    .razorpayOrderId(razorpayOrder.get("id"))
+                    .razorpayOrderId(razorpayOrderId)
                     .createdAt(LocalDateTime.now())
                     .build();
 
             Payment savedPayment = paymentRepository.save(payment);
 
-            log.info("Payment initiated with Razorpay order: {}", String.valueOf(razorpayOrder.get("id")));
+            log.info("Payment initiated with Razorpay order: {}", razorpayOrderId);
 
             return mapToResponse(savedPayment);
         } catch (Exception e) {
@@ -119,6 +121,19 @@ public class PaymentServiceImpl implements PaymentService {
             log.error("Payment verification failed", e);
             throw new RuntimeException("Payment verification failed: " + e.getMessage());
         }
+    }
+
+    @Override
+    public PaymentResponse markPaymentFailed(String razorpayOrderId, String reason) {
+        Payment payment = paymentRepository.findByRazorpayOrderId(razorpayOrderId)
+                .orElseThrow(() -> new RuntimeException("Payment not found for Razorpay order: " + razorpayOrderId));
+
+        payment.setStatus(PaymentStatus.FAILED);
+        payment.setFailureReason(reason != null && !reason.isBlank() ? reason : "Payment failed");
+        payment.setUpdatedAt(LocalDateTime.now());
+
+        Payment savedPayment = paymentRepository.save(payment);
+        return mapToResponse(savedPayment);
     }
 
     @Override
@@ -220,6 +235,44 @@ public class PaymentServiceImpl implements PaymentService {
         walletStatementRepository.save(statement);
 
         return mapToWalletResponse(savedWallet);
+    }
+
+    @Override
+    public PaymentResponse payAmountFromWallet(Long customerId, BigDecimal amount, String description) {
+        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new RuntimeException("Amount must be greater than zero");
+        }
+
+        Wallet wallet = walletRepository.findByCustomerId(customerId)
+                .orElseThrow(() -> new RuntimeException("Wallet not found"));
+
+        if (wallet.getBalance().compareTo(amount) < 0) {
+            throw new RuntimeException("Insufficient wallet balance");
+        }
+
+        wallet.setBalance(wallet.getBalance().subtract(amount));
+        walletRepository.save(wallet);
+
+        WalletStatement statement = WalletStatement.builder()
+                .walletId(wallet.getId())
+                .type(WalletStatement.TransactionType.DEBIT)
+                .amount(amount)
+                .description(description != null && !description.isBlank() ? description : "Wallet debit")
+                .build();
+        walletStatementRepository.save(statement);
+
+        Payment payment = Payment.builder()
+                .orderId(-System.currentTimeMillis())
+                .customerId(customerId)
+                .amount(amount.doubleValue())
+                .paymentMethod(PaymentMethod.WALLET)
+                .status(PaymentStatus.SUCCESS)
+                .transactionId("WALLET-" + System.currentTimeMillis())
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        Payment savedPayment = paymentRepository.save(payment);
+        return mapToResponse(savedPayment);
     }
 
     @Override

@@ -58,6 +58,37 @@ export const paymentService = {
     });
   },
 
+  verifyPayment(paymentId: string, signature: string, razorpayOrderId: string) {
+    const query = new URLSearchParams({
+      paymentId,
+      signature,
+      orderId: razorpayOrderId,
+    });
+
+    return request<PaymentResponse>(`${API_BASE_URL}/payments/verify?${query.toString()}`, {
+      method: 'POST',
+      headers: {
+        ...getOptionalAuthHeader(),
+      },
+    });
+  },
+
+  markPaymentFailed(razorpayOrderId: string, reason?: string) {
+    const query = new URLSearchParams({
+      orderId: razorpayOrderId,
+    });
+    if (reason?.trim()) {
+      query.append('reason', reason.trim());
+    }
+
+    return request<PaymentResponse>(`${API_BASE_URL}/payments/fail?${query.toString()}`, {
+      method: 'POST',
+      headers: {
+        ...getOptionalAuthHeader(),
+      },
+    });
+  },
+
   getWalletBalance(customerId: number) {
     return request<WalletResponse>(`${API_BASE_URL}/payments/wallet/balance/${customerId}`, {
       headers: {
@@ -77,6 +108,23 @@ export const paymentService = {
 
   payFromWallet(customerId: number, orderId: number) {
     return request<PaymentResponse>(`${API_BASE_URL}/payments/wallet/pay?customerId=${customerId}&orderId=${orderId}`, {
+      method: 'POST',
+      headers: {
+        ...getOptionalAuthHeader(),
+      },
+    });
+  },
+
+  payAmountFromWallet(customerId: number, amount: number, description?: string) {
+    const query = new URLSearchParams({
+      customerId: String(customerId),
+      amount: String(amount),
+    });
+    if (description?.trim()) {
+      query.append('description', description.trim());
+    }
+
+    return request<PaymentResponse>(`${API_BASE_URL}/payments/wallet/pay-amount?${query.toString()}`, {
       method: 'POST',
       headers: {
         ...getOptionalAuthHeader(),

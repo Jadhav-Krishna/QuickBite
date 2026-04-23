@@ -3,7 +3,8 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { CreditCard, Plus, ArrowUpRight } from 'lucide-react';
 import { paymentService, type PaymentResponse, type WalletResponse, type WalletStatementDTO } from '../../api/payment';
-import { requireCurrentUserId } from '../../utils/session';
+import { getCurrentUser, requireCurrentUserId } from '../../utils/session';
+import { getRazorpayKeyId, loadRazorpayScript, openRazorpayCheckout } from '../../utils/razorpay';
 
 export default function Wallet() {
   const [wallet, setWallet] = useState<WalletResponse | null>(null);
@@ -47,8 +48,79 @@ export default function Wallet() {
     setError(null);
     try {
       const customerId = requireCurrentUserId();
-      const updated = await paymentService.depositToWallet(customerId, amount);
-      setWallet(updated);
+      const currentUser = getCurrentUser();
+      const razorpayKey = getRazorpayKeyId();
+
+      if (!razorpayKey) {
+        throw new Error('Razorpay key is missing. Set VITE_RAZORPAY_KEY_ID in frontend environment.');
+      }
+
+      await loadRazorpayScript();
+
+      const temporaryTopupOrderRef = Date.now();
+      const initiatedPayment = await paymentService.initiatePayment({
+        orderId: temporaryTopupOrderRef,
+        customerId,
+        amount: Number(amount.toFixed(2)),
+        currency: 'INR',
+        paymentMethod: 'UPI',
+        description: 'QuickBite wallet topup',
+        customerEmail: currentUser?.email,
+      });
+
+      if (!initiatedPayment.razorpayOrderId) {
+        throw new Error('Could not create Razorpay order for wallet topup.');
+      }
+      const razorpayOrderId = initiatedPayment.razorpayOrderId;
+
+      await new Promise<void>((resolve, reject) => {
+        openRazorpayCheckout({
+          key: razorpayKey,
+          amount: Math.round(amount * 100),
+          currency: 'INR',
+          name: 'QuickBite',
+          description: 'Wallet topup',
+          order_id: razorpayOrderId,
+          prefill: {
+            name: currentUser?.fullName,
+            email: currentUser?.email,
+          },
+          modal: {
+            ondismiss: () => {
+              void paymentService
+                .markPaymentFailed(razorpayOrderId, 'Wallet topup cancelled by user')
+                .catch(() => undefined);
+              reject(new Error('Wallet topup cancelled.'));
+            },
+          },
+          handler: async (response) => {
+            try {
+              await paymentService.verifyPayment(
+                response.razorpay_payment_id,
+                response.razorpay_signature,
+                response.razorpay_order_id,
+              );
+              const updated = await paymentService.depositToWallet(customerId, amount);
+              setWallet(updated);
+              resolve();
+            } catch (verificationError) {
+              const failureMessage = verificationError instanceof Error
+                ? verificationError.message
+                : 'Wallet topup verification failed';
+              try {
+                await paymentService.markPaymentFailed(razorpayOrderId, failureMessage);
+              } catch {
+                // Ignore failure tracking errors so the original verification error surfaces.
+              }
+              reject(verificationError);
+            }
+          },
+          theme: {
+            color: '#f97316',
+          },
+        });
+      });
+
       await loadWallet();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Top-up failed.');

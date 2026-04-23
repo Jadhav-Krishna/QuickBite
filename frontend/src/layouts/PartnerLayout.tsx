@@ -1,7 +1,10 @@
-import { Outlet, NavLink } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, ShoppingBag, UtensilsCrossed, BarChart3, Star, Bell, Settings, LogOut } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 export default function PartnerLayout() {
+  const navigate = useNavigate();
+  const { logout } = useAuth();
   const navItems = [
     { to: "/partner/dashboard", icon: LayoutDashboard, label: "Dashboard" },
     { to: "/partner/orders", icon: ShoppingBag, label: "Orders" },
@@ -53,7 +56,13 @@ export default function PartnerLayout() {
           <button className="flex w-full items-center gap-4 px-5 py-3 rounded-2xl font-bold text-[var(--color-on-surface-variant)] transition-all hover:bg-[var(--color-surface-container)] hover:text-[var(--color-on-surface)]">
             <Settings size={20} /> Settings
           </button>
-          <button className="flex w-full items-center gap-4 px-5 py-3 rounded-2xl font-bold text-red-500 transition-all hover:bg-red-50">
+          <button
+            onClick={() => {
+              logout();
+              navigate('/auth');
+            }}
+            className="flex w-full items-center gap-4 px-5 py-3 rounded-2xl font-bold text-red-500 transition-all hover:bg-red-50"
+          >
             <LogOut size={20} /> Sign Out
           </button>
         </div>

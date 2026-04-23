@@ -1,7 +1,10 @@
-import { Outlet, NavLink } from 'react-router-dom';
-import { Home, Map, Wallet, Bell, Sparkles } from 'lucide-react';
+import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { Home, Map, Wallet, Bell, Sparkles, LogOut } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 export default function AgentLayout() {
+  const navigate = useNavigate();
+  const { logout } = useAuth();
   const navItems = [
     { to: "/agent/dashboard", icon: Home, label: "Home" },
     { to: "/agent/navigation", icon: Map, label: "Route" },
@@ -26,6 +29,16 @@ export default function AgentLayout() {
       <main className="flex-1 overflow-y-auto pb-28 pt-2 px-5">
         <Outlet />
       </main>
+
+      <button
+        onClick={() => {
+          logout();
+          navigate('/auth');
+        }}
+        className="fixed left-1/2 bottom-24 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full border border-[var(--color-outline-variant)] bg-white px-4 py-2 text-sm font-bold text-red-600 shadow-lg transition hover:bg-red-50"
+      >
+        <LogOut size={16} /> Sign Out
+      </button>
 
       {/* ── Floating Bottom Navigation ── */}
       <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-[calc(28rem-2rem)] bg-[var(--color-inverse-surface)]/90 backdrop-blur-xl rounded-[2rem] p-2 flex justify-around items-center shadow-ambient z-50">

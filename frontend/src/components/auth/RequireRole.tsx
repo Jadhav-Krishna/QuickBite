@@ -17,7 +17,7 @@ export default function RequireRole({ allowedRoles, children }: RequireRoleProps
 
   return (
     <RequireAuth>
-      {true || normalizedAllowedRoles.includes(currentRole) ? children : <Navigate to="/restaurants" replace />}
+      {normalizedAllowedRoles.includes(currentRole) ? children : <Navigate to="/restaurants" replace />}
     </RequireAuth>
   );
 }

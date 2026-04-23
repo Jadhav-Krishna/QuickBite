@@ -1,6 +1,8 @@
 package com.quickbite.controller;
 
 import com.quickbite.dto.*;
+import com.quickbite.entity.User;
+import com.quickbite.entity.UserRole;
 import com.quickbite.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
@@ -8,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.HashMap;
 import java.util.List;
@@ -134,13 +137,17 @@ public class AuthController {
     // ==================== Admin Operations ====================
 
     @GetMapping("/users")
-    public ResponseEntity<List<UserDTO>> getAllUsers() {
+    public ResponseEntity<List<UserDTO>> getAllUsers(@RequestHeader("Authorization") String authHeader) {
+        requireAdmin(authHeader);
         List<UserDTO> users = authService.getAllUsers();
         return ResponseEntity.ok(users);
     }
 
     @PutMapping("/users/{userId}/suspend")
-    public ResponseEntity<Map<String, String>> suspendUser(@PathVariable("userId") Long userId) {
+    public ResponseEntity<Map<String, String>> suspendUser(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable("userId") Long userId) {
+        requireAdmin(authHeader);
         log.info("Suspend user request for userId: {}", userId);
         authService.suspendUser(userId);
         Map<String, String> response = new HashMap<>();
@@ -149,7 +156,10 @@ public class AuthController {
     }
 
     @PutMapping("/users/{userId}/reactivate")
-    public ResponseEntity<Map<String, String>> reactivateUser(@PathVariable("userId") Long userId) {
+    public ResponseEntity<Map<String, String>> reactivateUser(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable("userId") Long userId) {
+        requireAdmin(authHeader);
         log.info("Reactivate user request for userId: {}", userId);
         authService.reactivateUser(userId);
         Map<String, String> response = new HashMap<>();
@@ -158,7 +168,10 @@ public class AuthController {
     }
 
     @DeleteMapping("/users/{userId}")
-    public ResponseEntity<Void> deleteUser(@PathVariable("userId") Long userId) {
+    public ResponseEntity<Void> deleteUser(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable("userId") Long userId) {
+        requireAdmin(authHeader);
         log.info("Delete user request for userId: {}", userId);
         authService.deleteUser(userId);
         return ResponseEntity.noContent().build();
@@ -166,11 +179,22 @@ public class AuthController {
 
     // ==================== Helper ====================
 
-    private String extractEmailFromToken(String authHeader) {
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            throw new RuntimeException("Missing or invalid Authorization header");
+    private void requireAdmin(String authHeader) {
+        User user = authService.validateToken(extractToken(authHeader));
+        if (user.getRole() != UserRole.ADMIN) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin access required");
         }
-        String token = authHeader.substring(7);
+    }
+
+    private String extractEmailFromToken(String authHeader) {
+        String token = extractToken(authHeader);
         return authService.validateToken(token).getEmail();
+    }
+
+    private String extractToken(String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Missing or invalid Authorization header");
+        }
+        return authHeader.substring(7);
     }
 }

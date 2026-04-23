@@ -10,6 +10,8 @@ public interface PaymentService {
 
     PaymentResponse verifyPayment(String paymentId, String signature, String orderId);
 
+    PaymentResponse markPaymentFailed(String razorpayOrderId, String reason);
+
     PaymentResponse getPaymentByOrderId(Long orderId);
 
     PaymentResponse refundPayment(Long paymentId, String reason);
@@ -20,6 +22,8 @@ public interface PaymentService {
     com.quickbite.dto.WalletResponse getWalletBalance(Long customerId);
     
     com.quickbite.dto.WalletResponse addToWallet(Long customerId, java.math.BigDecimal amount);
+
+    PaymentResponse payAmountFromWallet(Long customerId, java.math.BigDecimal amount, String description);
     
     PaymentResponse payFromWallet(Long customerId, Long orderId);
     

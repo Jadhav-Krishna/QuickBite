@@ -1,8 +1,10 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Users, ShieldCheck, CreditCard, LogOut, Bell, Search, Settings, Activity } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 export default function AdminLayout() {
   const navigate = useNavigate();
+  const { logout } = useAuth();
 
   const navItems = [
     { to: "/admin/overview", icon: LayoutDashboard, label: "Overview" },
@@ -72,7 +74,10 @@ export default function AdminLayout() {
         <div className="p-6">
           <div className="rounded-[1.5rem] bg-white/5 border border-white/10 p-1 mb-2">
             <button 
-              onClick={() => navigate('/auth')}
+              onClick={() => {
+                logout();
+                navigate('/auth');
+              }}
               className="flex w-full items-center justify-center gap-3 px-5 py-3 rounded-[1.25rem] font-bold text-rose-400 transition-all hover:bg-rose-500/10 hover:text-rose-300"
             >
               <LogOut size={18} /> Sign Out

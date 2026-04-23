@@ -29,13 +29,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
 
-    // Fallback Mock User for UI Preview purposes when backend is down
-    return {
-      userId: 999,
-      email: 'mock@quickbite.com',
-      fullName: 'UI Previewer',
-      role: 'ADMIN', // Grants access to all admin routes, other roles bypass via UI logic
-    };
+    return null;
   });
 
   const login = (newUser: User, accessToken: string, refreshToken?: string) => {

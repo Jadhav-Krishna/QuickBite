@@ -4,6 +4,7 @@ import { useCart } from '../context/CartContext';
 import { orderService } from '../api/order';
 import { paymentService } from '../api/payment';
 import { getCurrentUser, requireCurrentUserId } from '../utils/session';
+import { getRazorpayKeyId, loadRazorpayScript, openRazorpayCheckout } from '../utils/razorpay';
 
 type CheckoutPaymentMethod = 'CASH_ON_DELIVERY' | 'WALLET' | 'UPI' | 'CREDIT_CARD';
 
@@ -23,6 +24,25 @@ export default function Checkout() {
   const finalAmount = totalPrice + deliveryFee - discountAmount;
 
   const restaurantId = useMemo(() => items[0]?.restaurantId, [items]);
+
+  const buildPlaceOrderPayload = (customerId: number) => ({
+    customerId,
+    restaurantId,
+    deliveryAddress: deliveryAddress.trim(),
+    customerPhone: customerPhone.trim(),
+    specialInstructions: specialInstructions.trim() || undefined,
+    paymentMethod,
+    items: items.map((item) => ({
+      menuItemId: item.id,
+      itemName: item.name,
+      quantity: item.quantity,
+      price: item.price,
+    })),
+    totalAmount: totalPrice,
+    deliveryCharge: deliveryFee,
+    discountAmount,
+    finalAmount,
+  });
 
   const handlePlaceOrder = async () => {
     setError(null);
@@ -47,48 +67,114 @@ export default function Checkout() {
       const customerId = requireCurrentUserId();
       const currentUser = getCurrentUser();
 
-      const order = await orderService.placeOrder({
-        customerId,
-        restaurantId,
-        deliveryAddress: deliveryAddress.trim(),
-        customerPhone: customerPhone.trim(),
-        specialInstructions: specialInstructions.trim() || undefined,
-        paymentMethod,
-        items: items.map((item) => ({
-          menuItemId: item.id,
-          itemName: item.name,
-          quantity: item.quantity,
-          price: item.price,
-        })),
-        totalAmount: totalPrice,
-        deliveryCharge: deliveryFee,
-        discountAmount,
-        finalAmount,
-      });
+      if (paymentMethod === 'CASH_ON_DELIVERY') {
+        const order = await orderService.placeOrder(buildPlaceOrderPayload(customerId));
+        clearCart();
+        navigate('/success', {
+          state: {
+            orderNumber: order.orderNumber,
+            amount: order.finalAmount,
+          },
+        });
+        return;
+      }
 
       if (paymentMethod === 'WALLET') {
-        await paymentService.payFromWallet(customerId, order.id);
-      }
-
-      if (paymentMethod === 'UPI' || paymentMethod === 'CREDIT_CARD') {
-        await paymentService.initiatePayment({
-          orderId: order.id,
+        await paymentService.payAmountFromWallet(
           customerId,
-          amount: order.finalAmount,
-          currency: 'INR',
-          paymentMethod,
-          description: `Payment for order ${order.orderNumber}`,
-          customerEmail: currentUser?.email,
-          customerPhone: customerPhone.trim(),
+          Number(finalAmount.toFixed(2)),
+          'Checkout payment via wallet',
+        );
+        const order = await orderService.placeOrder(buildPlaceOrderPayload(customerId));
+        clearCart();
+        navigate('/success', {
+          state: {
+            orderNumber: order.orderNumber,
+            amount: order.finalAmount,
+          },
         });
+        return;
       }
 
-      clearCart();
-      navigate('/success', {
-        state: {
-          orderNumber: order.orderNumber,
-          amount: order.finalAmount,
-        },
+      const razorpayKey = getRazorpayKeyId();
+      if (!razorpayKey) {
+        throw new Error('Razorpay key is missing. Set VITE_RAZORPAY_KEY_ID in frontend environment.');
+      }
+
+      await loadRazorpayScript();
+
+      // For non-COD flow, collect payment first and place order only after successful verification.
+      const temporaryOrderRef = Date.now();
+      const initiatedPayment = await paymentService.initiatePayment({
+        orderId: temporaryOrderRef,
+        customerId,
+        amount: Number(finalAmount.toFixed(2)),
+        currency: 'INR',
+        paymentMethod,
+        description: `QuickBite checkout payment`,
+        customerEmail: currentUser?.email,
+        customerPhone: customerPhone.trim(),
+      });
+
+      if (!initiatedPayment.razorpayOrderId) {
+        throw new Error('Could not create Razorpay order. Please try again.');
+      }
+      const razorpayOrderId = initiatedPayment.razorpayOrderId;
+
+      await new Promise<void>((resolve, reject) => {
+        openRazorpayCheckout({
+          key: razorpayKey,
+          amount: Math.round(finalAmount * 100),
+          currency: 'INR',
+          name: 'QuickBite',
+          description: 'Order payment',
+          order_id: razorpayOrderId,
+          prefill: {
+            name: currentUser?.fullName,
+            email: currentUser?.email,
+            contact: customerPhone.trim(),
+          },
+          modal: {
+            ondismiss: () => {
+              void paymentService
+                .markPaymentFailed(razorpayOrderId, 'Payment cancelled by user')
+                .catch(() => undefined);
+              reject(new Error('Payment was cancelled.'));
+            },
+          },
+          handler: async (response) => {
+            try {
+              await paymentService.verifyPayment(
+                response.razorpay_payment_id,
+                response.razorpay_signature,
+                response.razorpay_order_id,
+              );
+
+              const order = await orderService.placeOrder(buildPlaceOrderPayload(customerId));
+              clearCart();
+              navigate('/success', {
+                state: {
+                  orderNumber: order.orderNumber,
+                  amount: order.finalAmount,
+                },
+              });
+              resolve();
+            } catch (verificationError) {
+              const failureMessage = verificationError instanceof Error
+                ? verificationError.message
+                : 'Payment verification failed';
+              try {
+                await paymentService.markPaymentFailed(razorpayOrderId, failureMessage);
+              } catch {
+                // Ignore failure tracking errors so the original verification error surfaces.
+              }
+              reject(verificationError);
+            }
+          },
+          theme: {
+            color: '#f97316',
+          },
+        });
       });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to place order.');

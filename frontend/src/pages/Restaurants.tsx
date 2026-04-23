@@ -3,7 +3,6 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { Clock, MapPin, Search, SlidersHorizontal, Star, Truck, X } from 'lucide-react';
 import { restaurantService } from '../api/restaurant';
 import type { Restaurant } from '../api/restaurant';
-import { useCart } from '../context/CartContext';
 
 type RestaurantSort = 'rating' | 'name' | 'deliveryFee';
 
@@ -60,8 +59,6 @@ export default function Restaurants() {
   const [selectedCuisine, setSelectedCuisine] = useState(searchParams.get('cuisine') || 'ALL');
   const [sortBy, setSortBy] = useState<RestaurantSort>('rating');
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const { totalItems } = useCart();
-
   useEffect(() => {
     setLoading(true);
     setError(null);
@@ -104,7 +101,7 @@ export default function Restaurants() {
     <div className="min-h-screen bg-[var(--color-surface)] pb-24">
 
       {/* ── Sticky Header ── */}
-      <header className="sticky top-0 z-50 border-b border-[var(--color-surface-variant)]/60 bg-[var(--color-surface)]/90 backdrop-blur-xl">
+      {/* <header className="sticky top-0 z-50 border-b border-[var(--color-surface-variant)]/60 bg-[var(--color-surface)]/90 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
           <Link to="/" className="font-display text-2xl font-black text-[var(--color-primary)]">QuickBite</Link>
           <Link
@@ -119,7 +116,7 @@ export default function Restaurants() {
             )}
           </Link>
         </div>
-      </header>
+      </header> */}
 
       <main className="mx-auto max-w-7xl px-6 pt-10 md:px-8">
 

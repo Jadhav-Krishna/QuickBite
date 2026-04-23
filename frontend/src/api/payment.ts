@@ -3,6 +3,7 @@ import { API_BASE_URL, getOptionalAuthHeader } from './auth';
 export interface PaymentResponse {
   paymentId: number;
   orderId: number;
+  customerId?: number;
   transactionId?: string;
   amount: number;
   currency: string;
@@ -142,6 +143,14 @@ export const paymentService = {
 
   getCustomerPayments(customerId: number) {
     return request<PaymentResponse[]>(`${API_BASE_URL}/payments/customer/${customerId}`, {
+      headers: {
+        ...getOptionalAuthHeader(),
+      },
+    });
+  },
+
+  getAllPayments() {
+    return request<PaymentResponse[]>(`${API_BASE_URL}/payments`, {
       headers: {
         ...getOptionalAuthHeader(),
       },

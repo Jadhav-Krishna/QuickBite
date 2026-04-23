@@ -21,7 +21,7 @@ const portalCards = [
     icon: Bike,
   },
   {
-    title: 'Platform Admin',
+    title: 'Application Admin',
     description: 'Oversee users, approvals, and payments across QuickBite.',
     to: '/admin/overview',
     icon: ShieldCheck,

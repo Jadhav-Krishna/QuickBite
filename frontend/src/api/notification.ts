@@ -1,4 +1,4 @@
-import { API_BASE_URL } from './auth';
+import { API_BASE_URL, getOptionalAuthHeader } from './auth';
 export interface NotificationDTO {
   id: number;
   userId: number;
@@ -20,15 +20,53 @@ const request = async <T>(url: string, init?: RequestInit): Promise<T> => {
 };
 export const notificationService = {
   getUserNotifications(userId: number) {
-    return request<NotificationDTO[]>(`${API_BASE_URL}/v1/notifications/user/${userId}`);
+    return request<NotificationDTO[]>(`${API_BASE_URL}/v1/notifications/user/${userId}`, {
+      headers: {
+        ...getOptionalAuthHeader(),
+      },
+    });
   },
   getUnreadNotifications(userId: number) {
-    return request<NotificationDTO[]>(`${API_BASE_URL}/v1/notifications/user/${userId}/unread`);
+    return request<NotificationDTO[]>(`${API_BASE_URL}/v1/notifications/user/${userId}/unread`, {
+      headers: {
+        ...getOptionalAuthHeader(),
+      },
+    });
   },
   markAsRead(notificationId: number) {
-    return request<void>(`${API_BASE_URL}/v1/notifications/${notificationId}/read`, { method: 'PUT' });
+    return request<void>(`${API_BASE_URL}/v1/notifications/${notificationId}/read`, {
+      method: 'PUT',
+      headers: {
+        ...getOptionalAuthHeader(),
+      },
+    });
   },
   markAllAsRead(userId: number) {
-    return request<void>(`${API_BASE_URL}/v1/notifications/user/${userId}/read-all`, { method: 'PUT' });
+    return request<void>(`${API_BASE_URL}/v1/notifications/user/${userId}/read-all`, {
+      method: 'PUT',
+      headers: {
+        ...getOptionalAuthHeader(),
+      },
+    });
+  },
+  sendTestNotification(payload: {
+    eventType: string;
+    orderId?: number;
+    userId?: number;
+    customerId?: number;
+    restaurantId?: number;
+    deliveryAgentId?: number;
+    title: string;
+    message: string;
+    notificationType?: string;
+  }) {
+    return request<void>(`${API_BASE_URL}/v1/notifications/test`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getOptionalAuthHeader(),
+      },
+      body: JSON.stringify(payload),
+    });
   },
 };

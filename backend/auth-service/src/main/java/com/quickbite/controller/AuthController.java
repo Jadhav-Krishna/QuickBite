@@ -181,7 +181,7 @@ public class AuthController {
 
     private void requireAdmin(String authHeader) {
         User user = authService.validateToken(extractToken(authHeader));
-        if (user.getRole() != UserRole.ADMIN) {
+        if (user.getRole() != UserRole.ADMIN && user.getRole() != UserRole.APPLICATION_ADMIN) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin access required");
         }
     }

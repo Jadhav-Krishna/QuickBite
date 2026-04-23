@@ -25,11 +25,11 @@ public class AdminSecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
             .authorizeHttpRequests((authz) -> authz
-                .requestMatchers("/actuator/**").hasRole("ADMIN")
-                .requestMatchers("/admin/**").hasRole("ADMIN")
+                .requestMatchers("/actuator/**").hasAnyRole("ADMIN", "APPLICATION_ADMIN")
+                .requestMatchers("/admin/**").hasAnyRole("ADMIN", "APPLICATION_ADMIN")
                 .requestMatchers("/login").permitAll()
                 .requestMatchers("/assets/**").permitAll()
-                .anyRequest().hasRole("ADMIN")
+                .anyRequest().hasAnyRole("ADMIN", "APPLICATION_ADMIN")
             )
             .formLogin((form) -> form
                 .loginPage("/login")
@@ -51,7 +51,7 @@ public class AdminSecurityConfig {
         UserDetails admin = User.builder()
             .username("admin")
             .password(passwordEncoder.encode("admin123"))
-            .roles("ADMIN")
+            .roles("APPLICATION_ADMIN")
             .build();
 
         UserDetails operator = User.builder()

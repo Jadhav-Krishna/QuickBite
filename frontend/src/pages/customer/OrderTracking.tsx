@@ -2,142 +2,286 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { MapContainer, Marker, Polyline, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { orderService, type OrderDTO } from '../../api/order';
 import { CheckCircle2, Clock, MapPin, Package, RefreshCw, Truck } from 'lucide-react';
+import { orderService, type OrderDTO } from '../../api/order';
+import { restaurantService } from '../../api/restaurant';
+import { geocodeAddress, getDrivingRoute, type LatLng } from '../../api/maps';
+import { getCurrentUser } from '../../utils/session';
 
 const WS_URL = import.meta.env.VITE_WS_DELIVERY_URL || 'ws://localhost:8007/ws/tracking';
-const OSRM_URL = import.meta.env.VITE_OSRM_URL || 'https://router.project-osrm.org/route/v1/driving';
+const DEFAULT_RESTAURANT_POS: LatLng = [19.0596, 72.8295];
+const DEFAULT_CUSTOMER_POS: LatLng = [19.076, 72.8777];
 
-// ── Map icons ────────────────────────────────────────────────────────────────
 const courierIcon = L.divIcon({
   className: '',
-  html: `<div style="width:44px;height:44px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 24px rgba(99,102,241,0.55);border:3px solid white;"><span style='transform:rotate(45deg);font-size:18px;'>🏍️</span></div>`,
+  html: `<div style="width:44px;height:44px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 24px rgba(99,102,241,0.55);border:3px solid white;"><span style='transform:rotate(45deg);font-size:18px;'>A</span></div>`,
   iconSize: [44, 44],
   iconAnchor: [22, 44],
 });
+
 const restaurantIcon = L.divIcon({
   className: '',
-  html: `<div style="width:38px;height:38px;background:linear-gradient(135deg,#f97316,#ef4444);border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(249,115,22,0.5);border:3px solid white;font-size:18px;">🍽️</div>`,
-  iconSize: [38, 38],
-  iconAnchor: [19, 38],
-});
-const userIcon = L.divIcon({
-  className: '',
-  html: `<div style="width:38px;height:38px;background:linear-gradient(135deg,#22c55e,#16a34a);border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(34,197,94,0.5);border:3px solid white;font-size:18px;">🏠</div>`,
+  html: `<div style="width:38px;height:38px;background:linear-gradient(135deg,#f97316,#ef4444);border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(249,115,22,0.5);border:3px solid white;font-size:16px;">R</div>`,
   iconSize: [38, 38],
   iconAnchor: [19, 38],
 });
 
-// ── Auto-pan helper ────────────────────────────────────────────────────────
-function AutoPan({ pos }: { pos: [number, number] }) {
+const userIcon = L.divIcon({
+  className: '',
+  html: `<div style="width:38px;height:38px;background:linear-gradient(135deg,#22c55e,#16a34a);border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(34,197,94,0.5);border:3px solid white;font-size:16px;">C</div>`,
+  iconSize: [38, 38],
+  iconAnchor: [19, 38],
+});
+
+const STATUS_PIPELINE = [
+  { key: 'PLACED', label: 'Order Placed', icon: Package },
+  { key: 'CONFIRMED', label: 'Confirmed', icon: CheckCircle2 },
+  { key: 'PREPARING', label: 'Preparing', icon: Clock },
+  { key: 'READY', label: 'Ready for Pickup', icon: Package },
+  { key: 'PICKED_UP', label: 'Picked Up', icon: Truck },
+  { key: 'IN_TRANSIT', label: 'On the Way', icon: MapPin },
+  { key: 'DELIVERED', label: 'Delivered', icon: CheckCircle2 },
+  { key: 'CANCELLED', label: 'Cancelled', icon: CheckCircle2 },
+];
+
+function AutoPan({ pos }: { pos: LatLng }) {
   const map = useMap();
-  useEffect(() => { map.panTo(pos, { animate: true, duration: 0.8 }); }, [pos, map]);
+  useEffect(() => {
+    map.panTo(pos, { animate: true, duration: 0.8 });
+  }, [pos, map]);
   return null;
 }
 
-// ── Order status pipeline ────────────────────────────────────────────────────
-const STATUS_PIPELINE = [
-  { key: 'PLACED',     label: 'Order Placed',     icon: Package },
-  { key: 'CONFIRMED',  label: 'Confirmed',         icon: CheckCircle2 },
-  { key: 'PREPARING',  label: 'Preparing',         icon: Clock },
-  { key: 'READY',      label: 'Ready for Pickup',  icon: Package },
-  { key: 'PICKED_UP',  label: 'Picked Up',         icon: Truck },
-  { key: 'IN_TRANSIT', label: 'On the Way',        icon: MapPin },
-  { key: 'DELIVERED',  label: 'Delivered',         icon: CheckCircle2 },
-];
-
-// Fixed demo positions (Mumbai-ish)
-const RESTAURANT_POS: [number, number] = [19.0596, 72.8295];
-const CUSTOMER_POS: [number, number]   = [19.076,  72.8777];
-
-async function fetchRoadRoute(from: [number, number], to: [number, number]): Promise<[number, number][]> {
-  try {
-    const url = `${OSRM_URL}/${from[1]},${from[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`;
-    const res  = await fetch(url);
-    const data = await res.json();
-    return data.routes[0].geometry.coordinates.map(
-      ([lng, lat]: [number, number]) => [lat, lng] as [number, number]
-    );
-  } catch {
-    return [from, to];
-  }
-}
+const distanceSq = (a: LatLng, b: LatLng) => {
+  const dLat = a[0] - b[0];
+  const dLng = a[1] - b[1];
+  return dLat * dLat + dLng * dLng;
+};
 
 export default function OrderTracking() {
   const { orderNumber = '' } = useParams();
+  const [resolvedOrderNumber, setResolvedOrderNumber] = useState('');
   const [order, setOrder] = useState<OrderDTO | null>(null);
-  const [loading, setLoading] = useState(Boolean(orderNumber));
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [courierPos, setCourierPos] = useState<[number, number]>(RESTAURANT_POS);
-  const [roadRoute, setRoadRoute] = useState<[number, number][]>([]);
   const [wsConnected, setWsConnected] = useState(false);
+  const [restaurantPos, setRestaurantPos] = useState<LatLng>(DEFAULT_RESTAURANT_POS);
+  const [customerPos, setCustomerPos] = useState<LatLng>(DEFAULT_CUSTOMER_POS);
+  const [courierPos, setCourierPos] = useState<LatLng>(DEFAULT_RESTAURANT_POS);
+  const [roadRoute, setRoadRoute] = useState<LatLng[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
 
-  // ── Fetch order ─────────────────────────────────────────────────────────
+  const effectiveOrderNumber = orderNumber || resolvedOrderNumber;
+  const isInTransit = ['PICKED_UP', 'IN_TRANSIT'].includes(order?.status || '');
+
   useEffect(() => {
-    if (!orderNumber) return;
+    if (orderNumber) return;
+
+    let cancelled = false;
+    const resolveLatestOrder = async () => {
+      try {
+        const user = getCurrentUser();
+        if (!user?.userId) {
+          if (!cancelled) {
+            setError('Please login to track your order.');
+            setLoading(false);
+          }
+          return;
+        }
+
+        const customerOrders = await orderService.getCustomerOrders(user.userId);
+        const latest = customerOrders[0];
+        if (!cancelled) {
+          if (latest?.orderNumber) {
+            setResolvedOrderNumber(latest.orderNumber);
+          } else {
+            setError('No orders found to track.');
+            setLoading(false);
+          }
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Unable to fetch your latest order.');
+          setLoading(false);
+        }
+      }
+    };
+
+    void resolveLatestOrder();
+    return () => {
+      cancelled = true;
+    };
+  }, [orderNumber]);
+
+  useEffect(() => {
+    if (!effectiveOrderNumber) return;
     let cancelled = false;
 
     const fetchOrder = async () => {
       try {
-        const data = await orderService.getOrder(orderNumber);
-        if (!cancelled) { setOrder(data); setError(null); }
+        const data = await orderService.getOrder(effectiveOrderNumber);
+        if (!cancelled) {
+          setOrder(data);
+          setError(null);
+        }
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Unable to track order.');
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Unable to track order.');
+        }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
 
-    fetchOrder();
-    const interval = setInterval(fetchOrder, 20000);
-    return () => { cancelled = true; clearInterval(interval); };
-  }, [orderNumber]);
+    void fetchOrder();
+    const interval = setInterval(() => {
+      void fetchOrder();
+    }, 20000);
 
-  // ── OSRM road route ─────────────────────────────────────────────────────
-  useEffect(() => {
-    fetchRoadRoute(RESTAURANT_POS, CUSTOMER_POS).then(setRoadRoute);
-  }, []);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [effectiveOrderNumber]);
 
-  // ── WebSocket for live courier position ─────────────────────────────────
   useEffect(() => {
-    if (!orderNumber) return;
+    if (!order) return;
+
+    let cancelled = false;
+    const resolveRouteEndpoints = async () => {
+      try {
+        const restaurant = await restaurantService.getRestaurantById(order.restaurantId);
+        const customerCoordsPromise = geocodeAddress(order.deliveryAddress || '');
+
+        let resolvedRestaurant: LatLng | null = null;
+        if (typeof restaurant.latitude === 'number' && typeof restaurant.longitude === 'number') {
+          resolvedRestaurant = [restaurant.latitude, restaurant.longitude];
+        } else {
+          const restaurantAddress = [restaurant.address, restaurant.city, restaurant.state]
+            .filter(Boolean)
+            .join(', ');
+          resolvedRestaurant = await geocodeAddress(restaurantAddress);
+        }
+
+        const resolvedCustomer = await customerCoordsPromise;
+        if (cancelled) return;
+
+        const finalRestaurant = resolvedRestaurant || DEFAULT_RESTAURANT_POS;
+        const finalCustomer = resolvedCustomer || DEFAULT_CUSTOMER_POS;
+
+        setRestaurantPos(finalRestaurant);
+        setCustomerPos(finalCustomer);
+
+        if (!['PICKED_UP', 'IN_TRANSIT'].includes(order.status || '')) {
+          setCourierPos(finalRestaurant);
+        }
+      } catch {
+        if (!cancelled) {
+          setRestaurantPos(DEFAULT_RESTAURANT_POS);
+          setCustomerPos(DEFAULT_CUSTOMER_POS);
+        }
+      }
+    };
+
+    void resolveRouteEndpoints();
+    return () => {
+      cancelled = true;
+    };
+  }, [order?.restaurantId, order?.deliveryAddress, order?.status]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadRoute = async () => {
+      const routeResult = await getDrivingRoute(restaurantPos, customerPos);
+      if (!cancelled) {
+        setRoadRoute(routeResult.coordinates);
+      }
+    };
+
+    void loadRoute();
+    return () => {
+      cancelled = true;
+    };
+  }, [restaurantPos, customerPos]);
+
+  useEffect(() => {
+    if (!effectiveOrderNumber) return;
 
     const connect = () => {
-      const ws = new WebSocket(`${WS_URL}?orderId=${orderNumber}`);
+      const ws = new WebSocket(`${WS_URL}?orderId=${effectiveOrderNumber}`);
       wsRef.current = ws;
 
-      ws.onopen  = () => setWsConnected(true);
-      ws.onclose = () => { setWsConnected(false); setTimeout(connect, 5000); };
+      ws.onopen = () => setWsConnected(true);
+      ws.onclose = () => {
+        setWsConnected(false);
+        setTimeout(connect, 5000);
+      };
       ws.onerror = () => ws.close();
 
       ws.onmessage = (evt) => {
         try {
           const data = JSON.parse(evt.data);
           if (data.latitude && data.longitude) {
-            setCourierPos([data.latitude, data.longitude]);
+            const lat = Number(data.latitude);
+            const lng = Number(data.longitude);
+            if (Number.isFinite(lat) && Number.isFinite(lng)) {
+              setCourierPos([lat, lng]);
+            }
+            return;
           }
-        } catch { /* ignore parse errors */ }
+
+          if (data.type === 'DELIVERY_STATUS' && data.payload?.orderStatus) {
+            setOrder((current) =>
+              current
+                ? {
+                    ...current,
+                    status: String(data.payload.orderStatus),
+                  }
+                : current,
+            );
+          }
+        } catch {
+          // Ignore malformed websocket payloads.
+        }
       };
     };
 
     connect();
-    return () => { wsRef.current?.close(); };
-  }, [orderNumber]);
+    return () => {
+      wsRef.current?.close();
+    };
+  }, [effectiveOrderNumber]);
 
-  // ── Status index ─────────────────────────────────────────────────────────
   const currentStatusIdx = useMemo(() => {
     if (!order?.status) return 0;
     const idx = STATUS_PIPELINE.findIndex((s) => s.key === order.status.toUpperCase());
     return idx >= 0 ? idx : 0;
   }, [order?.status]);
 
-  const isDelivered = order?.status === 'DELIVERED';
-  const isInTransit = ['PICKED_UP', 'IN_TRANSIT'].includes(order?.status || '');
+  const splitIndex = useMemo(() => {
+    if (roadRoute.length < 2) return 0;
+    if (!isInTransit) return Math.floor(roadRoute.length * 0.45);
 
-  // Split the road route into completed + remaining based on courier proximity
-  const completedRoute = roadRoute.length > 1 ? roadRoute.slice(0, Math.ceil(roadRoute.length * 0.45)) : [];
-  const remainingRoute = roadRoute.length > 1 ? roadRoute.slice(Math.ceil(roadRoute.length * 0.45) - 1) : [];
+    let nearestIdx = 0;
+    let nearestDist = Number.MAX_SAFE_INTEGER;
+    for (let i = 0; i < roadRoute.length; i += 1) {
+      const currentDist = distanceSq(roadRoute[i], courierPos);
+      if (currentDist < nearestDist) {
+        nearestDist = currentDist;
+        nearestIdx = i;
+      }
+    }
+
+    return nearestIdx;
+  }, [roadRoute, courierPos, isInTransit]);
+
+  const completedRoute = roadRoute.length > 1 ? roadRoute.slice(0, Math.max(2, splitIndex + 1)) : [];
+  const remainingRoute = roadRoute.length > 1 ? roadRoute.slice(Math.max(0, splitIndex)) : [];
+
+  const isDelivered = order?.status === 'DELIVERED';
+  const isCancelled = order?.status === 'CANCELLED';
 
   if (loading) {
     return (
@@ -148,19 +292,17 @@ export default function OrderTracking() {
             <MapPin size={28} className="text-white" />
           </div>
         </div>
-        <p className="font-bold text-[var(--color-on-surface-variant)] animate-pulse">Finding your order...</p>
+        <p className="animate-pulse font-bold text-[var(--color-on-surface-variant)]">Finding your order...</p>
       </div>
     );
   }
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-4 md:p-8 animate-fade-up">
-
-      {/* ── Header ── */}
       <header className="flex items-start justify-between gap-4">
         <div>
           <h1 className="font-display text-3xl md:text-4xl font-black text-[var(--color-on-surface)]">
-            Order #{orderNumber || 'N/A'}
+            Order #{effectiveOrderNumber || 'N/A'}
           </h1>
           <div className="mt-1 flex items-center gap-2">
             {wsConnected ? (
@@ -179,27 +321,23 @@ export default function OrderTracking() {
           </div>
         </div>
         {isDelivered ? (
-          <span className="rounded-full bg-emerald-100 px-4 py-2 text-sm font-black text-emerald-700">
-            ✅ Delivered
-          </span>
+          <span className="rounded-full bg-emerald-100 px-4 py-2 text-sm font-black text-emerald-700">Delivered</span>
+        ) : isCancelled ? (
+          <span className="rounded-full bg-red-100 px-4 py-2 text-sm font-black text-red-700">Cancelled</span>
         ) : (
-          <span className="rounded-full bg-indigo-100 px-4 py-2 text-sm font-black text-indigo-700 animate-pulse">
-            🚴 On the way
-          </span>
+          <span className="animate-pulse rounded-full bg-indigo-100 px-4 py-2 text-sm font-black text-indigo-700">On the way</span>
         )}
       </header>
 
-      {/* ── Error ── */}
       {error && (
         <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
           {error}
         </div>
       )}
 
-      {/* ── Leaflet Map ── */}
-      <div className="relative z-0 h-80 md:h-96 w-full overflow-hidden rounded-[2rem] shadow-2xl ring-1 ring-black/5">
+      <div className="relative z-0 h-80 w-full overflow-hidden rounded-[2rem] shadow-2xl ring-1 ring-black/5 md:h-96">
         <MapContainer
-          center={isInTransit ? courierPos : RESTAURANT_POS}
+          center={isInTransit ? courierPos : restaurantPos}
           zoom={14}
           scrollWheelZoom={false}
           className="h-full w-full"
@@ -207,73 +345,80 @@ export default function OrderTracking() {
           attributionControl={false}
         >
           <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
-          <AutoPan pos={isInTransit ? courierPos : RESTAURANT_POS} />
+          <AutoPan pos={isInTransit ? courierPos : restaurantPos} />
 
-          {/* Completed path — vivid indigo */}
           {completedRoute.length > 1 && (
             <Polyline positions={completedRoute} color="#6366f1" weight={7} opacity={1} />
           )}
-          {/* Remaining path — grey dashed */}
           {remainingRoute.length > 1 && (
             <Polyline positions={remainingRoute} color="#94a3b8" weight={5} opacity={0.7} dashArray="12,8" />
           )}
 
-          <Marker position={RESTAURANT_POS} icon={restaurantIcon} />
-          <Marker position={CUSTOMER_POS} icon={userIcon} />
+          <Marker position={restaurantPos} icon={restaurantIcon} />
+          <Marker position={customerPos} icon={userIcon} />
           {isInTransit && <Marker position={courierPos} icon={courierIcon} />}
         </MapContainer>
 
-        {/* Map overlay — ETA chip */}
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[1000] rounded-full bg-white/90 backdrop-blur-lg shadow-xl px-5 py-2.5 flex items-center gap-2 border border-white/60">
+        <div className="absolute bottom-4 left-1/2 z-[1000] flex -translate-x-1/2 items-center gap-2 rounded-full border border-white/60 bg-white/90 px-5 py-2.5 shadow-xl backdrop-blur-lg">
           <Truck size={16} className="text-indigo-600" />
           <span className="text-sm font-black text-[var(--color-on-surface)]">
-            {isDelivered ? 'Delivered!' : 'Estimated: 15–20 min'}
+            {isDelivered ? 'Delivered' : isCancelled ? 'Order Cancelled' : 'Estimated: 15-20 min'}
           </span>
         </div>
       </div>
 
-      {/* ── Progress Timeline ── */}
-      <div className="rounded-[2rem] bg-white border border-[var(--color-outline-variant)]/40 shadow-card p-6">
+      <div className="rounded-[2rem] border border-[var(--color-outline-variant)]/40 bg-white p-6 shadow-card">
         <h3 className="mb-6 font-display text-xl font-black text-[var(--color-on-surface)]">Order Progress</h3>
         <div className="relative space-y-0">
           {STATUS_PIPELINE.map((step, idx) => {
-            const isDone    = idx < currentStatusIdx;
-            const isActive  = idx === currentStatusIdx;
+            const isDone = idx < currentStatusIdx;
+            const isActive = idx === currentStatusIdx;
             const isPending = idx > currentStatusIdx;
             const Icon = step.icon;
 
             return (
-              <div key={step.key} className="flex items-start gap-4 pb-5 last:pb-0 relative">
-                {/* Vertical connector line */}
+              <div key={step.key} className="relative flex items-start gap-4 pb-5 last:pb-0">
                 {idx < STATUS_PIPELINE.length - 1 && (
-                  <div className={`absolute left-[19px] top-[38px] w-0.5 h-[calc(100%-20px)] ${isDone ? 'bg-indigo-400' : 'bg-[var(--color-outline-variant)]/40'}`} />
+                  <div
+                    className={`absolute left-[19px] top-[38px] h-[calc(100%-20px)] w-0.5 ${
+                      isDone ? 'bg-indigo-400' : 'bg-[var(--color-outline-variant)]/40'
+                    }`}
+                  />
                 )}
 
-                {/* Step icon */}
-                <div className={`relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 transition-all ${
-                  isActive
-                    ? 'border-indigo-500 bg-indigo-500 text-white shadow-lg shadow-indigo-500/30 scale-110'
-                    : isDone
-                    ? 'border-indigo-400 bg-indigo-400 text-white'
-                    : 'border-[var(--color-outline-variant)] bg-[var(--color-surface-container)] text-[var(--color-on-surface-variant)]'
-                }`}>
+                <div
+                  className={`relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 transition-all ${
+                    isActive
+                      ? 'scale-110 border-indigo-500 bg-indigo-500 text-white shadow-lg shadow-indigo-500/30'
+                      : isDone
+                        ? 'border-indigo-400 bg-indigo-400 text-white'
+                        : 'border-[var(--color-outline-variant)] bg-[var(--color-surface-container)] text-[var(--color-on-surface-variant)]'
+                  }`}
+                >
                   {isActive && (
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-indigo-400 opacity-50" />
                   )}
                   <Icon size={16} className="relative z-10" />
                 </div>
 
-                {/* Step info */}
                 <div className="pt-1.5">
-                  <p className={`text-sm font-bold ${
-                    isActive ? 'text-indigo-600' : isDone ? 'text-[var(--color-on-surface)]' : 'text-[var(--color-on-surface-variant)]'
-                  }`}>
+                  <p
+                    className={`text-sm font-bold ${
+                      isActive
+                        ? 'text-indigo-600'
+                        : isDone
+                          ? 'text-[var(--color-on-surface)]'
+                          : 'text-[var(--color-on-surface-variant)]'
+                    }`}
+                  >
                     {step.label}
-                    {isActive && <span className="ml-2 text-[10px] font-black uppercase tracking-widest text-indigo-500 animate-pulse">← Current</span>}
+                    {isActive && (
+                      <span className="ml-2 animate-pulse text-[10px] font-black uppercase tracking-widest text-indigo-500">
+                        Current
+                      </span>
+                    )}
                   </p>
-                  {isPending && (
-                    <p className="text-xs text-[var(--color-on-surface-variant)] mt-0.5">Upcoming</p>
-                  )}
+                  {isPending && <p className="mt-0.5 text-xs text-[var(--color-on-surface-variant)]">Upcoming</p>}
                 </div>
               </div>
             );
@@ -281,22 +426,21 @@ export default function OrderTracking() {
         </div>
       </div>
 
-      {/* ── Order Summary Card ── */}
       {order && (
-        <div className="rounded-[2rem] bg-white border border-[var(--color-outline-variant)]/40 shadow-card p-6 space-y-4">
+        <div className="space-y-4 rounded-[2rem] border border-[var(--color-outline-variant)]/40 bg-white p-6 shadow-card">
           <h3 className="font-display text-xl font-black">Order Details</h3>
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div>
               <p className="text-[10px] font-black uppercase tracking-widest text-[var(--color-on-surface-variant)]">Payment</p>
-              <p className="font-bold mt-0.5">{order.paymentMethod}</p>
+              <p className="mt-0.5 font-bold">{order.paymentMethod}</p>
             </div>
             <div>
               <p className="text-[10px] font-black uppercase tracking-widest text-[var(--color-on-surface-variant)]">Total</p>
-              <p className="font-bold mt-0.5">₹{(order.finalAmount || order.totalAmount || 0).toFixed(0)}</p>
+              <p className="mt-0.5 font-bold">Rs {(order.finalAmount || order.totalAmount || 0).toFixed(0)}</p>
             </div>
             <div className="col-span-2">
               <p className="text-[10px] font-black uppercase tracking-widest text-[var(--color-on-surface-variant)]">Delivery Address</p>
-              <p className="font-bold mt-0.5">{order.deliveryAddress}</p>
+              <p className="mt-0.5 font-bold">{order.deliveryAddress}</p>
             </div>
           </div>
         </div>

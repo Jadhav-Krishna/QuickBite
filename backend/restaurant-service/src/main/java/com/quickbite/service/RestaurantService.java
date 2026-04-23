@@ -29,6 +29,33 @@ public class RestaurantService {
         if (restaurant.getLocation() == null) {
             throw new RuntimeException("Restaurant location (latitude/longitude) is required");
         }
+        if (restaurant.getName() == null || restaurant.getName().isBlank()) {
+            throw new RuntimeException("Restaurant name is required");
+        }
+        if (restaurant.getCuisineType() == null || restaurant.getCuisineType().isBlank()) {
+            throw new RuntimeException("Cuisine type is required");
+        }
+        if (restaurant.getAddress() == null || restaurant.getAddress().isBlank()) {
+            throw new RuntimeException("Address is required");
+        }
+        if (restaurant.getCity() == null || restaurant.getCity().isBlank()) {
+            throw new RuntimeException("City is required");
+        }
+        if (restaurant.getState() == null || restaurant.getState().isBlank()) {
+            throw new RuntimeException("State is required");
+        }
+        if (restaurant.getPincode() == null || restaurant.getPincode().isBlank()) {
+            throw new RuntimeException("Pincode is required");
+        }
+        if (restaurant.getPhoneNumber() == null || restaurant.getPhoneNumber().isBlank()) {
+            throw new RuntimeException("Phone number is required");
+        }
+        if (restaurant.getEmail() == null || restaurant.getEmail().isBlank()) {
+            throw new RuntimeException("Email is required");
+        }
+        if (restaurant.getImageUrl() == null || restaurant.getImageUrl().isBlank()) {
+            restaurant.setImageUrl("https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=800&q=80");
+        }
 
         restaurant.setIsActive(true);
         restaurant.setIsOpen(false);
@@ -110,8 +137,20 @@ public class RestaurantService {
         if (updatedRestaurant.getAddress() != null) {
             existingRestaurant.setAddress(updatedRestaurant.getAddress());
         }
+        if (updatedRestaurant.getCity() != null) {
+            existingRestaurant.setCity(updatedRestaurant.getCity());
+        }
+        if (updatedRestaurant.getState() != null) {
+            existingRestaurant.setState(updatedRestaurant.getState());
+        }
+        if (updatedRestaurant.getPincode() != null) {
+            existingRestaurant.setPincode(updatedRestaurant.getPincode());
+        }
         if (updatedRestaurant.getPhoneNumber() != null) {
             existingRestaurant.setPhoneNumber(updatedRestaurant.getPhoneNumber());
+        }
+        if (updatedRestaurant.getEmail() != null) {
+            existingRestaurant.setEmail(updatedRestaurant.getEmail());
         }
         if (updatedRestaurant.getDeliveryFee() != null) {
             existingRestaurant.setDeliveryFee(updatedRestaurant.getDeliveryFee());
@@ -131,11 +170,26 @@ public class RestaurantService {
         if (updatedRestaurant.getImageUrl() != null) {
             existingRestaurant.setImageUrl(updatedRestaurant.getImageUrl());
         }
+        if (updatedRestaurant.getEstimatedDeliveryMin() != null) {
+            existingRestaurant.setEstimatedDeliveryMin(updatedRestaurant.getEstimatedDeliveryMin());
+        }
+        if (updatedRestaurant.getCuisines() != null) {
+            existingRestaurant.setCuisines(updatedRestaurant.getCuisines());
+        }
         if (updatedRestaurant.getOpeningTime() != null) {
             existingRestaurant.setOpeningTime(updatedRestaurant.getOpeningTime());
         }
         if (updatedRestaurant.getClosingTime() != null) {
             existingRestaurant.setClosingTime(updatedRestaurant.getClosingTime());
+        }
+        if (updatedRestaurant.getIsOpen() != null) {
+            existingRestaurant.setIsOpen(updatedRestaurant.getIsOpen());
+        }
+        if (updatedRestaurant.getIsActive() != null) {
+            existingRestaurant.setIsActive(updatedRestaurant.getIsActive());
+        }
+        if (updatedRestaurant.getLocation() != null) {
+            existingRestaurant.setLocation(updatedRestaurant.getLocation());
         }
 
         return restaurantRepository.save(existingRestaurant);

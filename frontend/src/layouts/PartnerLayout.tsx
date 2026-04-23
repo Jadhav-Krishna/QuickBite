@@ -6,16 +6,15 @@ export default function PartnerLayout() {
   const navigate = useNavigate();
   const { logout } = useAuth();
   const navItems = [
-    { to: "/partner/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-    { to: "/partner/orders", icon: ShoppingBag, label: "Orders" },
-    { to: "/partner/menu", icon: UtensilsCrossed, label: "Menu" },
-    { to: "/partner/analytics", icon: BarChart3, label: "Analytics" },
-    { to: "/partner/reviews", icon: Star, label: "Reviews" },
+    { to: '/partner/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+    { to: '/partner/orders', icon: ShoppingBag, label: 'Orders' },
+    { to: '/partner/menu', icon: UtensilsCrossed, label: 'Menu' },
+    { to: '/partner/analytics', icon: BarChart3, label: 'Analytics' },
+    { to: '/partner/reviews', icon: Star, label: 'Reviews' },
   ];
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] flex text-[var(--color-on-surface)]">
-      {/* ── Sidebar ── */}
       <aside className="w-72 bg-white border-r border-[var(--color-outline-variant)]/50 flex flex-col fixed h-full z-20 shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
         <div className="p-8">
           <h1 className="font-display font-black text-3xl text-[var(--color-on-surface)]">
@@ -26,22 +25,22 @@ export default function PartnerLayout() {
             <p className="font-sans text-[10px] font-bold tracking-widest uppercase text-[var(--color-primary)]">Partner Portal</p>
           </div>
         </div>
-        
+
         <nav className="flex-1 px-4 space-y-2 mt-4 overflow-y-auto">
           <p className="px-4 mb-4 text-[10px] font-bold uppercase tracking-widest text-[var(--color-on-surface-variant)]">Menu</p>
-          {navItems.map(item => {
+          {navItems.map((item) => {
             const Icon = item.icon;
             return (
-              <NavLink 
-                key={item.to} 
+              <NavLink
+                key={item.to}
                 to={item.to}
-                className={({isActive}) => `relative overflow-hidden flex items-center gap-4 px-5 py-3.5 rounded-2xl font-bold transition-all duration-300 group ${
-                  isActive 
-                    ? 'bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-secondary-container)] text-white shadow-ambient' 
+                className={({ isActive }) => `relative overflow-hidden flex items-center gap-4 px-5 py-3.5 rounded-2xl font-bold transition-all duration-300 group ${
+                  isActive
+                    ? 'bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-secondary-container)] text-white shadow-ambient'
                     : 'text-[var(--color-on-surface-variant)] hover:bg-[var(--color-surface-container)] hover:text-[var(--color-on-surface)]'
                 }`}
               >
-                {({isActive}) => (
+                {({ isActive }) => (
                   <>
                     <Icon size={20} className={`transition-transform duration-300 ${isActive ? 'scale-110' : 'group-hover:scale-110'}`} />
                     {item.label}
@@ -68,9 +67,7 @@ export default function PartnerLayout() {
         </div>
       </aside>
 
-      {/* ── Main Content Area ── */}
       <main className="flex-1 ml-72 flex flex-col min-h-screen">
-        {/* Top Header */}
         <header className="h-20 bg-white/80 backdrop-blur-xl border-b border-[var(--color-outline-variant)]/50 px-10 flex items-center justify-between sticky top-0 z-10">
           <div className="flex items-center gap-3">
             <h2 className="font-display text-xl font-bold">Spice Route Kitchen</h2>

@@ -21,7 +21,9 @@ import javax.crypto.spec.SecretKeySpec;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -330,6 +332,14 @@ public class PaymentServiceImpl implements PaymentService {
                 .collect(java.util.stream.Collectors.toList());
     }
 
+    @Override
+    public List<PaymentResponse> getAllPayments() {
+        return paymentRepository.findAll().stream()
+                .sorted(Comparator.comparing(Payment::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder())).reversed())
+                .map(this::mapToResponse)
+                .collect(java.util.stream.Collectors.toList());
+    }
+
     private Wallet createWallet(Long customerId) {
         Wallet wallet = Wallet.builder()
                 .customerId(customerId)
@@ -370,6 +380,7 @@ public class PaymentServiceImpl implements PaymentService {
         return PaymentResponse.builder()
                 .paymentId(payment.getId())
                 .orderId(payment.getOrderId())
+                .customerId(payment.getCustomerId())
                 .transactionId(payment.getTransactionId())
                 .amount(BigDecimal.valueOf(payment.getAmount()))
                 .currency("INR")

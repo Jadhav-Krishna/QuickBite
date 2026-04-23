@@ -6,6 +6,8 @@ export interface Restaurant {
   name: string;
   description: string;
   address: string;
+  latitude?: number;
+  longitude?: number;
   city?: string;
   state?: string;
   pincode?: string;
@@ -17,7 +19,7 @@ export interface Restaurant {
   isOpen?: boolean;
   isApproved?: boolean;
   cuisineType: string;
-  cuisines?: string;
+  cuisines?: string[] | string;
   openingTime?: string;
   closingTime?: string;
   imageUrl?: string;
@@ -25,6 +27,29 @@ export interface Restaurant {
   estimatedDeliveryMin?: number;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface UpsertRestaurantRequest {
+  ownerId?: number;
+  name: string;
+  description: string;
+  address: string;
+  latitude?: number;
+  longitude?: number;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  phoneNumber?: string;
+  email?: string;
+  cuisineType: string;
+  cuisines?: string[] | string;
+  openingTime?: string;
+  closingTime?: string;
+  imageUrl?: string;
+  deliveryFee?: number;
+  estimatedDeliveryMin?: number;
+  isOpen?: boolean;
+  isActive?: boolean;
 }
 
 const parseResponse = async <T>(response: Response, fallback: string): Promise<T> => {
@@ -87,6 +112,52 @@ export const restaurantService = {
       },
     });
     return parseResponse<Restaurant[]>(response, `Failed to fetch all restaurants: ${response.statusText}`);
+  },
+
+  async createRestaurant(payload: UpsertRestaurantRequest): Promise<Restaurant> {
+    const response = await fetch(`${API_BASE_URL}/v1/restaurants`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getOptionalAuthHeader(),
+      },
+      body: JSON.stringify(payload),
+    });
+    return parseResponse<Restaurant>(response, `Failed to create restaurant: ${response.statusText}`);
+  },
+
+  async updateRestaurant(id: number, payload: UpsertRestaurantRequest): Promise<Restaurant> {
+    const response = await fetch(`${API_BASE_URL}/v1/restaurants/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getOptionalAuthHeader(),
+      },
+      body: JSON.stringify(payload),
+    });
+    return parseResponse<Restaurant>(response, `Failed to update restaurant: ${response.statusText}`);
+  },
+
+  async deleteRestaurant(id: number): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/v1/restaurants/${id}`, {
+      method: 'DELETE',
+      headers: {
+        ...getOptionalAuthHeader(),
+      },
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to delete restaurant: ${response.statusText}`);
+    }
+  },
+
+  async updateRestaurantRating(id: number, newAvgRating: number, newReviewCount: number): Promise<Restaurant> {
+    const response = await fetch(`${API_BASE_URL}/v1/restaurants/${id}/rating?newAvgRating=${encodeURIComponent(String(newAvgRating))}&newReviewCount=${encodeURIComponent(String(newReviewCount))}`, {
+      method: 'PUT',
+      headers: {
+        ...getOptionalAuthHeader(),
+      },
+    });
+    return parseResponse<Restaurant>(response, `Failed to update rating: ${response.statusText}`);
   },
 
   async approveRestaurant(id: number): Promise<Restaurant> {

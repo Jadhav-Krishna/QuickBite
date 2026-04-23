@@ -1,66 +1,34 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   AlertCircle, CheckCircle2, ChevronRight, Clock, Package,
-  ShoppingBag, Truck, XCircle, RefreshCw, Bell
+  ShoppingBag, Truck, XCircle, RefreshCw, Bell,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { orderService, type OrderDTO } from '../../api/order';
 import { restaurantService } from '../../api/restaurant';
+import { deliveryService } from '../../api/delivery';
+import { notificationService } from '../../api/notification';
 
 // ── Status config ────────────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; border: string }> = {
-  PLACED:     { label: 'New Order',    color: 'text-violet-700', bg: 'bg-violet-50',  border: 'border-violet-200' },
-  PENDING:    { label: 'New Order',    color: 'text-violet-700', bg: 'bg-violet-50',  border: 'border-violet-200' },
-  CONFIRMED:  { label: 'Accepted',     color: 'text-blue-700',   bg: 'bg-blue-50',    border: 'border-blue-200'   },
-  PREPARING:  { label: 'Preparing',    color: 'text-amber-700',  bg: 'bg-amber-50',   border: 'border-amber-200'  },
-  READY:      { label: 'Ready',        color: 'text-green-700',  bg: 'bg-green-50',   border: 'border-green-200'  },
-  PICKED_UP:  { label: 'Picked Up',   color: 'text-indigo-700', bg: 'bg-indigo-50',  border: 'border-indigo-200' },
-  IN_TRANSIT: { label: 'In Transit',  color: 'text-indigo-700', bg: 'bg-indigo-50',  border: 'border-indigo-200' },
-  DELIVERED:  { label: 'Delivered',   color: 'text-emerald-700',bg: 'bg-emerald-50', border: 'border-emerald-200'},
-  CANCELLED:  { label: 'Cancelled',   color: 'text-red-700',    bg: 'bg-red-50',     border: 'border-red-200'    },
+  PLACED: { label: 'New Order', color: 'text-violet-700', bg: 'bg-violet-50', border: 'border-violet-200' },
+  PENDING: { label: 'New Order', color: 'text-violet-700', bg: 'bg-violet-50', border: 'border-violet-200' },
+  CONFIRMED: { label: 'Accepted', color: 'text-blue-700', bg: 'bg-blue-50', border: 'border-blue-200' },
+  PREPARING: { label: 'Preparing', color: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-200' },
+  READY: { label: 'Ready', color: 'text-green-700', bg: 'bg-green-50', border: 'border-green-200' },
+  PICKED_UP: { label: 'Picked Up', color: 'text-indigo-700', bg: 'bg-indigo-50', border: 'border-indigo-200' },
+  IN_TRANSIT: { label: 'In Transit', color: 'text-indigo-700', bg: 'bg-indigo-50', border: 'border-indigo-200' },
+  DELIVERED: { label: 'Delivered', color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200' },
+  CANCELLED: { label: 'Cancelled', color: 'text-red-700', bg: 'bg-red-50', border: 'border-red-200' },
 };
 
 const LEFT_BAR: Record<string, string> = {
   PLACED: 'bg-violet-400', PENDING: 'bg-violet-400',
   CONFIRMED: 'bg-blue-400', PREPARING: 'bg-amber-400',
-  READY: 'bg-green-400',   PICKED_UP: 'bg-indigo-400',
+  READY: 'bg-green-400', PICKED_UP: 'bg-indigo-400',
   IN_TRANSIT: 'bg-indigo-400', DELIVERED: 'bg-emerald-400',
   CANCELLED: 'bg-red-400',
 };
-
-const FALLBACK_ORDERS: OrderDTO[] = [
-  {
-    id: 101, orderNumber: 'QB-X89A', customerId: 1, restaurantId: 2,
-    status: 'PENDING', totalAmount: 850, finalAmount: 850, deliveryCharge: 45,
-    discountAmount: 0, deliveryAddress: 'Flat 4B, Koramangala', customerPhone: '9876543210',
-    paymentMethod: 'UPI', specialInstructions: 'Extra spicy please!',
-    items: [{ menuItemId: 1, itemName: 'Chicken Biryani', quantity: 2, price: 349 }],
-    createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 102, orderNumber: 'QB-Y90B', customerId: 2, restaurantId: 2,
-    status: 'PREPARING', totalAmount: 320, finalAmount: 320, deliveryCharge: 30,
-    discountAmount: 0, deliveryAddress: 'Indiranagar 100ft Rd', customerPhone: '9123456780',
-    paymentMethod: 'CARD',
-    items: [{ menuItemId: 2, itemName: 'Paneer Butter Masala', quantity: 1, price: 279 }],
-    createdAt: new Date(Date.now() - 1000 * 60 * 7).toISOString(), updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 103, orderNumber: 'QB-Z11C', customerId: 3, restaurantId: 2,
-    status: 'READY', totalAmount: 1450, finalAmount: 1450, deliveryCharge: 60,
-    discountAmount: 0, deliveryAddress: 'HSR Layout Sec 2', customerPhone: '9988776655',
-    paymentMethod: 'UPI',
-    items: [{ menuItemId: 3, itemName: 'Veg Thali', quantity: 3, price: 449 }],
-    createdAt: new Date(Date.now() - 1000 * 60 * 18).toISOString(), updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 104, orderNumber: 'QB-A22D', customerId: 4, restaurantId: 2,
-    status: 'DELIVERED', totalAmount: 550, finalAmount: 550, deliveryCharge: 40,
-    discountAmount: 0, deliveryAddress: 'BTM Layout', customerPhone: '9001234567',
-    paymentMethod: 'CASH', items: [],
-    createdAt: new Date(Date.now() - 1000 * 60 * 55).toISOString(), updatedAt: new Date().toISOString(),
-  },
-] as unknown as OrderDTO[];
 
 function timeAgo(iso?: string) {
   if (!iso) return '';
@@ -87,6 +55,27 @@ export default function PartnerOrders() {
     setTimeout(() => setToast(null), 3000);
   };
 
+  const notifyAssignedDeliveryAgent = async (order: OrderDTO) => {
+    if (!order.deliveryAgentId) return;
+    try {
+      const agent = await deliveryService.getAgent(order.deliveryAgentId);
+      if (!agent.userId) return;
+
+      await notificationService.sendTestNotification({
+        eventType: 'ORDER_READY_FOR_PICKUP',
+        orderId: order.id,
+        userId: agent.userId,
+        deliveryAgentId: order.deliveryAgentId,
+        restaurantId: order.restaurantId,
+        title: `Pickup Ready: ${order.orderNumber}`,
+        message: `Order ${order.orderNumber} is packed and ready for pickup.`,
+        notificationType: 'IN_APP',
+      });
+    } catch {
+      // non-blocking
+    }
+  };
+
   const loadOrders = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     try {
@@ -96,62 +85,70 @@ export default function PartnerOrders() {
           const rests = await restaurantService.getRestaurantsByOwner(user.userId);
           rid = rests[0]?.id ?? null;
           if (rid) setRestaurantId(rid);
-        } catch { /* fallback below */ }
+        } catch {
+          // fallback below
+        }
       }
 
-      const data = rid
-        ? await orderService.getRestaurantOrders(rid)
-        : FALLBACK_ORDERS;
+      if (!rid) {
+        setOrders([]);
+        return;
+      }
 
-      setOrders(data.length > 0 ? data : FALLBACK_ORDERS);
-    } catch {
-      setOrders(FALLBACK_ORDERS);
+      const data = await orderService.getRestaurantOrders(rid);
+      setOrders(data);
+    } catch (err: unknown) {
+      setOrders([]);
+      showToast(err instanceof Error ? err.message : 'Failed to load orders.', 'error');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [user?.userId, restaurantId]);
+  }, [user, restaurantId]);
 
   useEffect(() => {
-    loadOrders();
+    void Promise.resolve().then(() => loadOrders());
     // Poll for new orders every 15 seconds
-    const interval = setInterval(() => loadOrders(true), 15000);
+    const interval = setInterval(() => {
+      void loadOrders(true);
+    }, 15000);
     return () => clearInterval(interval);
   }, [loadOrders]);
 
   const handleAction = async (order: OrderDTO, nextStatus: string) => {
     setActionStates((prev) => ({ ...prev, [order.id]: nextStatus }));
     try {
-      await orderService.updateOrderStatus(String(order.id), nextStatus);
-      setOrders((prev) => prev.map((o) => o.id === order.id ? { ...o, status: nextStatus } : o));
+      const updated = await orderService.updateOrderStatus(order.orderNumber, nextStatus);
+      setOrders((prev) => prev.map((o) => (o.id === order.id ? updated : o)));
+      if (nextStatus === 'READY') {
+        await notifyAssignedDeliveryAgent(updated);
+      }
       showToast(
         nextStatus === 'CONFIRMED' ? '✅ Order accepted!' :
-        nextStatus === 'PREPARING' ? '🍳 Preparing order...' :
-        nextStatus === 'READY' ? '🟢 Order marked ready!' :
-        nextStatus === 'CANCELLED' ? '❌ Order cancelled.' : '✅ Updated!',
+          nextStatus === 'PREPARING' ? '🍳 Preparing order...' :
+            nextStatus === 'READY' ? '🟢 Order marked ready!' :
+              nextStatus === 'CANCELLED' ? '❌ Order cancelled.' : '✅ Updated!',
       );
     } catch {
-      // Optimistic fallback
-      setOrders((prev) => prev.map((o) => o.id === order.id ? { ...o, status: nextStatus } : o));
-      showToast('Updated (offline mode)', 'success');
+      showToast('Update failed. Please retry.', 'error');
     } finally {
       setActionStates((prev) => { const n = { ...prev }; delete n[order.id]; return n; });
     }
   };
 
-  const liveOrders  = orders.filter((o) => ['PLACED','PENDING','CONFIRMED','PREPARING','READY'].includes(o.status));
-  const pastOrders  = orders.filter((o) => ['PICKED_UP','IN_TRANSIT','DELIVERED','CANCELLED'].includes(o.status));
+  const liveOrders = orders.filter((o) => ['PLACED', 'PENDING', 'CONFIRMED', 'PREPARING', 'READY'].includes(o.status));
+  const pastOrders = orders.filter((o) => ['PICKED_UP', 'IN_TRANSIT', 'DELIVERED', 'CANCELLED'].includes(o.status));
   const displayOrders = activeTab === 'LIVE' ? liveOrders : pastOrders;
-  const newOrderCount = orders.filter((o) => ['PLACED','PENDING'].includes(o.status)).length;
+  const newOrderCount = orders.filter((o) => ['PLACED', 'PENDING'].includes(o.status)).length;
 
   if (loading) {
     return (
       <div className="space-y-5 animate-pulse max-w-5xl">
         <div className="h-10 w-56 bg-[var(--color-surface-variant)] rounded-full" />
         <div className="flex gap-3">
-          {[1,2].map(i => <div key={i} className="h-10 w-36 bg-[var(--color-surface-variant)] rounded-full" />)}
+          {[1, 2].map((i) => <div key={i} className="h-10 w-36 bg-[var(--color-surface-variant)] rounded-full" />)}
         </div>
-        {[1,2,3].map(i => <div key={i} className="h-40 bg-[var(--color-surface-variant)] rounded-[2rem]" />)}
+        {[1, 2, 3].map((i) => <div key={i} className="h-40 bg-[var(--color-surface-variant)] rounded-[2rem]" />)}
       </div>
     );
   }
@@ -163,7 +160,8 @@ export default function PartnerOrders() {
       {toast && (
         <div className={`fixed top-6 right-6 z-[9999] flex items-center gap-3 rounded-2xl px-5 py-4 shadow-2xl text-sm font-bold animate-fade-up ${
           toast.type === 'success' ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'
-        }`}>
+        }`}
+        >
           {toast.type === 'success' ? <CheckCircle2 size={18} /> : <XCircle size={18} />}
           {toast.msg}
         </div>
@@ -182,7 +180,7 @@ export default function PartnerOrders() {
           </p>
         </div>
         <button
-          onClick={() => loadOrders(true)}
+          onClick={() => void loadOrders(true)}
           disabled={refreshing}
           className="flex items-center gap-2 rounded-full border border-[var(--color-outline-variant)] bg-white px-5 py-2.5 text-sm font-bold shadow-sm transition hover:shadow-md active:scale-95 disabled:opacity-50"
         >
@@ -194,10 +192,10 @@ export default function PartnerOrders() {
       {/* ── Stats Row ── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         {[
-          { label: 'New', count: orders.filter(o => ['PLACED','PENDING'].includes(o.status)).length, color: 'from-violet-500 to-purple-600', icon: Bell },
-          { label: 'Preparing', count: orders.filter(o => o.status === 'PREPARING').length, color: 'from-amber-400 to-orange-500', icon: Package },
-          { label: 'Ready', count: orders.filter(o => o.status === 'READY').length, color: 'from-green-500 to-emerald-600', icon: CheckCircle2 },
-          { label: 'Delivered', count: orders.filter(o => o.status === 'DELIVERED').length, color: 'from-indigo-500 to-blue-600', icon: Truck },
+          { label: 'New', count: orders.filter((o) => ['PLACED', 'PENDING'].includes(o.status)).length, color: 'from-violet-500 to-purple-600', icon: Bell },
+          { label: 'Preparing', count: orders.filter((o) => o.status === 'PREPARING').length, color: 'from-amber-400 to-orange-500', icon: Package },
+          { label: 'Ready', count: orders.filter((o) => o.status === 'READY').length, color: 'from-green-500 to-emerald-600', icon: CheckCircle2 },
+          { label: 'Delivered', count: orders.filter((o) => o.status === 'DELIVERED').length, color: 'from-indigo-500 to-blue-600', icon: Truck },
         ].map(({ label, count, color, icon: Icon }) => (
           <div key={label} className={`rounded-2xl bg-gradient-to-br ${color} p-4 text-white shadow-card`}>
             <div className="flex items-center justify-between mb-2">
@@ -241,12 +239,12 @@ export default function PartnerOrders() {
           </div>
         ) : (
           displayOrders.map((order) => {
-            const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG['PENDING'];
+            const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG.PENDING;
             const isExpanded = expandedId === order.id;
             const isActioning = !!actionStates[order.id];
-            const isPending   = ['PLACED','PENDING'].includes(order.status);
+            const isPending = ['PLACED', 'PENDING'].includes(order.status);
             const isPreparing = order.status === 'PREPARING';
-            const isReady     = order.status === 'READY';
+            const isReady = order.status === 'READY';
 
             return (
               <div
@@ -341,14 +339,14 @@ export default function PartnerOrders() {
                     {isPending && (
                       <>
                         <button
-                          onClick={() => handleAction(order, 'CONFIRMED')}
+                          onClick={() => void handleAction(order, 'CONFIRMED')}
                           disabled={isActioning}
                           className="flex-1 rounded-full bg-gradient-to-r from-violet-500 to-purple-600 py-3 text-sm font-bold text-white shadow-lg shadow-violet-500/20 transition-all hover:shadow-violet-500/40 active:scale-95 disabled:opacity-50"
                         >
                           {isActioning ? 'Accepting...' : '✅ Accept Order'}
                         </button>
                         <button
-                          onClick={() => handleAction(order, 'CANCELLED')}
+                          onClick={() => void handleAction(order, 'CANCELLED')}
                           disabled={isActioning}
                           className="flex-1 rounded-full border-2 border-red-200 bg-red-50 py-3 text-sm font-bold text-red-600 transition-all hover:bg-red-100 active:scale-95 disabled:opacity-50"
                         >
@@ -358,7 +356,7 @@ export default function PartnerOrders() {
                     )}
                     {order.status === 'CONFIRMED' && (
                       <button
-                        onClick={() => handleAction(order, 'PREPARING')}
+                        onClick={() => void handleAction(order, 'PREPARING')}
                         disabled={isActioning}
                         className="flex-1 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 py-3 text-sm font-bold text-white shadow-lg shadow-amber-400/20 transition-all hover:shadow-amber-400/40 active:scale-95 disabled:opacity-50"
                       >
@@ -367,7 +365,7 @@ export default function PartnerOrders() {
                     )}
                     {isPreparing && (
                       <button
-                        onClick={() => handleAction(order, 'READY')}
+                        onClick={() => void handleAction(order, 'READY')}
                         disabled={isActioning}
                         className="flex-1 rounded-full bg-gradient-to-r from-green-500 to-emerald-600 py-3 text-sm font-bold text-white shadow-lg shadow-green-500/20 transition-all hover:shadow-green-500/40 active:scale-95 disabled:opacity-50"
                       >

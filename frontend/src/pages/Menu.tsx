@@ -58,6 +58,7 @@ export default function Menu() {
     if (!restaurantId) return;
     const id = Number(restaurantId);
     setLoading(true);
+    setError(null);
     Promise.all([
       restaurantService.getRestaurantById(id).catch(() => null),
       menuService.getMenuByRestaurant(id).catch(() => FALLBACK_ITEMS),
@@ -75,7 +76,7 @@ export default function Menu() {
       setItems(menuItems.length > 0 ? menuItems : FALLBACK_ITEMS);
       setCategories((categoryData.length > 0 ? categoryData : FALLBACK_CATEGORIES).sort((a, b) => a.displayOrder - b.displayOrder));
     }).catch(() => {
-      // Fallbacks handle errors above
+      setError('Unable to load live menu data right now.');
     }).finally(() => setLoading(false));
   }, [restaurantId]);
 
@@ -165,12 +166,12 @@ export default function Menu() {
             )}
           </div>
           <Link to="/cart" className="relative flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-surface-container)] text-[var(--color-on-surface-variant)] transition hover:text-[var(--color-primary)]">
-            <ShoppingCart size={18} />
+            {/* <ShoppingCart size={18} />
             {totalItems > 0 && (
               <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--color-primary)] text-[10px] font-bold text-white">
                 {totalItems}
               </span>
-            )}
+            )} */}
           </Link>
         </div>
       </header>

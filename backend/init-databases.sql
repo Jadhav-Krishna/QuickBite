@@ -302,7 +302,7 @@ VALUES
   (1, 'aarti.customer@quickbite.in', '$2a$10$XQ5M6k8D3iNdh26fA4Y8xux5vFh6CFP9fPiN0eZZF9RnBbTK.jZ4C', 'Aarti Sharma', '+919876543210', 'CUSTOMER', true, true),
   (2, 'rahul.partner@quickbite.in', '$2a$10$XQ5M6k8D3iNdh26fA4Y8xux5vFh6CFP9fPiN0eZZF9RnBbTK.jZ4C', 'Rahul Verma', '+919800112233', 'RESTAURANT_OWNER', true, true),
   (3, 'vikram.agent@quickbite.in', '$2a$10$XQ5M6k8D3iNdh26fA4Y8xux5vFh6CFP9fPiN0eZZF9RnBbTK.jZ4C', 'Vikram Singh', '+919811223344', 'DELIVERY_AGENT', true, true),
-  (4, 'neha.admin@quickbite.in', '$2a$10$XQ5M6k8D3iNdh26fA4Y8xux5vFh6CFP9fPiN0eZZF9RnBbTK.jZ4C', 'Neha Kapoor', '+919822334455', 'ADMIN', true, true)
+  (4, 'neha.admin@quickbite.in', '$2a$10$XQ5M6k8D3iNdh26fA4Y8xux5vFh6CFP9fPiN0eZZF9RnBbTK.jZ4C', 'Neha Kapoor', '+919822334455', 'APPLICATION_ADMIN', true, true)
 ON DUPLICATE KEY UPDATE
   full_name = VALUES(full_name),
   role = VALUES(role),

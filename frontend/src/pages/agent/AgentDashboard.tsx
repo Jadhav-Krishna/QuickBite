@@ -7,89 +7,52 @@ import { reviewService } from '../../api/review';
 import { useAuth } from '../../context/AuthContext';
 
 const AGENT_EARNING_RATE = 0.12;
-
-const formatCurrency = (amount: number) =>
-  `₹${amount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
-
 const ACTIVE_ORDER_STATUSES = ['READY', 'PICKED_UP', 'IN_TRANSIT', 'CONFIRMED'];
 
-const FALLBACK_AGENT: DeliveryAgentDTO & { totalDeliveries: number; isOnline: boolean } = {
-  id: 1,
-  userId: 3,
-  fullName: 'Arjun Mehta',
-  phone: '9876543210',
-  email: 'arjun@quickbite.com',
-  vehicleType: 'BIKE',
-  vehicleNumber: 'KA-01-HD-1234',
-  licenseNumber: 'KA1234567',
-  isVerified: true,
-  isActive: true,
-  totalDeliveries: 482,
-  isOnline: true,
-  createdAt: new Date().toISOString(),
-};
-
-const FALLBACK_ASSIGNMENT: OrderDTO = {
-  id: 101,
-  orderNumber: 'QB2026-X89A',
-  customerId: 1,
-  restaurantId: 2,
-  status: 'READY',
-  totalAmount: 850,
-  finalAmount: 850,
-  deliveryFee: 45,
-  deliveryAddress: 'Flat 4B, Koramangala 5th Block, Bengaluru',
-  customerPhone: '+91 98765 43210',
-  specialInstructions: 'Ring the bell twice and leave at the door.',
-  paymentMethod: 'UPI',
-  items: [
-    { menuItemId: 1, itemName: 'Chicken Biryani', quantity: 2, price: 349 },
-    { menuItemId: 3, itemName: 'Garlic Naan', quantity: 1, price: 79 },
-  ],
-  createdAt: new Date().toISOString(),
-  updatedAt: new Date().toISOString(),
-};
+const formatCurrency = (amount: number) =>
+  `Rs ${amount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
 
 export default function AgentDashboard() {
   const { user } = useAuth();
-  const [agent, setAgent] = useState<any>(null);
+  const [agent, setAgent] = useState<DeliveryAgentDTO | null>(null);
   const [orders, setOrders] = useState<OrderDTO[]>([]);
-  const [rating, setRating] = useState(4.8);
+  const [availableOrders, setAvailableOrders] = useState<OrderDTO[]>([]);
+  const [rating, setRating] = useState(0);
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState(false);
+  const [acceptingOrder, setAcceptingOrder] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadAgentData = async () => {
+    if (!user?.userId) {
+      setError('Please sign in as a delivery agent.');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setError(null);
+      const resolved = await deliveryService.resolveAgentForUser(user.userId);
+      const [earningsProfile, agentOrders, agentRating, readyOrders] = await Promise.all([
+        deliveryService.getAgentEarnings(resolved.agentId).catch(() => resolved.agent),
+        orderService.getAgentOrders(resolved.agentId).catch(() => []),
+        reviewService.getDeliveryAgentRating(resolved.agentId).catch(() => 0),
+        orderService.getAvailableOrders().catch(() => []),
+      ]);
+
+      setAgent({ ...resolved.agent, ...earningsProfile });
+      setOrders(agentOrders);
+      setAvailableOrders(readyOrders);
+      setRating(Number(agentRating) || Number(resolved.agent.averageRating || 0));
+    } catch (err: any) {
+      setError(err?.message || 'Unable to load agent dashboard.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const loadAgentData = async () => {
-      if (!user?.userId) {
-        // Mock fallback for testing without auth
-        setTimeout(() => {
-          setAgent(FALLBACK_AGENT);
-          setOrders([FALLBACK_ASSIGNMENT]);
-          setLoading(false);
-        }, 800);
-        return;
-      }
-
-      try {
-        const resolved = await deliveryService.resolveAgentForUser(user.userId);
-        const [earningsProfile, agentOrders, agentRating] = await Promise.all([
-          deliveryService.getAgentEarnings(resolved.agentId).catch(() => resolved.agent),
-          orderService.getAgentOrders(resolved.agentId).catch(() => [FALLBACK_ASSIGNMENT]),
-          reviewService.getDeliveryAgentRating(resolved.agentId).catch(() => 4.8),
-        ]);
-
-        setAgent({ ...resolved.agent, ...earningsProfile });
-        setOrders(agentOrders.length ? agentOrders : [FALLBACK_ASSIGNMENT]);
-        setRating(Number(agentRating) || 4.8);
-      } catch (err: unknown) {
-        setAgent(FALLBACK_AGENT);
-        setOrders([FALLBACK_ASSIGNMENT]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadAgentData();
+    void loadAgentData();
   }, [user?.userId]);
 
   const currentAssignment = useMemo(
@@ -98,13 +61,17 @@ export default function AgentDashboard() {
   );
 
   const todaysStats = useMemo(() => {
+    const activeOrders = orders.filter((order) => ACTIVE_ORDER_STATUSES.includes(order.status));
+    const activePayout = activeOrders.reduce(
+      (sum, order) => sum + Number(order.finalAmount || order.totalAmount || 0) * AGENT_EARNING_RATE,
+      0,
+    );
+
     return {
-      deliveries: 8,
-      estimatedPay: 850 * AGENT_EARNING_RATE * 8, // dummy math for visuals
+      activeOrders: activeOrders.length,
+      estimatedPay: activePayout,
     };
   }, [orders]);
-
-  const lifetimeDeliveries = agent?.totalDeliveries || 482;
 
   const toggleOnline = async () => {
     if (!agent) return;
@@ -112,18 +79,33 @@ export default function AgentDashboard() {
     try {
       await deliveryService.toggleAvailability(agent.id, !agent.isOnline);
       setAgent({ ...agent, isOnline: !agent.isOnline });
-    } catch {
-      // Fallback toggle
-      setAgent({ ...agent, isOnline: !agent.isOnline });
+    } catch (err: any) {
+      setError(err?.message || 'Unable to update online status.');
     } finally {
       setToggling(false);
+    }
+  };
+
+  const acceptNextOrder = async () => {
+    if (!agent || availableOrders.length === 0 || acceptingOrder) return;
+    setAcceptingOrder(true);
+    setError(null);
+
+    try {
+      const nextOrder = availableOrders[0];
+      await orderService.claimOrder(nextOrder.orderNumber, agent.id);
+      await loadAgentData();
+    } catch (err: any) {
+      setError(err?.message || 'Unable to accept order.');
+    } finally {
+      setAcceptingOrder(false);
     }
   };
 
   if (loading) {
     return (
       <div className="space-y-6 pt-2 animate-fade-in">
-        <div className="flex justify-between items-center">
+        <div className="flex items-center justify-between">
           <div className="space-y-2">
             <div className="skeleton h-8 w-40" />
             <div className="skeleton h-4 w-32" />
@@ -131,7 +113,9 @@ export default function AgentDashboard() {
           <div className="skeleton h-10 w-20 rounded-full" />
         </div>
         <div className="grid grid-cols-2 gap-4">
-          {[1,2,3,4].map(i => <div key={i} className="skeleton h-24 rounded-3xl" />)}
+          {[1, 2, 3, 4].map((item) => (
+            <div key={item} className="skeleton h-24 rounded-3xl" />
+          ))}
         </div>
         <div className="skeleton h-64 rounded-3xl" />
       </div>
@@ -140,56 +124,74 @@ export default function AgentDashboard() {
 
   return (
     <div className="space-y-6 pt-2 animate-fade-up">
-      
-      {/* ── Header & Toggle ── */}
+      {error ? (
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-700">
+          {error}
+        </div>
+      ) : null}
+
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h2 className="font-display text-3xl font-black">Hi, {agent?.fullName || user?.fullName || 'Arjun'}</h2>
-          <p className="flex items-center gap-1.5 text-sm font-semibold mt-1">
-            <span className={`relative flex h-2.5 w-2.5`}>
-              {agent?.isOnline && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>}
-              <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${agent?.isOnline ? 'bg-green-500' : 'bg-gray-400'}`}></span>
+          <h2 className="font-display text-3xl font-black">Hi, {agent?.fullName || user?.fullName || 'Agent'}</h2>
+          <p className="mt-1 flex items-center gap-1.5 text-sm font-semibold">
+            <span className="relative flex h-2.5 w-2.5">
+              {agent?.isOnline ? (
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
+              ) : null}
+              <span
+                className={`relative inline-flex h-2.5 w-2.5 rounded-full ${
+                  agent?.isOnline ? 'bg-green-500' : 'bg-gray-400'
+                }`}
+              />
             </span>
             <span className={agent?.isOnline ? 'text-green-600' : 'text-[var(--color-on-surface-variant)]'}>
-              {agent?.isOnline ? 'Online • Finding Orders' : 'Offline'}
+              {agent?.isOnline ? 'Online and available' : 'Offline'}
             </span>
           </p>
         </div>
 
         <button
           onClick={toggleOnline}
-          disabled={toggling}
-          className={`relative h-10 w-20 rounded-full p-1 shadow-inner transition-colors duration-500 ${agent?.isOnline ? 'bg-gradient-to-r from-green-400 to-green-500' : 'bg-[var(--color-surface-variant)]'}`}
+          disabled={toggling || !agent}
+          className={`relative h-10 w-20 rounded-full p-1 shadow-inner transition-colors duration-500 ${
+            agent?.isOnline ? 'bg-gradient-to-r from-green-400 to-green-500' : 'bg-[var(--color-surface-variant)]'
+          }`}
         >
-          <div className={`absolute top-1 bottom-1 w-8 rounded-full bg-white shadow-[0_2px_8px_rgba(0,0,0,0.2)] transition-transform duration-500 ${agent?.isOnline ? 'translate-x-10' : 'translate-x-0'}`} />
+          <div
+            className={`absolute top-1 bottom-1 w-8 rounded-full bg-white shadow-[0_2px_8px_rgba(0,0,0,0.2)] transition-transform duration-500 ${
+              agent?.isOnline ? 'translate-x-10' : 'translate-x-0'
+            }`}
+          />
         </button>
       </div>
 
-      {/* ── Stats Grid ── */}
       <div className="grid grid-cols-2 gap-3">
         <div className="rounded-[2rem] bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-secondary-container)] p-5 text-white shadow-glow">
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-white/80">Today's Pay</p>
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-white/80">Estimated Active Pay</p>
             <TrendingUp size={14} className="text-white/80" />
           </div>
           <h3 className="font-display text-3xl font-black">{formatCurrency(todaysStats.estimatedPay)}</h3>
         </div>
-        <div className="rounded-[2rem] bg-white border border-[var(--color-outline-variant)]/40 p-5 shadow-card">
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-on-surface-variant)]">Deliveries</p>
+
+        <div className="rounded-[2rem] border border-[var(--color-outline-variant)]/40 bg-white p-5 shadow-card">
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-on-surface-variant)]">Active Orders</p>
             <CheckCircle2 size={14} className="text-[var(--color-primary)]" />
           </div>
-          <h3 className="font-display text-3xl font-black text-[var(--color-on-surface)]">{todaysStats.deliveries}</h3>
+          <h3 className="font-display text-3xl font-black text-[var(--color-on-surface)]">{todaysStats.activeOrders}</h3>
         </div>
-        <div className="rounded-[2rem] bg-white border border-[var(--color-outline-variant)]/40 p-5 shadow-card">
-           <div className="flex items-center justify-between mb-3">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-on-surface-variant)]">Lifetime</p>
+
+        <div className="rounded-[2rem] border border-[var(--color-outline-variant)]/40 bg-white p-5 shadow-card">
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-on-surface-variant)]">Lifetime Deliveries</p>
             <Bike size={14} className="text-[var(--color-primary)]" />
           </div>
-          <h3 className="font-display text-2xl font-black text-[var(--color-on-surface)]">{lifetimeDeliveries}</h3>
+          <h3 className="font-display text-2xl font-black text-[var(--color-on-surface)]">{agent?.totalDeliveries || 0}</h3>
         </div>
-        <div className="rounded-[2rem] bg-white border border-[var(--color-outline-variant)]/40 p-5 shadow-card">
-          <div className="flex items-center justify-between mb-3">
+
+        <div className="rounded-[2rem] border border-[var(--color-outline-variant)]/40 bg-white p-5 shadow-card">
+          <div className="mb-3 flex items-center justify-between">
             <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-on-surface-variant)]">Rating</p>
             <Star size={14} className="text-yellow-500" fill="currentColor" />
           </div>
@@ -197,34 +199,34 @@ export default function AgentDashboard() {
         </div>
       </div>
 
-      {/* ── Active Assignment ── */}
       <div className="mt-8">
-        <h3 className="mb-4 font-display text-xl font-bold flex items-center gap-2">
-          Current Assignment
-        </h3>
+        <h3 className="mb-4 flex items-center gap-2 font-display text-xl font-bold">Current Assignment</h3>
 
-        {agent?.isOnline && currentAssignment ? (
-          <div className="relative overflow-hidden rounded-[2rem] bg-white border border-[var(--color-outline-variant)]/50 p-6 shadow-card">
-            {/* Animated background glow */}
+        {currentAssignment ? (
+          <div className="relative overflow-hidden rounded-[2rem] border border-[var(--color-outline-variant)]/50 bg-white p-6 shadow-card">
             <div className="absolute -right-20 -top-20 h-40 w-40 rounded-full bg-[var(--color-primary)]/10 blur-3xl" />
-            
+
             <div className="relative z-10">
               <div className="flex items-start justify-between">
                 <div>
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-primary)]/10 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-[var(--color-primary)]">
-                    <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-primary)] animate-pulse" />
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--color-primary)]" />
                     {currentAssignment.status.replace('_', ' ')}
                   </span>
-                  <h4 className="mt-3 font-display text-2xl font-black">Order #{currentAssignment.orderNumber.slice(-4)}</h4>
-                  <p className="text-xs font-bold text-[var(--color-on-surface-variant)] flex items-center gap-1 mt-1">
-                    <Clock size={12} /> Ready in 5 mins
+                  <h4 className="mt-3 font-display text-2xl font-black">
+                    Order #{currentAssignment.orderNumber.slice(-4)}
+                  </h4>
+                  <p className="mt-1 flex items-center gap-1 text-xs font-bold text-[var(--color-on-surface-variant)]">
+                    <Clock size={12} /> Live assignment
                   </p>
                 </div>
                 <div className="text-right">
                   <p className="font-display text-2xl font-black text-[var(--color-on-surface)]">
                     {formatCurrency(currentAssignment.finalAmount || currentAssignment.totalAmount || 0)}
                   </p>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-on-surface-variant)]">Payout: {formatCurrency((currentAssignment.finalAmount || 0) * AGENT_EARNING_RATE)}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-on-surface-variant)]">
+                    Payout: {formatCurrency((currentAssignment.finalAmount || 0) * AGENT_EARNING_RATE)}
+                  </p>
                 </div>
               </div>
 
@@ -238,32 +240,45 @@ export default function AgentDashboard() {
                   <div className="flex-1 space-y-4">
                     <div>
                       <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-on-surface-variant)]">Pickup</p>
-                      <p className="text-sm font-bold mt-0.5">Spice Route Kitchen</p>
+                      <p className="mt-0.5 text-sm font-bold">Restaurant #{currentAssignment.restaurantId}</p>
                     </div>
                     <div>
                       <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-on-surface-variant)]">Dropoff</p>
-                      <p className="text-sm font-bold mt-0.5 line-clamp-1">{currentAssignment.deliveryAddress}</p>
+                      <p className="mt-0.5 line-clamp-1 text-sm font-bold">{currentAssignment.deliveryAddress}</p>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <Link to="/agent/navigation" className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-[var(--color-primary)] py-4 text-sm font-bold text-white shadow-glow transition-transform hover:scale-[1.02] active:scale-95">
+              <Link
+                to="/agent/navigation"
+                className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-[var(--color-primary)] py-4 text-sm font-bold text-white shadow-glow transition-transform hover:scale-[1.02] active:scale-95"
+              >
                 <Navigation size={16} /> Open Navigation
               </Link>
             </div>
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center gap-3 rounded-[2.5rem] border-2 border-dashed border-[var(--color-outline-variant)] bg-white/50 py-16 text-center backdrop-blur">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--color-surface-container)] text-[var(--color-primary)] shadow-inner">
-              <Bike size={24} className={agent?.isOnline ? 'animate-bounce' : ''} />
-            </div>
-            <div>
-              <h4 className="font-display text-lg font-bold">{agent?.isOnline ? 'Searching for orders...' : 'You are offline'}</h4>
-              <p className="mt-1 text-xs text-[var(--color-on-surface-variant)] max-w-[200px] mx-auto">
-                {agent?.isOnline ? 'Stay in high-demand zones to receive assignments faster.' : 'Go online to start receiving delivery requests.'}
-              </p>
-            </div>
+          <div className="rounded-[2rem] border border-[var(--color-outline-variant)]/40 bg-white p-6 shadow-card">
+            <p className="text-sm font-semibold text-[var(--color-on-surface-variant)]">
+              {agent?.isOnline
+                ? 'No active order. Accept the next available delivery to start navigation.'
+                : 'Go online to receive and accept delivery orders.'}
+            </p>
+            {agent?.isOnline ? (
+              <button
+                type="button"
+                onClick={() => void acceptNextOrder()}
+                disabled={acceptingOrder || availableOrders.length === 0}
+                className="mt-4 rounded-full bg-[var(--color-primary)] px-5 py-3 text-sm font-bold text-white transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {acceptingOrder
+                  ? 'Accepting...'
+                  : availableOrders.length > 0
+                    ? `Accept Next Order (${availableOrders.length} waiting)`
+                    : 'No Ready Orders'}
+              </button>
+            ) : null}
           </div>
         )}
       </div>

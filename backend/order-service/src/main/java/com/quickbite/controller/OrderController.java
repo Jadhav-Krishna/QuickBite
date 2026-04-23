@@ -50,6 +50,12 @@ public class OrderController {
         return ResponseEntity.ok(orders);
     }
 
+    @GetMapping("/available")
+    public ResponseEntity<List<OrderDTO>> getAvailableOrdersForDelivery() {
+        List<OrderDTO> orders = orderService.getAvailableOrdersForDelivery();
+        return ResponseEntity.ok(orders);
+    }
+
     @PutMapping("/{orderNumber}/confirm")
     public ResponseEntity<OrderDTO> confirmOrder(@PathVariable("orderNumber") String orderNumber) {
         log.info("Confirming order: {}", orderNumber);

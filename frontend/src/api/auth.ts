@@ -295,6 +295,19 @@ export const authService = {
     );
   },
 
+  async deleteUser(userId: number): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/auth/users/${userId}`, {
+      method: 'DELETE',
+      headers: {
+        ...getAuthHeader(),
+      },
+    });
+
+    if (!response.ok) {
+      await parseErrorMessage(response, 'Unable to delete user.');
+    }
+  },
+
   async logoutFromServer(): Promise<void> {
     const accessToken = localStorage.getItem('accessToken');
     if (!accessToken) {

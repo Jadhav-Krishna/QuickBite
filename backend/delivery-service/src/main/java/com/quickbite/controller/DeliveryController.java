@@ -32,7 +32,9 @@ public class DeliveryController {
 
     @GetMapping("/agents/user/{userId}")
     public ResponseEntity<DeliveryAgentDTO> getAgentByUserId(@PathVariable("userId") Long userId) {
-        return ResponseEntity.ok(deliveryService.getDeliveryAgentByUserId(userId));
+        return deliveryService.getDeliveryAgentByUserId(userId)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).build());
     }
 
     @PutMapping("/agents/{agentId}/location")

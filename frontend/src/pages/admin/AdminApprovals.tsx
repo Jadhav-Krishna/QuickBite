@@ -1,27 +1,52 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Search, ShieldAlert, ShieldCheck, Store, MapPin, CheckCircle2, ChevronRight, SlidersHorizontal, Percent } from 'lucide-react';
+import { Bike, CheckCircle2, MapPin, Power, Search, ShieldAlert, Store, UserCheck, UserX } from 'lucide-react';
+import { authService, type UserDTO } from '../../api/auth';
 import { restaurantService, type Restaurant } from '../../api/restaurant';
+
+type ApprovalTab = 'pending' | 'approved';
+type ApprovalDomain = 'restaurants' | 'agents';
+
+const formatCuisines = (restaurant: Restaurant) => {
+  if (Array.isArray(restaurant.cuisines) && restaurant.cuisines.length > 0) {
+    return restaurant.cuisines.join(', ');
+  }
+
+  if (typeof restaurant.cuisines === 'string' && restaurant.cuisines.trim()) {
+    return restaurant.cuisines;
+  }
+
+  return restaurant.cuisineType || 'Various';
+};
 
 export default function AdminApprovals() {
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
+  const [deliveryAgents, setDeliveryAgents] = useState<UserDTO[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'pending' | 'active'>('pending');
-  
-  const [actionId, setActionId] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState<ApprovalTab>('pending');
+  const [activeDomain, setActiveDomain] = useState<ApprovalDomain>('restaurants');
+  const [actionKey, setActionKey] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchRestaurants();
+    void fetchRestaurants();
   }, []);
 
   const fetchRestaurants = async () => {
     try {
       setLoading(true);
-      const data = await restaurantService.getAllRestaurantsForAdmin();
-      setRestaurants(data);
+      setError(null);
+      const [allRestaurants, allUsers] = await Promise.all([
+        restaurantService.getAllRestaurantsForAdmin(),
+        authService.getAllUsers(),
+      ]);
+
+      setRestaurants(allRestaurants);
+      setDeliveryAgents(
+        allUsers.filter((user) => user.role.toUpperCase().includes('DELIVERY_AGENT')),
+      );
     } catch (err: any) {
-      setError(err.message || 'Unable to load restaurants.');
+      setError(err?.message || 'Unable to load approvals data.');
     } finally {
       setLoading(false);
     }
@@ -29,184 +54,403 @@ export default function AdminApprovals() {
 
   const filteredRestaurants = useMemo(() => {
     let result = restaurants;
-    if (activeTab === 'pending') result = result.filter(r => !r.isApproved);
-    if (activeTab === 'active') result = result.filter(r => r.isApproved);
-    
-    const query = search.trim().toLowerCase();
-    if (query) {
-      result = result.filter(r => 
-        [r.name, r.cuisineType, r.city].filter(Boolean).some(val => val!.toLowerCase().includes(query))
-      );
-    }
-    return result;
-  }, [restaurants, activeTab, search]);
 
-  const handleApprove = async (e: React.MouseEvent, id: number) => {
-    e.stopPropagation();
-    setActionId(id);
+    if (activeTab === 'pending') {
+      result = result.filter((restaurant) => !restaurant.isApproved);
+    } else {
+      result = result.filter((restaurant) => restaurant.isApproved);
+    }
+
+    const query = search.trim().toLowerCase();
+    if (!query) {
+      return result;
+    }
+
+    return result.filter((restaurant) =>
+      [restaurant.name, restaurant.cuisineType, restaurant.city, restaurant.address]
+        .filter(Boolean)
+        .some((value) => value!.toLowerCase().includes(query)),
+    );
+  }, [activeTab, restaurants, search]);
+
+  const filteredAgents = useMemo(() => {
+    let result = deliveryAgents;
+
+    if (activeTab === 'pending') {
+      result = result.filter((agent) => !agent.isActive);
+    } else {
+      result = result.filter((agent) => agent.isActive);
+    }
+
+    const query = search.trim().toLowerCase();
+    if (!query) {
+      return result;
+    }
+
+    return result.filter((agent) =>
+      [agent.fullName, agent.email, agent.phone]
+        .filter(Boolean)
+        .some((value) => value!.toLowerCase().includes(query)),
+    );
+  }, [activeTab, deliveryAgents, search]);
+
+  const runRestaurantAction = async (
+    key: string,
+    restaurantId: number,
+    action: () => Promise<Restaurant>,
+    fallbackError: string,
+  ) => {
+    setActionKey(key);
+    setError(null);
+
     try {
-      const updated = await restaurantService.approveRestaurant(id);
-      setRestaurants(current => current.map(r => r.id === id ? updated : r));
+      const updatedRestaurant = await action();
+      setRestaurants((current) =>
+        current.map((restaurant) =>
+          restaurant.id === restaurantId ? updatedRestaurant : restaurant,
+        ),
+      );
     } catch (err: any) {
-      console.error(err);
-      setError('Approval failed: ' + err.message);
+      setError(err?.message || fallbackError);
     } finally {
-      setActionId(null);
+      setActionKey(null);
     }
   };
 
-  const handleSuspend = async (e: React.MouseEvent, id: number) => {
-    e.stopPropagation();
-    setActionId(id);
+  const runAgentAction = async (
+    key: string,
+    userId: number,
+    action: () => Promise<{ message: string }>,
+    makeActive: boolean,
+    fallbackError: string,
+  ) => {
+    setActionKey(key);
+    setError(null);
+
     try {
-      // Simulate suspend API call as it doesn't exist
-      await new Promise(r => setTimeout(r, 800));
-      setRestaurants(current => current.map(r => r.id === id ? { ...r, isActive: false } : r));
+      await action();
+      setDeliveryAgents((current) =>
+        current.map((agent) =>
+          agent.userId === userId ? { ...agent, isActive: makeActive } : agent,
+        ),
+      );
     } catch (err: any) {
-      console.error(err);
+      setError(err?.message || fallbackError);
     } finally {
-      setActionId(null);
+      setActionKey(null);
     }
   };
 
   if (loading) {
     return (
-      <div className="space-y-8 animate-pulse max-w-[1600px]">
-        <div className="h-12 w-64 bg-slate-200 rounded-lg mb-8" />
-        <div className="h-[600px] bg-white rounded-[2.5rem] shadow-sm" />
+      <div className="max-w-[1600px] space-y-8 animate-pulse">
+        <div className="h-12 w-64 rounded-lg bg-slate-200" />
+        <div className="h-[600px] rounded-3xl bg-white shadow-sm" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-8 animate-fade-up max-w-[1600px]">
-      <header className="flex flex-wrap items-end justify-between gap-4 mb-8">
+    <div className="max-w-[1600px] space-y-8 animate-fade-up">
+      <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="mb-2 font-display text-4xl font-black text-slate-900">Partner Directory</h1>
-          <p className="text-slate-500 font-medium">Review onboarding requests, adjust commission rates, and manage active restaurant partners.</p>
+          <h1 className="mb-2 font-display text-4xl font-black text-slate-900">Approvals Center</h1>
+          <p className="font-medium text-slate-500">Approve restaurants and delivery agents with live status controls.</p>
         </div>
-        <div className="relative w-full max-w-md group">
-          <Search size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-amber-500 transition-colors" />
+        <div className="group relative w-full max-w-md">
+          <Search size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-amber-500" />
           <input
             type="text"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by restaurant name or city..."
-            className="w-full rounded-full bg-white border border-slate-200 px-12 py-3.5 text-sm font-medium outline-none transition-all focus:border-amber-300 focus:ring-4 focus:ring-amber-500/10 shadow-sm text-slate-700"
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder={
+              activeDomain === 'restaurants'
+                ? 'Search by restaurant name or city...'
+                : 'Search by agent name, email, or phone...'
+            }
+            className="w-full rounded-full border border-slate-200 bg-white px-12 py-3.5 text-sm font-medium text-slate-700 outline-none transition-all focus:border-amber-300 focus:ring-4 focus:ring-amber-500/10"
           />
         </div>
       </header>
 
-      {error && (
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700 flex items-center gap-2">
+      {error ? (
+        <div className="flex items-center gap-2 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700">
           <ShieldAlert size={18} /> {error}
         </div>
-      )}
+      ) : null}
 
-      {/* Tabs */}
       <div className="flex items-center gap-4 border-b border-slate-200 pb-px">
         <button
-          onClick={() => setActiveTab('pending')}
-          className={`pb-4 px-2 text-sm font-black uppercase tracking-widest transition-all ${
-            activeTab === 'pending' 
-              ? 'text-amber-600 border-b-2 border-amber-500' 
+          type="button"
+          onClick={() => setActiveDomain('restaurants')}
+          className={`pb-4 px-2 text-sm font-black uppercase tracking-widest transition ${
+            activeDomain === 'restaurants'
+              ? 'border-b-2 border-amber-500 text-amber-600'
               : 'text-slate-400 hover:text-slate-600'
           }`}
         >
-          Pending Approvals ({restaurants.filter(r => !r.isApproved).length})
+          Restaurants
         </button>
         <button
-          onClick={() => setActiveTab('active')}
-          className={`pb-4 px-2 text-sm font-black uppercase tracking-widest transition-all ${
-            activeTab === 'active' 
-              ? 'text-indigo-600 border-b-2 border-indigo-500' 
+          type="button"
+          onClick={() => setActiveDomain('agents')}
+          className={`pb-4 px-2 text-sm font-black uppercase tracking-widest transition ${
+            activeDomain === 'agents'
+              ? 'border-b-2 border-indigo-500 text-indigo-600'
               : 'text-slate-400 hover:text-slate-600'
           }`}
         >
-          Active Partners ({restaurants.filter(r => r.isApproved).length})
+          Delivery Agents
         </button>
       </div>
 
-      {/* Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pt-4">
-        {filteredRestaurants.length === 0 ? (
-          <div className="col-span-full flex flex-col items-center justify-center py-20 text-slate-400">
-            <Store size={48} className="opacity-20 mb-4" />
-            <p className="font-display text-xl font-black text-slate-700">No restaurants found</p>
-          </div>
-        ) : (
-          filteredRestaurants.map(restaurant => (
-            <div key={restaurant.id} className="group relative overflow-hidden rounded-[2rem] bg-white border border-slate-200 shadow-sm hover:shadow-xl hover:shadow-slate-200 transition-all flex flex-col">
-              
-              <div className="relative h-40 overflow-hidden bg-slate-100">
-                {restaurant.imageUrl ? (
-                  <img src={restaurant.imageUrl} alt={restaurant.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center text-slate-300">
-                    <Store size={48} />
-                  </div>
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 to-transparent" />
-                <div className="absolute bottom-4 left-4 right-4 text-white">
-                  <h3 className="font-display text-xl font-black line-clamp-1">{restaurant.name}</h3>
-                  <p className="text-xs font-medium text-slate-300 flex items-center gap-1 mt-1">
-                    <MapPin size={12} /> {restaurant.address}, {restaurant.city}
-                  </p>
-                </div>
-                {!restaurant.isApproved && (
-                  <span className="absolute top-4 right-4 bg-amber-500 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-md">
-                    Pending
-                  </span>
-                )}
-              </div>
+      <div className="flex items-center gap-4 border-b border-slate-200 pb-px">
+        <button
+          type="button"
+          onClick={() => setActiveTab('pending')}
+          className={`pb-4 px-2 text-sm font-black uppercase tracking-widest transition ${
+            activeTab === 'pending'
+              ? 'border-b-2 border-amber-500 text-amber-600'
+              : 'text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          Pending (
+          {activeDomain === 'restaurants'
+            ? restaurants.filter((restaurant) => !restaurant.isApproved).length
+            : deliveryAgents.filter((agent) => !agent.isActive).length}
+          )
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('approved')}
+          className={`pb-4 px-2 text-sm font-black uppercase tracking-widest transition ${
+            activeTab === 'approved'
+              ? 'border-b-2 border-indigo-500 text-indigo-600'
+              : 'text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          Approved (
+          {activeDomain === 'restaurants'
+            ? restaurants.filter((restaurant) => restaurant.isApproved).length
+            : deliveryAgents.filter((agent) => agent.isActive).length}
+          )
+        </button>
+      </div>
 
-              <div className="p-5 flex-1 flex flex-col justify-between gap-6">
-                <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="inline-block bg-slate-100 text-slate-600 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest">
-                      {restaurant.cuisineType || 'Various'}
-                    </span>
-                    <span className="text-xs font-bold text-slate-500 flex items-center gap-1">
-                      <Percent size={12} /> Comm: 15%
-                    </span>
-                  </div>
-                  <p className="text-sm text-slate-500 line-clamp-2">{restaurant.description || 'No description provided.'}</p>
-                </div>
+      {activeDomain === 'restaurants' ? (
+        <div className="grid grid-cols-1 gap-6 pt-4 md:grid-cols-2 xl:grid-cols-3">
+          {filteredRestaurants.length === 0 ? (
+            <div className="col-span-full flex flex-col items-center justify-center py-20 text-slate-400">
+              <Store size={48} className="mb-4 opacity-20" />
+              <p className="font-display text-xl font-black text-slate-700">No restaurants found</p>
+            </div>
+          ) : (
+            filteredRestaurants.map((restaurant) => {
+              const approveKey = `approve-${restaurant.id}`;
+              const activeKey = `active-${restaurant.id}`;
+              const openKey = `open-${restaurant.id}`;
 
-                <div className="pt-4 border-t border-slate-100 flex items-center gap-2">
-                  {!restaurant.isApproved ? (
-                    <button 
-                      onClick={(e) => handleApprove(e, restaurant.id)}
-                      disabled={actionId === restaurant.id}
-                      className="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-2.5 rounded-xl text-xs font-bold shadow-md shadow-amber-500/20 transition-all active:scale-95 disabled:opacity-50"
+              return (
+                <div key={restaurant.id} className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition hover:shadow-xl hover:shadow-slate-200/60">
+                  <div className="relative h-44 overflow-hidden bg-slate-100">
+                    {restaurant.imageUrl ? (
+                      <img
+                        src={restaurant.imageUrl}
+                        alt={restaurant.name}
+                        className="h-full w-full object-cover transition duration-500 hover:scale-105"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-slate-300">
+                        <Store size={48} />
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 to-transparent" />
+                    <div className="absolute bottom-4 left-4 right-4 text-white">
+                      <h3 className="font-display text-xl font-black">{restaurant.name}</h3>
+                      <p className="mt-1 flex items-center gap-1 text-xs font-medium text-slate-200">
+                        <MapPin size={12} /> {restaurant.address}, {restaurant.city}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-5 p-5">
+                    <div className="flex flex-wrap gap-2">
+                      <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-slate-700">
+                        {restaurant.isApproved ? 'Approved' : 'Pending'}
+                      </span>
+                      <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest ${restaurant.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                        {restaurant.isActive ? 'Active' : 'Inactive'}
+                      </span>
+                      <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest ${restaurant.isOpen ? 'bg-sky-100 text-sky-700' : 'bg-slate-100 text-slate-700'}`}>
+                        {restaurant.isOpen ? 'Open' : 'Closed'}
+                      </span>
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-widest text-slate-400">Cuisine</p>
+                      <p className="mt-1 text-sm font-semibold text-slate-700">{formatCuisines(restaurant)}</p>
+                    </div>
+
+                    <p className="text-sm text-slate-500">
+                      {restaurant.description || 'No description provided yet.'}
+                    </p>
+
+                    {!restaurant.isApproved ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void runRestaurantAction(
+                            approveKey,
+                            restaurant.id,
+                            () => restaurantService.approveRestaurant(restaurant.id),
+                            'Approval failed.',
+                          )
+                        }
+                        disabled={actionKey === approveKey}
+                        className="w-full rounded-xl bg-amber-500 py-3 text-sm font-bold text-white transition hover:bg-amber-600 disabled:opacity-60"
+                      >
+                        {actionKey === approveKey ? 'Approving...' : 'Approve Partner'}
+                      </button>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void runRestaurantAction(
+                              openKey,
+                              restaurant.id,
+                              () => restaurantService.toggleRestaurantOpen(restaurant.id),
+                              'Unable to update open status.',
+                            )
+                          }
+                          disabled={actionKey === openKey}
+                          className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-100 disabled:opacity-60"
+                        >
+                          {actionKey === openKey ? 'Updating...' : restaurant.isOpen ? 'Mark Closed' : 'Mark Open'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void runRestaurantAction(
+                              activeKey,
+                              restaurant.id,
+                              () => restaurantService.toggleRestaurantActive(restaurant.id),
+                              'Unable to update partner status.',
+                            )
+                          }
+                          disabled={actionKey === activeKey}
+                          className={`rounded-xl px-4 py-3 text-sm font-bold transition disabled:opacity-60 ${
+                            restaurant.isActive
+                              ? 'border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100'
+                              : 'border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                          }`}
+                        >
+                          {actionKey === activeKey ? (
+                            'Updating...'
+                          ) : (
+                            <span className="flex items-center justify-center gap-2">
+                              <Power size={14} />
+                              {restaurant.isActive ? 'Deactivate' : 'Activate'}
+                            </span>
+                          )}
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-2 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-xs font-semibold text-slate-600">
+                      <CheckCircle2 size={14} className="text-emerald-500" />
+                      Rating {restaurant.rating?.toFixed(1) || '0.0'} from {restaurant.reviewCount || 0} reviews
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-6 pt-4 md:grid-cols-2 xl:grid-cols-3">
+          {filteredAgents.length === 0 ? (
+            <div className="col-span-full flex flex-col items-center justify-center py-20 text-slate-400">
+              <Bike size={48} className="mb-4 opacity-20" />
+              <p className="font-display text-xl font-black text-slate-700">No delivery agents found</p>
+            </div>
+          ) : (
+            filteredAgents.map((agent) => {
+              const approveKey = `approve-agent-${agent.userId}`;
+              const suspendKey = `suspend-agent-${agent.userId}`;
+
+              return (
+                <div key={agent.userId} className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:shadow-xl hover:shadow-slate-200/60">
+                  <div className="mb-4 flex items-center gap-4">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-100 text-indigo-600">
+                      <Bike size={20} />
+                    </div>
+                    <div>
+                      <h3 className="font-display text-xl font-black text-slate-900">{agent.fullName}</h3>
+                      <p className="text-xs font-semibold text-slate-500">{agent.email}</p>
+                    </div>
+                  </div>
+
+                  <div className="mb-5 flex flex-wrap gap-2">
+                    <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-slate-700">
+                      Delivery Agent
+                    </span>
+                    <span
+                      className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest ${
+                        agent.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                      }`}
                     >
-                      {actionId === restaurant.id ? 'Approving...' : 'Approve Partner'}
+                      {agent.isActive ? 'Approved' : 'Pending Approval'}
+                    </span>
+                  </div>
+
+                  <div className="mb-6 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-xs font-semibold text-slate-600">
+                    Phone: {agent.phone || 'N/A'}
+                  </div>
+
+                  {!agent.isActive ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        void runAgentAction(
+                          approveKey,
+                          agent.userId,
+                          () => authService.reactivateUser(agent.userId),
+                          true,
+                          'Unable to approve delivery agent.',
+                        )
+                      }
+                      disabled={actionKey === approveKey}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-bold text-white transition hover:bg-emerald-700 disabled:opacity-60"
+                    >
+                      <UserCheck size={15} />
+                      {actionKey === approveKey ? 'Approving...' : 'Approve Agent'}
                     </button>
                   ) : (
-                    <>
-                      <button className="flex-1 bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-700 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2">
-                        <SlidersHorizontal size={14} /> Adjust Config
-                      </button>
-                      <button 
-                        onClick={(e) => handleSuspend(e, restaurant.id)}
-                        disabled={actionId === restaurant.id}
-                        className={`py-2.5 px-4 rounded-xl text-xs font-bold border transition-all ${
-                          restaurant.isActive 
-                            ? 'border-rose-200 text-rose-600 hover:bg-rose-50' 
-                            : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50'
-                        }`}
-                      >
-                        {restaurant.isActive ? 'Suspend' : 'Activate'}
-                      </button>
-                    </>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        void runAgentAction(
+                          suspendKey,
+                          agent.userId,
+                          () => authService.suspendUser(agent.userId),
+                          false,
+                          'Unable to suspend delivery agent.',
+                        )
+                      }
+                      disabled={actionKey === suspendKey}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl border border-rose-200 bg-rose-50 py-3 text-sm font-bold text-rose-700 transition hover:bg-rose-100 disabled:opacity-60"
+                    >
+                      <UserX size={15} />
+                      {actionKey === suspendKey ? 'Updating...' : 'Suspend Agent'}
+                    </button>
                   )}
                 </div>
-              </div>
-
-            </div>
-          ))
-        )}
-      </div>
+              );
+            })
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -114,7 +114,7 @@ public class RestaurantController {
     public ResponseEntity<RestaurantDTO> updateRestaurant(
             @PathVariable("id") Long id,
             @RequestBody RestaurantDTO restaurantDTO) {
-        Restaurant restaurant = mapToEntity(restaurantDTO);
+        Restaurant restaurant = mapToEntityForUpdate(restaurantDTO);
         Restaurant updated = restaurantService.updateRestaurant(id, restaurant);
         return ResponseEntity.ok(mapToDTO(updated));
     }
@@ -186,6 +186,39 @@ public class RestaurantController {
         entity.setIsActive(dto.getIsActive() != null ? dto.getIsActive() : true);
         entity.setIsOpen(dto.getIsOpen() != null ? dto.getIsOpen() : false);
         entity.setIsApproved(dto.getIsApproved() != null ? dto.getIsApproved() : false);
+        entity.setImageUrl(dto.getImageUrl());
+        entity.setOpeningTime(dto.getOpeningTime());
+        entity.setClosingTime(dto.getClosingTime());
+        entity.setCuisines(dto.getCuisines());
+        return entity;
+    }
+
+    private Restaurant mapToEntityForUpdate(RestaurantDTO dto) {
+        Restaurant entity = new Restaurant();
+        entity.setId(dto.getId());
+        entity.setOwnerId(dto.getOwnerId());
+        entity.setName(dto.getName());
+        entity.setCuisineType(dto.getCuisineType());
+        entity.setDescription(dto.getDescription());
+        entity.setAddress(dto.getAddress());
+        entity.setCity(dto.getCity());
+        entity.setState(dto.getState());
+        entity.setPincode(dto.getPincode());
+
+        if (dto.getLatitude() != null && dto.getLongitude() != null) {
+            entity.setLocation(geometryFactory.createPoint(new Coordinate(dto.getLongitude(), dto.getLatitude())));
+        }
+
+        entity.setPhoneNumber(dto.getPhoneNumber());
+        entity.setEmail(dto.getEmail());
+        entity.setDeliveryFee(dto.getDeliveryFee());
+        entity.setDeliveryRadius(dto.getDeliveryRadius());
+        entity.setMinOrderAmount(dto.getMinOrderAmount());
+        entity.setMinDeliveryTime(dto.getMinDeliveryTime());
+        entity.setMaxDeliveryTime(dto.getMaxDeliveryTime());
+        entity.setEstimatedDeliveryMin(dto.getEstimatedDeliveryMin());
+        entity.setIsActive(dto.getIsActive());
+        entity.setIsOpen(dto.getIsOpen());
         entity.setImageUrl(dto.getImageUrl());
         entity.setOpeningTime(dto.getOpeningTime());
         entity.setClosingTime(dto.getClosingTime());

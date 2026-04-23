@@ -90,6 +90,14 @@ export const orderService = {
     });
   },
 
+  getAvailableOrders() {
+    return request<OrderDTO[]>(`${API_BASE_URL}/v1/orders/available`, {
+      headers: {
+        ...getOptionalAuthHeader(),
+      },
+    });
+  },
+
   updateOrderStatus(orderNumber: string, status: string) {
     return request<OrderDTO>(`${API_BASE_URL}/v1/orders/${orderNumber}/status?status=${encodeURIComponent(status)}`, {
       method: 'PUT',
@@ -109,6 +117,15 @@ export const orderService = {
   },
 
   assignDeliveryAgent(orderNumber: string, deliveryAgentId: number) {
+    return request<OrderDTO>(`${API_BASE_URL}/v1/orders/${orderNumber}/assign-delivery?deliveryAgentId=${deliveryAgentId}`, {
+      method: 'PUT',
+      headers: {
+        ...getOptionalAuthHeader(),
+      },
+    });
+  },
+
+  claimOrder(orderNumber: string, deliveryAgentId: number) {
     return request<OrderDTO>(`${API_BASE_URL}/v1/orders/${orderNumber}/assign-delivery?deliveryAgentId=${deliveryAgentId}`, {
       method: 'PUT',
       headers: {

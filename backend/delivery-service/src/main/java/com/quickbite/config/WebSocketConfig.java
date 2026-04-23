@@ -1,5 +1,6 @@
 package com.quickbite.config;
 
+import com.quickbite.websocket.TrackingWebSocketHandler;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;

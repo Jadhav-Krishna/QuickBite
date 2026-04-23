@@ -124,4 +124,9 @@ public class PaymentController {
     public ResponseEntity<List<PaymentResponse>> getCustomerPayments(@PathVariable("customerId") Long customerId) {
         return ResponseEntity.ok(paymentService.getPaymentsByCustomer(customerId));
     }
+
+    @GetMapping
+    public ResponseEntity<List<PaymentResponse>> getAllPayments() {
+        return ResponseEntity.ok(paymentService.getAllPayments());
+    }
 }

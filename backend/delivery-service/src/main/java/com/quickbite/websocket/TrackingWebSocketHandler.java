@@ -49,17 +49,14 @@ public class TrackingWebSocketHandler extends TextWebSocketHandler {
     public void broadcastLocation(String orderId, Object payload) {
         CopyOnWriteArrayList<WebSocketSession> sessions = sessionsMap.get(orderId);
         if (sessions != null && !sessions.isEmpty()) {
-            try {
-                String message = objectMapper.writeValueAsString(payload);
-                TextMessage textMessage = new TextMessage(message);
-                for (WebSocketSession session : sessions) {
-                    if (session.isOpen()) {
-                        session.sendMessage(textMessage);
-                    }
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            sendToSessions(sessions, payload);
+        }
+    }
+
+    public void broadcastStatus(String orderId, Object payload) {
+        CopyOnWriteArrayList<WebSocketSession> sessions = sessionsMap.get(orderId);
+        if (sessions != null && !sessions.isEmpty()) {
+            sendToSessions(sessions, Map.of("type", "DELIVERY_STATUS", "payload", payload));
         }
     }
 
@@ -73,5 +70,19 @@ public class TrackingWebSocketHandler extends TextWebSocketHandler {
             }
         }
         return null;
+    }
+
+    private void sendToSessions(CopyOnWriteArrayList<WebSocketSession> sessions, Object payload) {
+        try {
+            String message = objectMapper.writeValueAsString(payload);
+            TextMessage textMessage = new TextMessage(message);
+            for (WebSocketSession session : sessions) {
+                if (session.isOpen()) {
+                    session.sendMessage(textMessage);
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }

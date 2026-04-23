@@ -18,6 +18,8 @@ export default function Login() {
     switch (role?.toUpperCase()) {
       case 'ADMIN':
       case 'ROLE_ADMIN':
+      case 'APPLICATION_ADMIN':
+      case 'ROLE_APPLICATION_ADMIN':
         return '/admin/overview';
       case 'PARTNER':
       case 'RESTAURANT_PARTNER':

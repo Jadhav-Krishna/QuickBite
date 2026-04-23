@@ -16,6 +16,7 @@ public class PaymentResponse {
 
     private Long paymentId;
     private Long orderId;
+    private Long customerId;
     private String transactionId; // Razorpay payment ID
     private BigDecimal amount;
     private String currency;

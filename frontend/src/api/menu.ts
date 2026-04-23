@@ -27,6 +27,35 @@ export interface MenuItem {
   imageUrl?: string;
 }
 
+export interface CreateMenuItemRequest {
+  restaurantId: number;
+  categoryId?: number;
+  name: string;
+  description: string;
+  price: number;
+  discountedPrice?: number;
+  preparationTime: number;
+  isVegetarian: boolean;
+  isSpicy?: boolean;
+}
+
+export interface UpdateMenuItemRequest {
+  name?: string;
+  description?: string;
+  price?: number;
+  discountedPrice?: number;
+  preparationTime?: number;
+  isAvailable?: boolean;
+  imageUrl?: string;
+}
+
+export interface CreateCategoryRequest {
+  restaurantId: number;
+  name: string;
+  description?: string;
+  displayOrder?: number;
+}
+
 const parseResponse = async <T>(response: Response, fallback: string): Promise<T> => {
   if (!response.ok) {
     throw new Error(fallback);
@@ -35,6 +64,15 @@ const parseResponse = async <T>(response: Response, fallback: string): Promise<T
 };
 
 export const menuService = {
+  async getAllMenuByRestaurant(restaurantId: number): Promise<MenuItem[]> {
+    const response = await fetch(`${API_BASE_URL}/v1/menu/items/restaurant/${restaurantId}`, {
+      headers: {
+        ...getOptionalAuthHeader(),
+      },
+    });
+    return parseResponse<MenuItem[]>(response, `Failed to fetch all menu items: ${response.statusText}`);
+  },
+
   async getMenuByRestaurant(restaurantId: number): Promise<MenuItem[]> {
     const response = await fetch(`${API_BASE_URL}/v1/menu/items/restaurant/${restaurantId}/available`, {
       headers: {
@@ -51,6 +89,18 @@ export const menuService = {
       },
     });
     return parseResponse<MenuCategory[]>(response, `Failed to fetch menu categories: ${response.statusText}`);
+  },
+
+  async createCategory(payload: CreateCategoryRequest): Promise<MenuCategory> {
+    const response = await fetch(`${API_BASE_URL}/v1/menu/categories`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getOptionalAuthHeader(),
+      },
+      body: JSON.stringify(payload),
+    });
+    return parseResponse<MenuCategory>(response, `Failed to create category: ${response.statusText}`);
   },
 
   async getMenuItemById(id: number): Promise<MenuItem> {
@@ -81,5 +131,41 @@ export const menuService = {
     if (!response.ok) {
       throw new Error(`Failed to update item availability: ${response.statusText}`);
     }
-  }
+  },
+
+  async createMenuItem(payload: CreateMenuItemRequest): Promise<MenuItem> {
+    const response = await fetch(`${API_BASE_URL}/v1/menu/items`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getOptionalAuthHeader(),
+      },
+      body: JSON.stringify(payload),
+    });
+    return parseResponse<MenuItem>(response, `Failed to create menu item: ${response.statusText}`);
+  },
+
+  async updateMenuItem(id: number, payload: UpdateMenuItemRequest): Promise<MenuItem> {
+    const response = await fetch(`${API_BASE_URL}/v1/menu/items/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getOptionalAuthHeader(),
+      },
+      body: JSON.stringify(payload),
+    });
+    return parseResponse<MenuItem>(response, `Failed to update menu item: ${response.statusText}`);
+  },
+
+  async deleteMenuItem(id: number): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/v1/menu/items/${id}`, {
+      method: 'DELETE',
+      headers: {
+        ...getOptionalAuthHeader(),
+      },
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to delete menu item: ${response.statusText}`);
+    }
+  },
 };

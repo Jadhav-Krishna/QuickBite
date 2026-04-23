@@ -59,16 +59,23 @@ public class MenuService {
     public MenuItem createMenuItem(Long restaurantId, Long categoryId, String name, String description,
                                    Double price, Double discountedPrice, Integer preparationTime,
                                    Boolean isVegetarian, Boolean isSpicy) {
+        if (categoryId == null) {
+            throw new RuntimeException("Category is required for menu item");
+        }
+        if (price == null || price <= 0) {
+            throw new RuntimeException("Price must be greater than 0");
+        }
+
         MenuItem item = new MenuItem();
         item.setRestaurantId(restaurantId);
         item.setCategoryId(categoryId);
         item.setName(name);
         item.setDescription(description);
         item.setPrice(price);
-        item.setDiscountedPrice(discountedPrice);
+        item.setDiscountedPrice(discountedPrice != null ? discountedPrice : price);
         item.setPreparationTime(preparationTime);
         item.setIsVegetarian(isVegetarian);
-        item.setIsSpicy(isSpicy);
+        item.setIsSpicy(isSpicy != null ? isSpicy : false);
         return menuItemRepository.save(item);
     }
 

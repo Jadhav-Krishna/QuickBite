@@ -5,7 +5,8 @@ public enum UserRole {
     CUSTOMER("CUSTOMER", "Customer who places orders"),
     RESTAURANT_OWNER("RESTAURANT_OWNER", "Restaurant owner/merchant"),
     DELIVERY_AGENT("DELIVERY_AGENT", "Delivery agent/rider"),
-    ADMIN("ADMIN", "Platform administrator");
+    ADMIN("ADMIN", "Platform administrator"),
+    APPLICATION_ADMIN("APPLICATION_ADMIN", "Application administrator with platform-wide control");
 
     private final String code;
     private final String description;

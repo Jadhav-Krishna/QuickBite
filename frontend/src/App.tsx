@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
 // Contexts
 import { AuthProvider } from './context/AuthContext';
@@ -83,6 +83,7 @@ function App() {
 
         {/* Partner Routes */}
         <Route path="/partner" element={<RequireRole allowedRoles={['PARTNER', 'ROLE_PARTNER', 'RESTAURANT_PARTNER', 'RESTAURANT_OWNER']}><PartnerLayout /></RequireRole>}>
+          <Route index element={<Navigate to="/partner/dashboard" replace />} />
           <Route path="dashboard" element={<PartnerDashboard />} />
           <Route path="orders" element={<PartnerOrders />} />
           <Route path="menu" element={<PartnerMenu />} />
@@ -91,7 +92,8 @@ function App() {
         </Route>
 
         {/* Admin Routes */}
-        <Route path="/admin" element={<RequireRole allowedRoles={['ADMIN', 'ROLE_ADMIN']}><AdminLayout /></RequireRole>}>
+        <Route path="/admin" element={<RequireRole allowedRoles={['ADMIN', 'ROLE_ADMIN', 'APPLICATION_ADMIN', 'ROLE_APPLICATION_ADMIN']}><AdminLayout /></RequireRole>}>
+          <Route index element={<Navigate to="/admin/overview" replace />} />
           <Route path="overview" element={<AdminOverview />} />
           <Route path="users" element={<AdminUsers />} />
           <Route path="approvals" element={<AdminApprovals />} />

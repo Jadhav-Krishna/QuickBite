@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -61,10 +62,8 @@ public class DeliveryService {
         return mapToDTO(agent);
     }
 
-    public DeliveryAgentDTO getDeliveryAgentByUserId(Long userId) {
-        DeliveryAgent agent = agentRepository.findByUserId(userId)
-                .orElseThrow(() -> new RuntimeException("Delivery agent not found for userId: " + userId));
-        return mapToDTO(agent);
+    public Optional<DeliveryAgentDTO> getDeliveryAgentByUserId(Long userId) {
+        return agentRepository.findByUserId(userId).map(this::mapToDTO);
     }
 
     public void updateLiveLocation(Long agentId, LocationUpdateDTO locationUpdate) {

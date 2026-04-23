@@ -3,6 +3,7 @@ package com.quickbite.service;
 import com.quickbite.dto.PaymentRequest;
 import com.quickbite.dto.PaymentResponse;
 import com.quickbite.dto.RazorpayWebhookEvent;
+import java.util.List;
 
 public interface PaymentService {
 
@@ -30,4 +31,6 @@ public interface PaymentService {
     java.util.List<com.quickbite.dto.WalletStatementDTO> getWalletStatements(Long customerId);
     
     java.util.List<PaymentResponse> getPaymentsByCustomer(Long customerId);
+
+    List<PaymentResponse> getAllPayments();
 }

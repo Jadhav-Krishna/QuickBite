@@ -49,8 +49,8 @@ public class KafkaConfig {
         configProps.put(ConsumerConfig.GROUP_ID_CONFIG, "quickbite-delivery-group");
         configProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         configProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
-        configProps.put(JsonDeserializer.VALUE_DEFAULT_TYPE, "com.quickbite.event.LocationUpdateEvent");
-        configProps.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
+        configProps.put(JsonDeserializer.TRUSTED_PACKAGES, "com.quickbite.event");
+        configProps.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, true);
         configProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         configProps.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, true);
         configProps.put(ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG, 5000);
@@ -69,6 +69,14 @@ public class KafkaConfig {
     @Bean
     public org.apache.kafka.clients.admin.NewTopic locationUpdatesTopic() {
         return org.springframework.kafka.config.TopicBuilder.name(LOCATION_UPDATE_TOPIC)
+                .partitions(3)
+                .replicas(1)
+                .build();
+    }
+
+    @Bean
+    public org.apache.kafka.clients.admin.NewTopic deliveryStatusTopic() {
+        return org.springframework.kafka.config.TopicBuilder.name(DELIVERY_STATUS_TOPIC)
                 .partitions(3)
                 .replicas(1)
                 .build();

@@ -27,6 +27,15 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const addToCart = (item: CartItem) => {
     setItems(prev => {
+      const existingRestaurantId = prev[0]?.restaurantId;
+      if (existingRestaurantId && existingRestaurantId !== item.restaurantId) {
+        const shouldReplace = window.confirm('Your cart contains items from another restaurant. Replace cart with this restaurant?');
+        if (!shouldReplace) {
+          return prev;
+        }
+        return [{ ...item }];
+      }
+
       const existing = prev.find(i => i.id === item.id);
       if (existing) {
         return prev.map(i => i.id === item.id ? { ...i, quantity: i.quantity + item.quantity } : i);

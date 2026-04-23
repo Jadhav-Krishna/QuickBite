@@ -123,7 +123,7 @@ public class OrderService {
         order = orderRepository.save(order);
 
         // Publish status change event
-        publishOrderEvent("ORDER_STATUS_CHANGED", order, "Order status updated to " + newStatus);
+        publishOrderEvent(resolveEventTypeForStatus(newStatus), order, "Order status updated to " + newStatus);
 
         log.info("Order status updated successfully: {}", orderNumber);
         return convertToDTO(order);
@@ -138,9 +138,13 @@ public class OrderService {
             throw new RuntimeException("Order must be READY before assigning delivery agent");
         }
 
+        if (order.getDeliveryAgentId() != null) {
+            throw new RuntimeException("Order already has a delivery agent assigned");
+        }
+
         order.setDeliveryAgentId(deliveryAgentId);
-        order.setStatus(OrderStatus.PICKED_UP);
         order = orderRepository.save(order);
+        publishOrderEvent("DELIVERY_AGENT_ASSIGNED", order, "Delivery agent assigned to order");
 
         log.info("Delivery agent {} assigned to order {}", deliveryAgentId, orderNumber);
         return convertToDTO(order);
@@ -190,6 +194,13 @@ public class OrderService {
     @Transactional(readOnly = true)
     public List<OrderDTO> getDeliveryAgentOrders(Long agentId) {
         return orderRepository.findActiveOrdersByDeliveryAgent(agentId).stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<OrderDTO> getAvailableOrdersForDelivery() {
+        return orderRepository.findByStatusAndDeliveryAgentIdIsNullOrderByCreatedAtAsc(OrderStatus.READY).stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
     }
@@ -301,6 +312,20 @@ public class OrderService {
             case PICKED_UP -> to.equals(OrderStatus.IN_TRANSIT) || to.equals(OrderStatus.CANCELLED);
             case IN_TRANSIT -> to.equals(OrderStatus.DELIVERED) || to.equals(OrderStatus.CANCELLED);
             case DELIVERED, CANCELLED, FAILED -> false;
+        };
+    }
+
+    private String resolveEventTypeForStatus(OrderStatus status) {
+        return switch (status) {
+            case PLACED -> OrderEvent.EventType.ORDER_PLACED.name();
+            case CONFIRMED -> OrderEvent.EventType.ORDER_CONFIRMED.name();
+            case PREPARING -> OrderEvent.EventType.ORDER_PREPARING.name();
+            case READY -> OrderEvent.EventType.ORDER_READY.name();
+            case PICKED_UP -> OrderEvent.EventType.ORDER_PICKED_UP.name();
+            case IN_TRANSIT -> OrderEvent.EventType.ORDER_IN_TRANSIT.name();
+            case DELIVERED -> OrderEvent.EventType.ORDER_DELIVERED.name();
+            case CANCELLED -> OrderEvent.EventType.ORDER_CANCELLED.name();
+            case FAILED -> "ORDER_FAILED";
         };
     }
 }

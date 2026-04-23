@@ -25,10 +25,12 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     List<Order> findByStatus(OrderStatus status);
 
+    List<Order> findByStatusAndDeliveryAgentIdIsNullOrderByCreatedAtAsc(OrderStatus status);
+
     @Query("SELECT o FROM Order o WHERE o.customerId = :customerId ORDER BY o.createdAt DESC")
     List<Order> findCustomerOrderHistory(@Param("customerId") Long customerId);
 
-    @Query("SELECT o FROM Order o WHERE o.restaurantId = :restaurantId AND o.status IN ('PLACED', 'CONFIRMED', 'PREPARING', 'READY') ORDER BY o.createdAt ASC")
+    @Query("SELECT o FROM Order o WHERE o.restaurantId = :restaurantId ORDER BY o.createdAt DESC")
     List<Order> findActiveOrdersByRestaurant(@Param("restaurantId") Long restaurantId);
 
     @Query("SELECT o FROM Order o WHERE o.deliveryAgentId = :agentId AND o.status NOT IN ('DELIVERED', 'CANCELLED') ORDER BY o.estimatedDeliveryTime ASC")

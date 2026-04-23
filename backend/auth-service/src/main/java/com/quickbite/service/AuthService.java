@@ -52,6 +52,12 @@ public class AuthService {
     // ==================== Registration & Login ====================
 
     public AuthResponse signup(SignupRequest request) {
+        UserRole requestedRole = UserRole.valueOf(request.getRole().toUpperCase());
+
+        if (requestedRole == UserRole.ADMIN || requestedRole == UserRole.APPLICATION_ADMIN) {
+            throw new InvalidCredentialsException("Admin accounts cannot be created through public signup");
+        }
+
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new UserAlreadyExistsException("Email already registered");
         }
@@ -60,13 +66,15 @@ public class AuthService {
             throw new UserAlreadyExistsException("Phone number already registered");
         }
 
+        boolean requiresManualApproval = requestedRole == UserRole.DELIVERY_AGENT;
+
         User user = User.builder()
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .fullName(request.getFullName())
                 .phone(request.getPhone())
-                .role(UserRole.valueOf(request.getRole()))
-                .isActive(true)
+                .role(requestedRole)
+                .isActive(!requiresManualApproval)
                 .isEmailVerified(false)
                 .build();
 

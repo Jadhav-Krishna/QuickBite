@@ -9,7 +9,7 @@ export default function AdminLayout() {
   const navItems = [
     { to: "/admin/overview", icon: LayoutDashboard, label: "Overview" },
     { to: "/admin/users", icon: Users, label: "User Control" },
-    { to: "/admin/approvals", icon: ShieldCheck, label: "Restaurants" },
+    { to: "/admin/approvals", icon: ShieldCheck, label: "Approvals" },
     { to: "/admin/payments", icon: CreditCard, label: "Financials" },
   ];
 

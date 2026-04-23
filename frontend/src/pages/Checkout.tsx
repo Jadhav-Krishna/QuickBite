@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { orderService } from '../api/order';
 import { paymentService } from '../api/payment';
+import { notificationService } from '../api/notification';
 import { getCurrentUser, requireCurrentUserId } from '../utils/session';
 import { getRazorpayKeyId, loadRazorpayScript, openRazorpayCheckout } from '../utils/razorpay';
 
@@ -44,6 +45,26 @@ export default function Checkout() {
     finalAmount,
   });
 
+  const triggerOrderPlacedNotification = (
+    orderId: number,
+    orderNumber: string,
+    customerId: number,
+    customerEmail?: string,
+  ) => {
+    void notificationService.sendTestNotification({
+      eventType: 'ORDER_PLACED',
+      orderId,
+      orderNumber,
+      customerId,
+      userId: customerId,
+      title: `Order Placed: ${orderNumber}`,
+      message: `Your order ${orderNumber} has been placed successfully.`,
+      notificationType: 'IN_APP',
+      recipientEmail: customerEmail,
+      recipientRole: 'CUSTOMER',
+    }).catch(() => undefined);
+  };
+
   const handlePlaceOrder = async () => {
     setError(null);
 
@@ -69,6 +90,7 @@ export default function Checkout() {
 
       if (paymentMethod === 'CASH_ON_DELIVERY') {
         const order = await orderService.placeOrder(buildPlaceOrderPayload(customerId));
+        triggerOrderPlacedNotification(order.id, order.orderNumber, customerId, currentUser?.email);
         clearCart();
         navigate('/success', {
           state: {
@@ -86,6 +108,7 @@ export default function Checkout() {
           'Checkout payment via wallet',
         );
         const order = await orderService.placeOrder(buildPlaceOrderPayload(customerId));
+        triggerOrderPlacedNotification(order.id, order.orderNumber, customerId, currentUser?.email);
         clearCart();
         navigate('/success', {
           state: {
@@ -151,6 +174,7 @@ export default function Checkout() {
               );
 
               const order = await orderService.placeOrder(buildPlaceOrderPayload(customerId));
+              triggerOrderPlacedNotification(order.id, order.orderNumber, customerId, currentUser?.email);
               clearCart();
               navigate('/success', {
                 state: {

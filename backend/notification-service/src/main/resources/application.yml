@@ -58,6 +58,10 @@ twilio:
   phone:
     number: ${TWILIO_PHONE_NUMBER:}
 
+internal:
+  api:
+    base-url: ${INTERNAL_API_BASE_URL:http://gateway:8000/api}
+
 logging:
   level:
     root: INFO

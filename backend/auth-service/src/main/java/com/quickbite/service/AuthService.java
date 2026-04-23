@@ -13,13 +13,16 @@ import com.quickbite.util.JwtTokenProvider;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -39,6 +42,9 @@ public class AuthService {
     @Autowired
     private RestTemplate restTemplate;
 
+    @Autowired(required = false)
+    private RabbitTemplate rabbitTemplate;
+
     @Value("${google.client.id:}")
     private String googleClientId;
 
@@ -48,6 +54,8 @@ public class AuthService {
     private static final ObjectMapper objectMapper = new ObjectMapper();
     private static final String GOOGLE_TOKEN_INFO_URL = "https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=";
     private static final String GITHUB_USER_API = "https://api.github.com/user";
+    private static final String NOTIFICATION_EXCHANGE = "notification.exchange";
+    private static final String NOTIFICATION_ROUTING_KEY = "notification.login";
 
     // ==================== Registration & Login ====================
 
@@ -110,6 +118,7 @@ public class AuthService {
         // Update last login timestamp
         user.setLastLogin(LocalDateTime.now());
         userRepository.save(user);
+        publishLoginNotification(user);
 
         String accessToken = jwtTokenProvider.generateAccessToken(user);
         String refreshToken = jwtTokenProvider.generateRefreshToken(user.getEmail());
@@ -189,6 +198,7 @@ public class AuthService {
 
             user.setLastLogin(LocalDateTime.now());
             user = userRepository.save(user);
+            publishLoginNotification(user);
 
             return buildAuthResponse(user);
         } catch (Exception e) {
@@ -214,6 +224,7 @@ public class AuthService {
 
             user.setLastLogin(LocalDateTime.now());
             user = userRepository.save(user);
+            publishLoginNotification(user);
 
             return buildAuthResponse(user);
         } catch (Exception e) {
@@ -387,5 +398,27 @@ public class AuthService {
                 .createdAt(user.getCreatedAt())
                 .lastLogin(user.getLastLogin())
                 .build();
+    }
+
+    private void publishLoginNotification(User user) {
+        if (rabbitTemplate == null || user == null) {
+            return;
+        }
+
+        try {
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("eventType", "USER_LOGIN");
+            payload.put("userId", user.getId());
+            payload.put("title", "Login Successful");
+            payload.put("message", "Welcome back, " + user.getFullName() + ". You are signed in.");
+            payload.put("notificationType", "IN_APP");
+            payload.put("recipientEmail", user.getEmail());
+            payload.put("recipientRole", user.getRole().name());
+            payload.put("createdAt", LocalDateTime.now().toString());
+
+            rabbitTemplate.convertAndSend(NOTIFICATION_EXCHANGE, NOTIFICATION_ROUTING_KEY, payload);
+        } catch (Exception e) {
+            log.warn("Failed to publish login notification for {}: {}", user.getEmail(), e.getMessage());
+        }
     }
 }

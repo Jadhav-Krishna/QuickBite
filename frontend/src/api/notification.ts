@@ -52,6 +52,7 @@ export const notificationService = {
   sendTestNotification(payload: {
     eventType: string;
     orderId?: number;
+    orderNumber?: string;
     userId?: number;
     customerId?: number;
     restaurantId?: number;
@@ -59,6 +60,9 @@ export const notificationService = {
     title: string;
     message: string;
     notificationType?: string;
+    recipientEmail?: string;
+    recipientPhone?: string;
+    recipientRole?: string;
   }) {
     return request<void>(`${API_BASE_URL}/v1/notifications/test`, {
       method: 'POST',

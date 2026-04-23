@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Bike, CheckCircle2, Clock, Navigation, Star, TrendingUp } from 'lucide-react';
 import { orderService, type OrderDTO } from '../../api/order';
@@ -8,6 +8,7 @@ import { useAuth } from '../../context/AuthContext';
 
 const AGENT_EARNING_RATE = 0.12;
 const ACTIVE_ORDER_STATUSES = ['READY', 'PICKED_UP', 'IN_TRANSIT', 'CONFIRMED'];
+const DASHBOARD_REFRESH_MS = 10000;
 
 const formatCurrency = (amount: number) =>
   `Rs ${amount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
@@ -21,9 +22,10 @@ export default function AgentDashboard() {
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState(false);
   const [acceptingOrder, setAcceptingOrder] = useState(false);
+  const [assignmentAction, setAssignmentAction] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const loadAgentData = async () => {
+  const loadAgentData = useCallback(async () => {
     if (!user?.userId) {
       setError('Please sign in as a delivery agent.');
       setLoading(false);
@@ -49,11 +51,15 @@ export default function AgentDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.userId]);
 
   useEffect(() => {
     void loadAgentData();
-  }, [user?.userId]);
+    const intervalId = setInterval(() => {
+      void loadAgentData();
+    }, DASHBOARD_REFRESH_MS);
+    return () => clearInterval(intervalId);
+  }, [loadAgentData]);
 
   const currentAssignment = useMemo(
     () => orders.find((order) => ACTIVE_ORDER_STATUSES.includes(order.status)),
@@ -99,6 +105,24 @@ export default function AgentDashboard() {
       setError(err?.message || 'Unable to accept order.');
     } finally {
       setAcceptingOrder(false);
+    }
+  };
+
+  const updateAssignmentStatus = async (nextStatus: 'PICKUP_CONFIRM' | 'IN_TRANSIT' | 'DELIVERED') => {
+    if (!agent || !currentAssignment) return;
+    setAssignmentAction(nextStatus);
+    setError(null);
+    try {
+      if (nextStatus === 'PICKUP_CONFIRM') {
+        await orderService.confirmPickupByAgent(currentAssignment.orderNumber, agent.id);
+      } else {
+        await orderService.updateOrderStatus(currentAssignment.orderNumber, nextStatus);
+      }
+      await loadAgentData();
+    } catch (err: any) {
+      setError(err?.message || 'Unable to update delivery status.');
+    } finally {
+      setAssignmentAction(null);
     }
   };
 
@@ -256,6 +280,47 @@ export default function AgentDashboard() {
               >
                 <Navigation size={16} /> Open Navigation
               </Link>
+
+              {currentAssignment.status === 'READY' && !currentAssignment.agentPickupConfirmed ? (
+                <button
+                  type="button"
+                  onClick={() => void updateAssignmentStatus('PICKUP_CONFIRM')}
+                  disabled={!!assignmentAction}
+                  className="mt-3 flex w-full items-center justify-center rounded-full bg-indigo-600 py-3.5 text-sm font-bold text-white disabled:opacity-60"
+                >
+                  {assignmentAction === 'PICKUP_CONFIRM' ? 'Confirming Pickup...' : 'Confirm Pickup'}
+                </button>
+              ) : null}
+
+              {currentAssignment.status === 'READY' &&
+              currentAssignment.agentPickupConfirmed &&
+              !currentAssignment.restaurantPickupConfirmed ? (
+                <div className="mt-3 rounded-full border border-indigo-200 bg-indigo-50 py-3 text-center text-sm font-bold text-indigo-700">
+                  Waiting Restaurant Pickup Confirm
+                </div>
+              ) : null}
+
+              {currentAssignment.status === 'PICKED_UP' ? (
+                <button
+                  type="button"
+                  onClick={() => void updateAssignmentStatus('IN_TRANSIT')}
+                  disabled={!!assignmentAction}
+                  className="mt-3 flex w-full items-center justify-center rounded-full bg-emerald-600 py-3.5 text-sm font-bold text-white disabled:opacity-60"
+                >
+                  {assignmentAction === 'IN_TRANSIT' ? 'Starting Delivery...' : 'Start Delivery'}
+                </button>
+              ) : null}
+
+              {currentAssignment.status === 'IN_TRANSIT' ? (
+                <button
+                  type="button"
+                  onClick={() => void updateAssignmentStatus('DELIVERED')}
+                  disabled={!!assignmentAction}
+                  className="mt-3 flex w-full items-center justify-center rounded-full bg-emerald-700 py-3.5 text-sm font-bold text-white disabled:opacity-60"
+                >
+                  {assignmentAction === 'DELIVERED' ? 'Completing...' : 'Delivery Done'}
+                </button>
+              ) : null}
             </div>
           </div>
         ) : (

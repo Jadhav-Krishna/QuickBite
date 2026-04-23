@@ -59,6 +59,18 @@ public class Order {
     @Column
     private Long deliveryAgentId;
 
+    @Column(nullable = false)
+    private Boolean restaurantPickupConfirmed = false;
+
+    @Column
+    private LocalDateTime restaurantPickupConfirmedAt;
+
+    @Column(nullable = false)
+    private Boolean agentPickupConfirmed = false;
+
+    @Column
+    private LocalDateTime agentPickupConfirmedAt;
+
     @Column
     private LocalDateTime estimatedDeliveryTime;
 

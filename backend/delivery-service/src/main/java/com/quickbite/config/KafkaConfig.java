@@ -32,7 +32,8 @@ public class KafkaConfig {
         configProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
         configProps.put(ProducerConfig.ACKS_CONFIG, "all");
         configProps.put(ProducerConfig.RETRIES_CONFIG, 3);
-        configProps.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, "snappy");
+        // Avoid native Snappy dependency issues in slim containers.
+        configProps.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, "gzip");
         return new DefaultKafkaProducerFactory<>(configProps);
     }
 

@@ -21,6 +21,10 @@ export interface OrderDTO {
   customerPhone: string;
   specialInstructions?: string;
   deliveryAgentId?: number;
+  restaurantPickupConfirmed?: boolean;
+  restaurantPickupConfirmedAt?: string;
+  agentPickupConfirmed?: boolean;
+  agentPickupConfirmedAt?: string;
   estimatedDeliveryTime?: string;
   paymentMethod: string;
   paymentStatus?: string;
@@ -91,7 +95,7 @@ export const orderService = {
   },
 
   getAvailableOrders() {
-    return request<OrderDTO[]>(`${API_BASE_URL}/v1/orders/available`, {
+    return request<OrderDTO[]>(`${API_BASE_URL}/v1/orders/delivery/available`, {
       headers: {
         ...getOptionalAuthHeader(),
       },
@@ -123,6 +127,27 @@ export const orderService = {
         ...getOptionalAuthHeader(),
       },
     });
+  },
+
+  confirmPickupByRestaurant(orderNumber: string) {
+    return request<OrderDTO>(`${API_BASE_URL}/v1/orders/${orderNumber}/pickup/restaurant-confirm`, {
+      method: 'PUT',
+      headers: {
+        ...getOptionalAuthHeader(),
+      },
+    });
+  },
+
+  confirmPickupByAgent(orderNumber: string, deliveryAgentId: number) {
+    return request<OrderDTO>(
+      `${API_BASE_URL}/v1/orders/${orderNumber}/pickup/agent-confirm?deliveryAgentId=${deliveryAgentId}`,
+      {
+        method: 'PUT',
+        headers: {
+          ...getOptionalAuthHeader(),
+        },
+      },
+    );
   },
 
   claimOrder(orderNumber: string, deliveryAgentId: number) {

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
 import { authService } from '../api/auth';
+import { notificationService } from '../api/notification';
 import { useAuth } from '../context/AuthContext';
 import AuthSplitLayout from '../components/auth/AuthSplitLayout';
 
@@ -51,6 +52,17 @@ export default function Login() {
       };
 
       saveLogin(user, response.accessToken, response.refreshToken);
+
+      void notificationService.sendTestNotification({
+        eventType: 'USER_LOGIN',
+        userId: response.userId,
+        title: 'Login Successful',
+        message: `Welcome back, ${response.fullName}. You have logged in successfully.`,
+        notificationType: 'IN_APP',
+        recipientEmail: response.email,
+        recipientRole: response.role,
+      }).catch(() => undefined);
+
       navigate(getRedirectPath(response.role));
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'An error occurred during login.');

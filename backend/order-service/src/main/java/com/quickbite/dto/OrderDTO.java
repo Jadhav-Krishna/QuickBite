@@ -29,6 +29,10 @@ public class OrderDTO {
     private String customerPhone;
     private String specialInstructions;
     private Long deliveryAgentId;
+    private Boolean restaurantPickupConfirmed;
+    private LocalDateTime restaurantPickupConfirmedAt;
+    private Boolean agentPickupConfirmed;
+    private LocalDateTime agentPickupConfirmedAt;
     private LocalDateTime estimatedDeliveryTime;
     private LocalDateTime actualDeliveryTime;
     private PaymentMethod paymentMethod;

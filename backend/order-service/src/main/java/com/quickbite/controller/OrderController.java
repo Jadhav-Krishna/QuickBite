@@ -50,7 +50,7 @@ public class OrderController {
         return ResponseEntity.ok(orders);
     }
 
-    @GetMapping("/available")
+    @GetMapping("/delivery/available")
     public ResponseEntity<List<OrderDTO>> getAvailableOrdersForDelivery() {
         List<OrderDTO> orders = orderService.getAvailableOrdersForDelivery();
         return ResponseEntity.ok(orders);
@@ -78,6 +78,22 @@ public class OrderController {
             @RequestParam("deliveryAgentId") Long deliveryAgentId) {
         log.info("Assigning delivery agent {} to order {}", deliveryAgentId, orderNumber);
         OrderDTO updatedOrder = orderService.assignDeliveryAgent(orderNumber, deliveryAgentId);
+        return ResponseEntity.ok(updatedOrder);
+    }
+
+    @PutMapping("/{orderNumber}/pickup/restaurant-confirm")
+    public ResponseEntity<OrderDTO> confirmRestaurantPickup(@PathVariable("orderNumber") String orderNumber) {
+        log.info("Restaurant pickup confirmation for order {}", orderNumber);
+        OrderDTO updatedOrder = orderService.confirmPickupByRestaurant(orderNumber);
+        return ResponseEntity.ok(updatedOrder);
+    }
+
+    @PutMapping("/{orderNumber}/pickup/agent-confirm")
+    public ResponseEntity<OrderDTO> confirmAgentPickup(
+            @PathVariable("orderNumber") String orderNumber,
+            @RequestParam("deliveryAgentId") Long deliveryAgentId) {
+        log.info("Agent {} pickup confirmation for order {}", deliveryAgentId, orderNumber);
+        OrderDTO updatedOrder = orderService.confirmPickupByAgent(orderNumber, deliveryAgentId);
         return ResponseEntity.ok(updatedOrder);
     }
 

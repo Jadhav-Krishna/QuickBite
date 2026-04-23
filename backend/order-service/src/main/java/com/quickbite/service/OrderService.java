@@ -47,6 +47,8 @@ public class OrderService {
         order.setDeliveryAddress(orderDTO.getDeliveryAddress());
         order.setCustomerPhone(orderDTO.getCustomerPhone());
         order.setSpecialInstructions(orderDTO.getSpecialInstructions());
+        order.setRestaurantPickupConfirmed(false);
+        order.setAgentPickupConfirmed(false);
         order.setEstimatedDeliveryTime(LocalDateTime.now().plusMinutes(45));
         order.setPaymentMethod(orderDTO.getPaymentMethod());
         order.setPaymentStatus(PaymentStatus.PENDING);
@@ -110,9 +112,18 @@ public class OrderService {
 
         order.setStatus(newStatus);
 
-        // Update delivery status if picked up
         if (newStatus.equals(OrderStatus.PICKED_UP)) {
+            if (!Boolean.TRUE.equals(order.getRestaurantPickupConfirmed()) || !Boolean.TRUE.equals(order.getAgentPickupConfirmed())) {
+                throw new RuntimeException("Pickup requires confirmation from both restaurant and delivery agent");
+            }
             order.setActualDeliveryTime(null);
+        }
+
+        if (newStatus.equals(OrderStatus.READY)) {
+            order.setRestaurantPickupConfirmed(false);
+            order.setRestaurantPickupConfirmedAt(null);
+            order.setAgentPickupConfirmed(false);
+            order.setAgentPickupConfirmedAt(null);
         }
 
         // Update actual delivery time if delivered
@@ -143,6 +154,8 @@ public class OrderService {
         }
 
         order.setDeliveryAgentId(deliveryAgentId);
+        order.setAgentPickupConfirmed(false);
+        order.setAgentPickupConfirmedAt(null);
         order = orderRepository.save(order);
         publishOrderEvent("DELIVERY_AGENT_ASSIGNED", order, "Delivery agent assigned to order");
 
@@ -167,6 +180,56 @@ public class OrderService {
         publishOrderEvent("ORDER_CANCELLED", order, reason);
 
         log.info("Order cancelled: {}", orderNumber);
+        return convertToDTO(order);
+    }
+
+    @Transactional
+    public OrderDTO confirmPickupByRestaurant(String orderNumber) {
+        Order order = orderRepository.findByOrderNumber(orderNumber)
+                .orElseThrow(() -> new RuntimeException("Order not found: " + orderNumber));
+
+        if (!(order.getStatus().equals(OrderStatus.READY) || order.getStatus().equals(OrderStatus.PICKED_UP))) {
+            throw new RuntimeException("Order must be READY before pickup confirmation");
+        }
+
+        if (order.getDeliveryAgentId() == null) {
+            throw new RuntimeException("Delivery agent is not assigned yet");
+        }
+
+        if (!Boolean.TRUE.equals(order.getRestaurantPickupConfirmed())) {
+            order.setRestaurantPickupConfirmed(true);
+            order.setRestaurantPickupConfirmedAt(LocalDateTime.now());
+            order = maybePromoteToPickedUp(order);
+            order = orderRepository.save(order);
+        }
+
+        return convertToDTO(order);
+    }
+
+    @Transactional
+    public OrderDTO confirmPickupByAgent(String orderNumber, Long deliveryAgentId) {
+        Order order = orderRepository.findByOrderNumber(orderNumber)
+                .orElseThrow(() -> new RuntimeException("Order not found: " + orderNumber));
+
+        if (!(order.getStatus().equals(OrderStatus.READY) || order.getStatus().equals(OrderStatus.PICKED_UP))) {
+            throw new RuntimeException("Order must be READY before pickup confirmation");
+        }
+
+        if (order.getDeliveryAgentId() == null) {
+            throw new RuntimeException("Delivery agent is not assigned yet");
+        }
+
+        if (!order.getDeliveryAgentId().equals(deliveryAgentId)) {
+            throw new RuntimeException("Only assigned delivery agent can confirm pickup");
+        }
+
+        if (!Boolean.TRUE.equals(order.getAgentPickupConfirmed())) {
+            order.setAgentPickupConfirmed(true);
+            order.setAgentPickupConfirmedAt(LocalDateTime.now());
+            order = maybePromoteToPickedUp(order);
+            order = orderRepository.save(order);
+        }
+
         return convertToDTO(order);
     }
 
@@ -254,6 +317,10 @@ public class OrderService {
                 .customerPhone(order.getCustomerPhone())
                 .specialInstructions(order.getSpecialInstructions())
                 .deliveryAgentId(order.getDeliveryAgentId())
+                .restaurantPickupConfirmed(order.getRestaurantPickupConfirmed())
+                .restaurantPickupConfirmedAt(order.getRestaurantPickupConfirmedAt())
+                .agentPickupConfirmed(order.getAgentPickupConfirmed())
+                .agentPickupConfirmedAt(order.getAgentPickupConfirmedAt())
                 .estimatedDeliveryTime(order.getEstimatedDeliveryTime())
                 .actualDeliveryTime(order.getActualDeliveryTime())
                 .paymentMethod(order.getPaymentMethod())
@@ -313,6 +380,23 @@ public class OrderService {
             case IN_TRANSIT -> to.equals(OrderStatus.DELIVERED) || to.equals(OrderStatus.CANCELLED);
             case DELIVERED, CANCELLED, FAILED -> false;
         };
+    }
+
+    private Order maybePromoteToPickedUp(Order order) {
+        if (
+                order.getStatus().equals(OrderStatus.READY)
+                        && Boolean.TRUE.equals(order.getRestaurantPickupConfirmed())
+                        && Boolean.TRUE.equals(order.getAgentPickupConfirmed())
+        ) {
+            order.setStatus(OrderStatus.PICKED_UP);
+            order.setActualDeliveryTime(null);
+            publishOrderEvent(
+                    OrderEvent.EventType.ORDER_PICKED_UP.name(),
+                    order,
+                    "Pickup confirmed by restaurant and delivery agent"
+            );
+        }
+        return order;
     }
 
     private String resolveEventTypeForStatus(OrderStatus status) {

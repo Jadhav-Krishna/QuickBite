@@ -20,26 +20,38 @@ public class NotificationListener {
     public void handleOrderEvent(Map<String, Object> eventData) {
         log.info("Received order event: {}", eventData);
         try {
-            NotificationEvent notificationEvent = NotificationEvent.builder()
-                    .eventType((String) eventData.get("eventType"))
-                    .orderId(((Number) eventData.get("orderId")).longValue())
-                    .customerId(eventData.get("customerId") != null ? ((Number) eventData.get("customerId")).longValue() : null)
-                    .restaurantId(eventData.get("restaurantId") != null ? ((Number) eventData.get("restaurantId")).longValue() : null)
-                    .title("Order Update: " + eventData.get("orderNumber"))
-                    .message((String) eventData.get("message"))
-                    .build();
-
-            notificationService.processNotification(notificationEvent);
+            notificationService.processOrderEvent(eventData);
         } catch (Exception e) {
             log.error("Failed to process order event", e);
         }
     }
 
     @RabbitListener(queues = RabbitMQConfig.NOTIFICATION_QUEUE)
-    public void handleGeneralNotification(NotificationEvent event) {
-        log.info("Received general notification event: {}", event);
+    public void handleGeneralNotification(Object payload) {
+        log.info("Received general notification payload: {}", payload);
         try {
-            notificationService.processNotification(event);
+            if (payload instanceof NotificationEvent event) {
+                notificationService.processNotification(event);
+                return;
+            }
+
+            if (payload instanceof Map<?, ?> map) {
+                NotificationEvent event = NotificationEvent.builder()
+                        .eventType((String) map.get("eventType"))
+                        .orderId(map.get("orderId") instanceof Number n ? n.longValue() : null)
+                        .userId(map.get("userId") instanceof Number n ? n.longValue() : null)
+                        .customerId(map.get("customerId") instanceof Number n ? n.longValue() : null)
+                        .restaurantId(map.get("restaurantId") instanceof Number n ? n.longValue() : null)
+                        .deliveryAgentId(map.get("deliveryAgentId") instanceof Number n ? n.longValue() : null)
+                        .title((String) map.get("title"))
+                        .message((String) map.get("message"))
+                        .notificationType((String) map.get("notificationType"))
+                        .recipientEmail((String) map.get("recipientEmail"))
+                        .recipientPhone((String) map.get("recipientPhone"))
+                        .recipientRole((String) map.get("recipientRole"))
+                        .build();
+                notificationService.processNotification(event);
+            }
         } catch (Exception e) {
             log.error("Failed to process general notification", e);
         }

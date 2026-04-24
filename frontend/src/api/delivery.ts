@@ -178,6 +178,14 @@ export const deliveryService = {
     });
   },
 
+  getAllAgents() {
+    return request<DeliveryAgentDTO[]>(`${API_BASE_URL}/v1/delivery/agents`, {
+      headers: {
+        ...getOptionalAuthHeader(),
+      },
+    });
+  },
+
   async resolveAgentForUser(userId: number): Promise<ResolvedDeliveryAgent> {
     let agent: DeliveryAgentDTO;
     try {

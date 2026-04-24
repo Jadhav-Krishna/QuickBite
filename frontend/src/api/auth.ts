@@ -68,6 +68,12 @@ export interface ChangePasswordRequest {
   confirmPassword: string;
 }
 
+export interface OAuth2LoginRequest {
+  provider: 'GOOGLE' | 'GITHUB';
+  token: string;
+  role?: string;
+}
+
 interface ApiMessage {
   message: string;
 }
@@ -306,6 +312,20 @@ export const authService = {
     if (!response.ok) {
       await parseErrorMessage(response, 'Unable to delete user.');
     }
+  },
+
+  async loginWithOAuth2(data: OAuth2LoginRequest): Promise<AuthResponse> {
+    return requestJson<AuthResponse>(
+      '/auth/oauth2/login',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      },
+      'OAuth2 authentication failed.',
+    );
   },
 
   async logoutFromServer(): Promise<void> {

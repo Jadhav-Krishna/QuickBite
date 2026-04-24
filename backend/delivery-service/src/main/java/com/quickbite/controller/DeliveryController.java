@@ -81,4 +81,9 @@ public class DeliveryController {
             @RequestParam(name = "radiusKm", defaultValue = "5.0") Double radiusKm) {
         return ResponseEntity.ok(deliveryService.getAvailableAgents(latitude, longitude, radiusKm));
     }
+
+    @GetMapping("/agents")
+    public ResponseEntity<List<DeliveryAgentDTO>> getAllAgents() {
+        return ResponseEntity.ok(deliveryService.getAllAgents());
+    }
 }

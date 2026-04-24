@@ -129,4 +129,25 @@ public class JwtTokenProvider {
             return null;
         }
     }
+
+    public Long getUserIdFromToken(String token) {
+        try {
+            SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes());
+            Object userIdObj = Jwts.parser()
+                    .verifyWith(key)
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload()
+                    .get("userId");
+            if (userIdObj instanceof Integer) {
+                return ((Integer) userIdObj).longValue();
+            } else if (userIdObj instanceof Long) {
+                return (Long) userIdObj;
+            }
+            return null;
+        } catch (JwtException e) {
+            log.error("Failed to get userId from token", e);
+            return null;
+        }
+    }
 }

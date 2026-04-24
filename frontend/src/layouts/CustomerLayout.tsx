@@ -1,8 +1,9 @@
 import { Link, Outlet, useLocation } from 'react-router-dom';
-import { Bell, LogOut, Menu, ShoppingCart, User, X } from 'lucide-react';
-import { useState } from 'react';
+import { LogOut, ShoppingCart, User } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
+import FoodAppNavbar from '../components/FoodAppNavbar';
+import ScrollToTop from '../components/ScrollToTop';
 
 const NAV_LINKS = [
   { to: '/restaurants', label: 'Restaurants' },
@@ -13,7 +14,6 @@ const NAV_LINKS = [
 export default function CustomerLayout() {
   const location = useLocation();
   const isLandingPage = location.pathname === '/';
-  const [mobileOpen, setMobileOpen] = useState(false);
   const { totalItems } = useCart();
   const { user, logout } = useAuth();
 
@@ -30,43 +30,21 @@ export default function CustomerLayout() {
           <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-3 md:px-8">
 
             {/* Logo */}
-            <Link to="/" className="font-display text-2xl font-black text-[var(--color-primary)]">
+            <Link to="/" className="font-display text-2xl font-black text-red-600">
               QuickBite
             </Link>
 
-            {/* Desktop nav links */}
-            <nav className="hidden items-center gap-7 text-sm font-semibold text-[var(--color-on-surface-variant)] md:flex">
-              {NAV_LINKS.map(({ to, label }) => (
-                <Link
-                  key={to}
-                  to={to}
-                  className={`transition hover:text-[var(--color-primary)] ${location.pathname.startsWith(to) ? 'text-[var(--color-primary)]' : ''}`}
-                >
-                  {label}
-                </Link>
-              ))}
-            </nav>
-
             {/* Right actions */}
-            <div className="flex items-center gap-2">
-              {/* Notifications */}
-              <Link
-                to="/notifications"
-                aria-label="Notifications"
-                className="flex h-10 w-10 items-center justify-center rounded-full text-[var(--color-on-surface-variant)] transition hover:bg-[var(--color-surface-container)] hover:text-[var(--color-primary)]"
-              >
-                <Bell size={18} />
-              </Link>
-
+            <div className="flex items-center gap-3">
               {/* Cart */}
               <Link
                 to="/cart"
                 aria-label="Cart"
-                className="relative flex h-10 w-10 items-center justify-center rounded-full text-[var(--color-on-surface-variant)] transition hover:bg-[var(--color-surface-container)] hover:text-[var(--color-primary)]"
+                className="relative flex h-10 w-10 items-center justify-center rounded-full text-slate-600 transition hover:bg-red-50 hover:text-red-600"
               >
-                <ShoppingCart size={18} />
+                <ShoppingCart size={20} />
                 {totalItems > 0 && (
-                  <span className="absolute -right-0.5 -top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--color-primary)] text-[10px] font-bold text-white animate-pulse-glow">
+                  <span className="absolute -right-0.5 -top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white">
                     {totalItems > 9 ? '9+' : totalItems}
                   </span>
                 )}
@@ -76,21 +54,21 @@ export default function CustomerLayout() {
               {user ? (
                 <div className="relative group">
                   <button
-                    className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-secondary-container)] text-sm font-bold text-white shadow-card transition hover:scale-105"
+                    className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-red-600 to-rose-600 text-sm font-bold text-white shadow-lg transition hover:scale-105"
                     aria-label="User menu"
                   >
                     {initials}
                   </button>
                   {/* Dropdown */}
-                  <div className="invisible absolute right-0 top-12 z-50 w-52 origin-top-right scale-95 rounded-2xl border border-[var(--color-outline-variant)]/40 bg-white p-2 opacity-0 shadow-[0_16px_48px_rgba(0,0,0,0.12)] transition-all group-hover:visible group-hover:scale-100 group-hover:opacity-100">
-                    <div className="border-b border-[var(--color-surface-variant)] px-3 py-2 mb-1">
-                      <p className="font-bold text-sm text-[var(--color-on-surface)] line-clamp-1">{user.fullName}</p>
-                      <p className="text-xs text-[var(--color-on-surface-variant)] line-clamp-1">{user.email}</p>
+                  <div className="invisible absolute right-0 top-12 z-50 w-52 origin-top-right scale-95 rounded-2xl border border-slate-200 bg-white p-2 opacity-0 shadow-2xl transition-all group-hover:visible group-hover:scale-100 group-hover:opacity-100">
+                    <div className="border-b border-slate-200 px-3 py-2 mb-1">
+                      <p className="font-bold text-sm text-slate-900 line-clamp-1">{user.fullName}</p>
+                      <p className="text-xs text-slate-500 line-clamp-1">{user.email}</p>
                     </div>
-                    <Link to="/profile" className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-[var(--color-on-surface-variant)] transition hover:bg-[var(--color-surface-container)] hover:text-[var(--color-primary)]">
+                    <Link to="/profile" className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-slate-600 transition hover:bg-red-50 hover:text-red-600">
                       <User size={15} /> My Profile
                     </Link>
-                    <Link to="/customer/addresses" className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-[var(--color-on-surface-variant)] transition hover:bg-[var(--color-surface-container)] hover:text-[var(--color-primary)]">
+                    <Link to="/customer/addresses" className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-slate-600 transition hover:bg-red-50 hover:text-red-600">
                       📍 Saved Addresses
                     </Link>
                     <button
@@ -104,81 +82,25 @@ export default function CustomerLayout() {
               ) : (
                 <Link
                   to="/login"
-                  className="ml-1 rounded-full border border-[var(--color-outline-variant)] bg-white/70 px-4 py-2 text-sm font-bold text-[var(--color-on-surface)] backdrop-blur transition hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
+                  className="rounded-full bg-red-600 px-5 py-2 text-sm font-bold text-white transition hover:bg-red-700"
                 >
                   Sign In
                 </Link>
               )}
-
-              {/* Mobile hamburger */}
-              <button
-                onClick={() => setMobileOpen(true)}
-                className="flex h-10 w-10 items-center justify-center rounded-full text-[var(--color-on-surface-variant)] transition hover:bg-[var(--color-surface-container)] md:hidden"
-                aria-label="Open menu"
-              >
-                <Menu size={20} />
-              </button>
             </div>
           </div>
         </header>
       )}
 
-      {/* ── Mobile slide-over menu ── */}
-      {mobileOpen && (
-        <div className="fixed inset-0 z-[999]">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
-          <div className="animate-slide-right absolute left-0 top-0 h-full w-72 bg-white shadow-[16px_0_64px_rgba(0,0,0,0.12)]">
-            <div className="flex items-center justify-between p-5 border-b border-[var(--color-surface-variant)]">
-              <span className="font-display text-xl font-black text-[var(--color-primary)]">QuickBite</span>
-              <button onClick={() => setMobileOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-full text-[var(--color-on-surface-variant)] hover:bg-[var(--color-surface-container)]">
-                <X size={18} />
-              </button>
-            </div>
-            {user && (
-              <div className="flex items-center gap-3 border-b border-[var(--color-surface-variant)] px-5 py-4">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-secondary-container)] text-base font-bold text-white">
-                  {initials}
-                </div>
-                <div className="min-w-0">
-                  <p className="font-bold text-sm line-clamp-1">{user.fullName}</p>
-                  <p className="text-xs text-[var(--color-on-surface-variant)] line-clamp-1">{user.email}</p>
-                </div>
-              </div>
-            )}
-            <nav className="flex flex-col gap-1 p-3">
-              {NAV_LINKS.map(({ to, label }) => (
-                <Link
-                  key={to}
-                  to={to}
-                  onClick={() => setMobileOpen(false)}
-                  className="rounded-xl px-4 py-3 text-sm font-semibold text-[var(--color-on-surface-variant)] transition hover:bg-[var(--color-surface-container)] hover:text-[var(--color-primary)]"
-                >
-                  {label}
-                </Link>
-              ))}
-              <Link to="/profile" onClick={() => setMobileOpen(false)} className="rounded-xl px-4 py-3 text-sm font-semibold text-[var(--color-on-surface-variant)] transition hover:bg-[var(--color-surface-container)] hover:text-[var(--color-primary)]">Profile</Link>
-              <Link to="/notifications" onClick={() => setMobileOpen(false)} className="rounded-xl px-4 py-3 text-sm font-semibold text-[var(--color-on-surface-variant)] transition hover:bg-[var(--color-surface-container)] hover:text-[var(--color-primary)]">Notifications</Link>
-            </nav>
-            {user && (
-              <button
-                onClick={() => { logout(); setMobileOpen(false); }}
-                className="mx-3 flex w-[calc(100%-24px)] items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-red-600 transition hover:bg-red-50"
-              >
-                <LogOut size={15} /> Sign Out
-              </button>
-            )}
-            {!user && (
-              <Link to="/login" onClick={() => setMobileOpen(false)} className="mx-3 mt-2 block rounded-xl bg-[var(--color-primary)] px-4 py-3 text-center text-sm font-bold text-white">
-                Sign In
-              </Link>
-            )}
-          </div>
-        </div>
-      )}
-
-      <main className="flex-1">
+      <main className="flex-1 pb-24">
         <Outlet />
       </main>
+
+      {/* Food App Navbar */}
+      <FoodAppNavbar />
+      
+      {/* Scroll to Top Button */}
+      <ScrollToTop />
     </div>
   );
 }

@@ -69,11 +69,13 @@ public class ReviewService {
     }
 
     public Double getRestaurantAverageRating(Long restaurantId) {
-        return reviewRepository.getAverageRestaurantRating(restaurantId);
+        Double avg = reviewRepository.getAverageRestaurantRating(restaurantId);
+        return avg != null ? avg : 0.0;
     }
 
     public Double getDeliveryAgentAverageRating(Long deliveryAgentId) {
-        return reviewRepository.getAverageDeliveryRating(deliveryAgentId);
+        Double avg = reviewRepository.getAverageDeliveryRating(deliveryAgentId);
+        return avg != null ? avg : 0.0;
     }
 
     private ReviewDTO mapToDTO(Review review) {

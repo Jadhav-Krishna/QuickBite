@@ -1,37 +1,70 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { TrendingUp, Banknote, Calendar, ChevronRight, Activity, Wallet } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { deliveryService } from '../../api/delivery';
+import { orderService, type OrderDTO } from '../../api/order';
 
+const EARNING_RATE = 0.12;
 const formatCurrency = (amount: number) => `₹${amount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
 
-const FALLBACK_HISTORY = [
-  { date: 'Today', deliveries: 8, amount: 950 },
-  { date: 'Yesterday', deliveries: 12, amount: 1420 },
-  { date: 'Oct 24', deliveries: 10, amount: 1100 },
-  { date: 'Oct 23', deliveries: 15, amount: 1850 },
-  { date: 'Oct 22', deliveries: 5, amount: 620 },
-  { date: 'Oct 21', deliveries: 11, amount: 1340 },
-  { date: 'Oct 20', deliveries: 9, amount: 1080 },
-];
+const getDayLabel = (dateStr: string) => {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diff = Math.floor((now.setHours(0,0,0,0) - date.setHours(0,0,0,0)) / 86400000);
+  if (diff === 0) return 'Today';
+  if (diff === 1) return 'Yesterday';
+  return date.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
+};
 
 export default function AgentEarnings() {
-  const [history] = useState(FALLBACK_HISTORY);
+  const { user } = useAuth();
+  const [orders, setOrders] = useState<OrderDTO[]>([]);
+  const [totalDeliveries, setTotalDeliveries] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    // Simulate loading data
-    const timer = setTimeout(() => {
+  const loadEarnings = useCallback(async () => {
+    if (!user?.userId) { setLoading(false); return; }
+    try {
+      setError(null);
+      const resolved = await deliveryService.resolveAgentForUser(user.userId);
+      const [agentProfile, agentOrders] = await Promise.all([
+        deliveryService.getAgentEarnings(resolved.agentId).catch(() => resolved.agent),
+        orderService.getAgentOrders(resolved.agentId).catch(() => []),
+      ]);
+      setTotalDeliveries(agentProfile.totalDeliveries || 0);
+      setOrders(agentOrders.filter((o) => o.status === 'DELIVERED'));
+    } catch (err: any) {
+      setError(err?.message || 'Unable to load earnings.');
+    } finally {
       setLoading(false);
-    }, 800);
-    return () => clearTimeout(timer);
-  }, []);
+    }
+  }, [user?.userId]);
 
-  const weeklySummary = useMemo(() => {
-    return {
-      deliveries: history.reduce((sum, h) => sum + h.deliveries, 0),
-      estimatedPay: history.reduce((sum, h) => sum + h.amount, 0),
-      activeDays: history.length,
-    };
-  }, [history]);
+  useEffect(() => { void loadEarnings(); }, [loadEarnings]);
+
+  const history = useMemo(() => {
+    const byDay = new Map<string, { date: Date; label: string; deliveries: number; amount: number }>();
+    orders.forEach((order) => {
+      const d = new Date(order.createdAt || order.updatedAt || Date.now());
+      const key = d.toISOString().slice(0, 10);
+      const existing = byDay.get(key) || { date: d, label: getDayLabel(d.toISOString()), deliveries: 0, amount: 0 };
+      existing.deliveries += 1;
+      existing.amount += (order.finalAmount || order.totalAmount || 0) * EARNING_RATE;
+      byDay.set(key, existing);
+    });
+    return Array.from(byDay.values())
+      .sort((a, b) => b.date.getTime() - a.date.getTime())
+      .slice(0, 7);
+  }, [orders]);
+
+  const weeklySummary = useMemo(() => ({
+    deliveries: history.reduce((s, h) => s + h.deliveries, 0),
+    estimatedPay: history.reduce((s, h) => s + h.amount, 0),
+    activeDays: history.length,
+  }), [history]);
+
+  const maxAmount = Math.max(...history.map((h) => h.amount), 1);
 
   if (loading) {
     return (
@@ -39,14 +72,11 @@ export default function AgentEarnings() {
         <div className="h-10 w-48 skeleton rounded-full" />
         <div className="h-64 skeleton rounded-[2.5rem]" />
         <div className="space-y-4">
-          {[1,2,3,4].map(i => <div key={i} className="h-20 skeleton rounded-3xl" />)}
+          {[1, 2, 3, 4].map((i) => <div key={i} className="h-20 skeleton rounded-3xl" />)}
         </div>
       </div>
     );
   }
-
-  // Find max amount to calculate bar heights
-  const maxAmount = Math.max(...history.map(h => h.amount));
 
   return (
     <div className="space-y-6 pt-4 pb-10 animate-fade-up">
@@ -57,10 +87,12 @@ export default function AgentEarnings() {
         </div>
       </header>
 
-      {/* ── Main Earnings Card ── */}
+      {error ? (
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-700">{error}</div>
+      ) : null}
+
       <div className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-[var(--color-inverse-surface)] to-black p-8 text-white shadow-glow">
         <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-[var(--color-primary)]/30 blur-3xl" />
-        
         <div className="relative z-10">
           <p className="text-[10px] font-bold uppercase tracking-widest text-white/60">This Week's Pay</p>
           <div className="mt-2 flex items-end gap-3">
@@ -68,33 +100,34 @@ export default function AgentEarnings() {
               {formatCurrency(weeklySummary.estimatedPay)}
             </h2>
             <div className="mb-2 flex items-center gap-1 rounded-full bg-green-500/20 px-2 py-1 text-xs font-bold text-green-400">
-              <TrendingUp size={12} /> +12%
+              <TrendingUp size={12} /> Live
             </div>
           </div>
 
-          {/* Simple Chart */}
           <div className="mt-8 flex h-24 items-end justify-between gap-2 border-b border-white/10 pb-2">
-            {history.slice().reverse().map((h, i) => {
-              const heightPercentage = (h.amount / maxAmount) * 100;
+            {[...history].reverse().map((h, i) => {
+              const heightPct = (h.amount / maxAmount) * 100;
               const isToday = i === history.length - 1;
               return (
-                <div key={i} className="flex w-full flex-col items-center gap-2 group">
+                <div key={h.label + i} className="flex w-full flex-col items-center gap-2 group">
                   <div className="relative w-full flex justify-center">
-                    {/* Tooltip on hover */}
                     <div className="absolute -top-8 hidden group-hover:block rounded bg-white px-2 py-1 text-[10px] font-bold text-black">
                       {formatCurrency(h.amount)}
                     </div>
-                    <div 
-                      className={`w-full max-w-[12px] rounded-t-full transition-all duration-1000 ease-out ${isToday ? 'bg-[var(--color-primary)] shadow-[0_0_10px_var(--color-primary)]' : 'bg-white/20 hover:bg-white/40'}`} 
-                      style={{ height: `${heightPercentage}%`, minHeight: '10%' }} 
+                    <div
+                      className={`w-full max-w-[12px] rounded-t-full transition-all duration-1000 ease-out ${isToday ? 'bg-[var(--color-primary)] shadow-[0_0_10px_var(--color-primary)]' : 'bg-white/20 hover:bg-white/40'}`}
+                      style={{ height: `${heightPct}%`, minHeight: '10%' }}
                     />
                   </div>
                   <span className={`text-[8px] font-bold uppercase ${isToday ? 'text-[var(--color-primary)]' : 'text-white/40'}`}>
-                    {h.date.slice(0, 3)}
+                    {h.label.slice(0, 3)}
                   </span>
                 </div>
               );
             })}
+            {history.length === 0 ? (
+              <p className="w-full text-center text-xs text-white/40">No deliveries yet</p>
+            ) : null}
           </div>
 
           <div className="mt-6 flex items-center justify-between">
@@ -109,8 +142,8 @@ export default function AgentEarnings() {
             </div>
             <div className="h-8 w-px bg-white/10" />
             <div>
-              <p className="text-xl font-bold">34h</p>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">Online</p>
+              <p className="text-xl font-bold">{totalDeliveries}</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">Lifetime</p>
             </div>
           </div>
         </div>
@@ -120,33 +153,36 @@ export default function AgentEarnings() {
         <button className="flex flex-1 items-center justify-center gap-2 rounded-full bg-[var(--color-primary)] py-4 text-sm font-bold text-white shadow-glow transition hover:scale-105 active:scale-95">
           <Wallet size={18} /> Cash Out
         </button>
-        <button className="flex flex-1 items-center justify-center gap-2 rounded-full border border-[var(--color-outline-variant)] bg-white py-4 text-sm font-bold shadow-sm transition hover:bg-[var(--color-surface-variant)] active:scale-95">
-          <Activity size={18} /> Analytics
+        <button onClick={() => void loadEarnings()} className="flex flex-1 items-center justify-center gap-2 rounded-full border border-[var(--color-outline-variant)] bg-white py-4 text-sm font-bold shadow-sm transition hover:bg-[var(--color-surface-variant)] active:scale-95">
+          <Activity size={18} /> Refresh
         </button>
       </div>
 
-      {/* ── Daily Breakdown ── */}
       <div className="mt-8">
         <h3 className="mb-4 font-display text-xl font-bold">Daily Breakdown</h3>
-        <div className="space-y-3">
-          {history.map((item, index) => (
-            <div key={index} className="flex cursor-pointer items-center justify-between rounded-[1.5rem] bg-white border border-[var(--color-outline-variant)]/40 p-5 shadow-card transition-transform hover:scale-[1.02]">
-              <div className="flex items-center gap-4">
-                <div className={`flex h-12 w-12 items-center justify-center rounded-full ${index === 0 ? 'bg-[var(--color-primary-container)] text-[var(--color-on-primary-container)]' : 'bg-[var(--color-surface-variant)] text-[var(--color-on-surface-variant)]'}`}>
-                  <Calendar size={20} />
+        {history.length === 0 ? (
+          <p className="text-sm text-[var(--color-on-surface-variant)]">No delivered orders yet.</p>
+        ) : (
+          <div className="space-y-3">
+            {history.map((item, index) => (
+              <div key={item.label + index} className="flex cursor-pointer items-center justify-between rounded-[1.5rem] bg-white border border-[var(--color-outline-variant)]/40 p-5 shadow-card transition-transform hover:scale-[1.02]">
+                <div className="flex items-center gap-4">
+                  <div className={`flex h-12 w-12 items-center justify-center rounded-full ${index === 0 ? 'bg-[var(--color-primary-container)] text-[var(--color-on-primary-container)]' : 'bg-[var(--color-surface-variant)] text-[var(--color-on-surface-variant)]'}`}>
+                    <Calendar size={20} />
+                  </div>
+                  <div>
+                    <h4 className="font-display text-lg font-bold">{item.label}</h4>
+                    <p className="text-xs font-semibold text-[var(--color-on-surface-variant)]">{item.deliveries} trips completed</p>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="font-display text-lg font-bold">{item.date}</h4>
-                  <p className="text-xs font-semibold text-[var(--color-on-surface-variant)]">{item.deliveries} trips completed</p>
+                <div className="flex items-center gap-3">
+                  <p className="font-display text-xl font-black">{formatCurrency(item.amount)}</p>
+                  <ChevronRight size={16} className="text-[var(--color-outline-variant)]" />
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                <p className="font-display text-xl font-black">{formatCurrency(item.amount)}</p>
-                <ChevronRight size={16} className="text-[var(--color-outline-variant)]" />
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

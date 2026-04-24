@@ -45,11 +45,14 @@ public class AuthService {
     @Autowired(required = false)
     private RabbitTemplate rabbitTemplate;
 
-    @Value("${google.client.id:}")
+    @Value("${oauth2.google.clientId:}")
     private String googleClientId;
 
-    @Value("${github.client.id:}")
+    @Value("${oauth2.github.clientId:}")
     private String githubClientId;
+
+    @Value("${oauth2.github.clientSecret:}")
+    private String githubClientSecret;
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
     private static final String GOOGLE_TOKEN_INFO_URL = "https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=";
@@ -208,19 +211,54 @@ public class AuthService {
 
     private AuthResponse handleGitHubOAuth(OAuth2LoginRequest request) {
         try {
+            // If token looks like a code (no dots), exchange it for access token
+            String accessToken = request.getToken();
+            if (!accessToken.contains(".")) {
+                accessToken = exchangeGitHubCode(accessToken);
+            }
+
             var headers = new org.springframework.http.HttpHeaders();
-            headers.setBearerAuth(request.getToken());
+            headers.setBearerAuth(accessToken);
             var entity = new org.springframework.http.HttpEntity<>(headers);
 
             String response = restTemplate.exchange(GITHUB_USER_API, org.springframework.http.HttpMethod.GET, entity, String.class).getBody();
             JsonNode node = objectMapper.readTree(response);
 
-            String email = node.get("email").asText();
-            String name = node.get("name").asText();
-            String githubId = node.get("id").asText();
+            String email = node.has("email") && !node.get("email").isNull() ? node.get("email").asText() : null;
+            
+            // If email is null, fetch from emails endpoint
+            if (email == null || email.isEmpty()) {
+                String emailsResponse = restTemplate.exchange(
+                    "https://api.github.com/user/emails",
+                    org.springframework.http.HttpMethod.GET,
+                    entity,
+                    String.class
+                ).getBody();
+                JsonNode emailsNode = objectMapper.readTree(emailsResponse);
+                if (emailsNode.isArray() && emailsNode.size() > 0) {
+                    for (JsonNode emailNode : emailsNode) {
+                        if (emailNode.get("primary").asBoolean()) {
+                            email = emailNode.get("email").asText();
+                            break;
+                        }
+                    }
+                    if (email == null) {
+                        email = emailsNode.get(0).get("email").asText();
+                    }
+                }
+            }
 
-            User user = userRepository.findByEmail(email)
-                    .orElseGet(() -> createOAuthUser(email, name, "GITHUB", githubId));
+            if (email == null || email.isEmpty()) {
+                throw new AuthenticationException("Unable to retrieve email from GitHub");
+            }
+
+            String name = node.has("name") && !node.get("name").isNull() ? node.get("name").asText() : email.split("@")[0];
+            final String finalEmail = email;
+            final String finalName = name;
+            final String githubId = node.get("id").asText();
+
+            User user = userRepository.findByEmail(finalEmail)
+                    .orElseGet(() -> createOAuthUser(finalEmail, finalName, "GITHUB", githubId));
 
             user.setLastLogin(LocalDateTime.now());
             user = userRepository.save(user);
@@ -228,7 +266,35 @@ public class AuthService {
 
             return buildAuthResponse(user);
         } catch (Exception e) {
+            log.error("GitHub OAuth error", e);
             throw new AuthenticationException("GitHub OAuth validation failed: " + e.getMessage());
+        }
+    }
+
+    private String exchangeGitHubCode(String code) {
+        try {
+            String tokenUrl = "https://github.com/login/oauth/access_token";
+            Map<String, String> params = new HashMap<>();
+            params.put("client_id", githubClientId);
+            params.put("client_secret", githubClientSecret);
+            params.put("code", code);
+
+            var headers = new org.springframework.http.HttpHeaders();
+            headers.setContentType(org.springframework.http.MediaType.APPLICATION_JSON);
+            headers.set("Accept", "application/json");
+
+            var entity = new org.springframework.http.HttpEntity<>(params, headers);
+            String response = restTemplate.postForObject(tokenUrl, entity, String.class);
+            JsonNode node = objectMapper.readTree(response);
+
+            if (node.has("access_token")) {
+                return node.get("access_token").asText();
+            }
+
+            throw new AuthenticationException("Failed to exchange GitHub code for token");
+        } catch (Exception e) {
+            log.error("GitHub token exchange failed", e);
+            throw new AuthenticationException("GitHub token exchange failed: " + e.getMessage());
         }
     }
 
@@ -276,8 +342,9 @@ public class AuthService {
         }
         if (request.getPhone() != null && !request.getPhone().isBlank()) {
             // Check if phone is already used by another user
+            final Long currentUserId = user.getId();
             userRepository.findByPhone(request.getPhone()).ifPresent(existingUser -> {
-                if (!existingUser.getId().equals(user.getId())) {
+                if (!existingUser.getId().equals(currentUserId)) {
                     throw new UserAlreadyExistsException("Phone number already in use");
                 }
             });

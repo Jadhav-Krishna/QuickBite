@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowUpRight, Bike, CreditCard, ShieldAlert, Store, Users } from 'lucide-react';
+import { ArrowUpRight, Bike, CreditCard, ShieldAlert, Store, Users, TrendingUp } from 'lucide-react';
 import { authService, type UserDTO } from '../../api/auth';
 import { paymentService, type PaymentResponse } from '../../api/payment';
 import { restaurantService } from '../../api/restaurant';
+import { deliveryService, type DeliveryAgentDTO } from '../../api/delivery';
 
 interface RecentPayment extends PaymentResponse {
   customerName: string;
@@ -17,6 +18,8 @@ interface SummaryState {
   pendingRestaurants: number;
   suspendedUsers: number;
   recentPayments: RecentPayment[];
+  topAgents: DeliveryAgentDTO[];
+  totalDeliveries: number;
 }
 
 const formatCurrency = (amount: number) =>
@@ -35,6 +38,8 @@ export default function AdminOverview() {
     pendingRestaurants: 0,
     suspendedUsers: 0,
     recentPayments: [],
+    topAgents: [],
+    totalDeliveries: 0,
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -77,9 +82,10 @@ export default function AdminOverview() {
       setLoading(true);
       setError(null);
 
-      const [users, restaurants] = await Promise.all([
+      const [users, restaurants, allAgents] = await Promise.all([
         authService.getAllUsers(),
         restaurantService.getAllRestaurantsForAdmin(),
+        deliveryService.getAllAgents().catch(() => [] as DeliveryAgentDTO[]),
       ]);
 
       let recentPayments: RecentPayment[] = [];
@@ -100,14 +106,21 @@ export default function AdminOverview() {
         .filter((payment) => payment.createdAt && new Date(payment.createdAt).getTime() >= thirtyDaysAgo.getTime())
         .reduce((total, payment) => total + Number(payment.amount || 0), 0);
 
+      const topAgents = [...allAgents]
+        .sort((a, b) => (b.totalDeliveries || 0) - (a.totalDeliveries || 0))
+        .slice(0, 5);
+      const totalDeliveries = allAgents.reduce((sum, a) => sum + (a.totalDeliveries || 0), 0);
+
       setSummary({
         totalUsers: users.length,
         activePartners: restaurants.filter((restaurant) => restaurant.isApproved && restaurant.isActive).length,
-        activeAgents: users.filter((user) => isAgent(user.role) && user.isActive).length,
+        activeAgents: allAgents.filter((a) => a.isOnline).length || users.filter((user) => isAgent(user.role) && user.isActive).length,
         totalProcessed30d,
         pendingRestaurants: restaurants.filter((restaurant) => !restaurant.isApproved).length,
         suspendedUsers: users.filter((user) => !user.isActive).length,
         recentPayments: recentPayments.slice(0, 5),
+        topAgents,
+        totalDeliveries,
       });
     } catch (err: any) {
       setError(err?.message || 'Unable to load admin overview data.');
@@ -187,15 +200,16 @@ export default function AdminOverview() {
               <Bike size={24} />
             </div>
             <div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Active Agents</p>
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Online Agents</p>
               <div className="flex items-center gap-2">
                 <h2 className="font-display text-3xl font-black text-slate-900">{summary.activeAgents}</h2>
                 <span className="flex items-center text-xs font-bold text-emerald-500">
-                  <ArrowUpRight size={14} /> Available
+                  <ArrowUpRight size={14} /> Live
                 </span>
               </div>
             </div>
           </div>
+          <p className="text-xs font-semibold text-slate-400">{summary.totalDeliveries.toLocaleString()} total deliveries</p>
         </div>
 
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-600 to-cyan-600 p-6 text-white shadow-lg shadow-indigo-600/20">
@@ -315,6 +329,37 @@ export default function AdminOverview() {
           )}
         </section>
       </div>
+      <section className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+        <div className="mb-6 flex items-center justify-between">
+          <h3 className="font-display text-2xl font-black text-slate-900">Top Delivery Partners</h3>
+          <div className="flex items-center gap-1.5 rounded-full bg-sky-50 px-3 py-1 text-xs font-black text-sky-600">
+            <TrendingUp size={12} /> {summary.totalDeliveries.toLocaleString()} total deliveries
+          </div>
+        </div>
+        {summary.topAgents.length === 0 ? (
+          <p className="text-sm font-semibold text-slate-500">No delivery agents registered yet.</p>
+        ) : (
+          <div className="space-y-3">
+            {summary.topAgents.map((agent, idx) => (
+              <div key={agent.id} className="flex items-center justify-between rounded-2xl border border-transparent p-4 transition hover:border-slate-100 hover:bg-slate-50">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-sky-50 text-sky-700 font-black text-sm">
+                    #{idx + 1}
+                  </div>
+                  <div>
+                    <p className="font-bold text-slate-900">{agent.fullName}</p>
+                    <p className="text-xs font-semibold text-slate-500">{agent.vehicleType} · {agent.isOnline ? 'Online' : 'Offline'}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="font-display text-lg font-black text-slate-900">{(agent.totalDeliveries || 0).toLocaleString()} trips</p>
+                  <p className="text-xs font-semibold text-slate-500">⭐ {(agent.averageRating || 0).toFixed(1)}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }

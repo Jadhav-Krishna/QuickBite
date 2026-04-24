@@ -15,11 +15,13 @@ import AuthLanding from './pages/AuthLanding';
 import ForgotPassword from './pages/ForgotPassword';
 import Login from './pages/Login';
 import SignUp from './pages/SignUp';
+import GoogleCallback from './pages/GoogleCallback';
+import GitHubCallback from './pages/GitHubCallback';
 import RequireAuth from './components/auth/RequireAuth';
 import RequireRole from './components/auth/RequireRole';
 
 // Customer Pages
-import Landing from './pages/Landing';
+import Landing from './pages/CinematicLandingWhite';
 import Restaurants from './pages/Restaurants';
 import Menu from './pages/Menu';
 import Checkout from './pages/Checkout';
@@ -27,7 +29,7 @@ import Cart from './pages/customer/Cart';
 import OrderTracking from './pages/customer/OrderTracking';
 import NotificationCenter from './pages/customer/NotificationCenter';
 import OrderSuccess from './pages/customer/OrderSuccess';
-import Profile from './pages/customer/Profile';
+import Profile from './pages/customer/ModernProfile';
 import Wallet from './pages/customer/Wallet';
 import ItemDetails from './pages/customer/ItemDetails';
 import SavedAddresses from './pages/customer/SavedAddresses';
@@ -62,6 +64,8 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignUp />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/auth/google/callback" element={<GoogleCallback />} />
+        <Route path="/auth/github/callback" element={<GitHubCallback />} />
 
         {/* Customer Routes */}
         <Route element={<CustomerLayout />}>

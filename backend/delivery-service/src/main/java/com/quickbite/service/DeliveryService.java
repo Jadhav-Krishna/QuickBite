@@ -133,6 +133,12 @@ public class DeliveryService {
         return mapToDTO(agent);
     }
 
+    public List<DeliveryAgentDTO> getAllAgents() {
+        return agentRepository.findAll().stream()
+                .map(this::mapToDTO)
+                .collect(Collectors.toList());
+    }
+
     public List<DeliveryAgentDTO> getAvailableAgents(Double latitude, Double longitude, Double radiusKm) {
         log.info("Fetching available agents near lat: {}, lng: {}", latitude, longitude);
         

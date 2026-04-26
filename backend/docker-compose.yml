@@ -294,6 +294,44 @@ services:
       - quickbite-network
     restart: unless-stopped
 
+# ================= MONITORING (NEW - SAFE ADDITION) =================
+
+  # kafka-ui:
+  #   image: provectuslabs/kafka-ui
+  #   container_name: quickbite-kafka-ui
+  #   ports:
+  #     - "8081:8080"
+  #   environment:
+  #     KAFKA_CLUSTERS_0_NAME: quickbite
+  #     KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+  #     KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+  #   networks:
+  #     - quickbite-network
+
+  # redis-insight:
+  #   image: redis/redisinsight
+  #   container_name: quickbite-redis-ui
+  #   ports:
+  #     - "8011:8001"
+  #   networks:
+  #     - quickbite-network
+
+  # prometheus:
+  #   image: prom/prometheus
+  #   container_name: quickbite-prometheus
+  #   ports:
+  #     - "9090:9090"
+  #   networks:
+  #     - quickbite-network
+
+  # grafana:
+  #   image: grafana/grafana
+  #   container_name: quickbite-grafana
+  #   ports:
+  #     - "3000:3000"
+  #   networks:
+  #     - quickbite-network
+
 volumes:
   mysql_data:
   redis_data:

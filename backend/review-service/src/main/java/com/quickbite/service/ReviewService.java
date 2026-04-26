@@ -78,6 +78,12 @@ public class ReviewService {
         return avg != null ? avg : 0.0;
     }
 
+    public List<ReviewDTO> getAllReviews() {
+        return reviewRepository.findAll().stream()
+                .map(this::mapToDTO)
+                .collect(Collectors.toList());
+    }
+
     private ReviewDTO mapToDTO(Review review) {
         return ReviewDTO.builder()
                 .id(review.getId())

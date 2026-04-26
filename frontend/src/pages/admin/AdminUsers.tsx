@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Calendar,
   CheckCircle2,
@@ -40,8 +41,9 @@ const isAgent = (role: string) => role.toUpperCase().includes('AGENT');
 
 export default function AdminUsers() {
   const { user: currentUser } = useAuth();
+  const [searchParams] = useSearchParams();
   const [users, setUsers] = useState<UserDTO[]>([]);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(searchParams.get('search') || '');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState<UserDTO | null>(null);

@@ -47,6 +47,9 @@ import AdminOverview from './pages/admin/AdminOverview';
 import AdminUsers from './pages/admin/AdminUsers';
 import AdminApprovals from './pages/admin/AdminApprovals';
 import AdminPayments from './pages/admin/AdminPayments';
+import AdminReviews from './pages/admin/AdminReviews';
+import AdminSystemHealth from './pages/admin/AdminSystemHealth';
+import AdminConfiguration from './pages/admin/AdminConfiguration';
 
 // Agent Pages
 import AgentDashboard from './pages/agent/AgentDashboard';
@@ -102,6 +105,9 @@ function App() {
           <Route path="users" element={<AdminUsers />} />
           <Route path="approvals" element={<AdminApprovals />} />
           <Route path="payments" element={<AdminPayments />} />
+          <Route path="reviews" element={<AdminReviews />} />
+          <Route path="system-health" element={<AdminSystemHealth />} />
+          <Route path="configuration" element={<AdminConfiguration />} />
         </Route>
 
         {/* Agent Routes */}

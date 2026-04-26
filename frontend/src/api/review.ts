@@ -24,6 +24,14 @@ const request = async <T>(url: string, init?: RequestInit): Promise<T> => {
 };
 
 export const reviewService = {
+  getAllReviews() {
+    return request<ReviewDTO[]>(`${API_BASE_URL}/v1/reviews/all`, {
+      headers: {
+        ...getOptionalAuthHeader(),
+      },
+    });
+  },
+
   getRestaurantReviews(restaurantId: number) {
     return request<ReviewDTO[]>(`${API_BASE_URL}/v1/reviews/restaurant/${restaurantId}`, {
       headers: {

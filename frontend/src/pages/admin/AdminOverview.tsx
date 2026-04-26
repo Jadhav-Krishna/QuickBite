@@ -160,7 +160,7 @@ export default function AdminOverview() {
       ) : null}
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
           <div className="mb-4 flex items-center gap-4">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-50 text-indigo-600">
               <Users size={24} />
@@ -177,7 +177,7 @@ export default function AdminOverview() {
           </div>
         </div>
 
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
           <div className="mb-4 flex items-center gap-4">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-50 text-amber-600">
               <Store size={24} />
@@ -194,7 +194,7 @@ export default function AdminOverview() {
           </div>
         </div>
 
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
           <div className="mb-4 flex items-center gap-4">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-sky-50 text-sky-600">
               <Bike size={24} />
@@ -212,7 +212,7 @@ export default function AdminOverview() {
           <p className="text-xs font-semibold text-slate-400">{summary.totalDeliveries.toLocaleString()} total deliveries</p>
         </div>
 
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-600 to-cyan-600 p-6 text-white shadow-lg shadow-indigo-600/20">
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-red-600 to-rose-600 p-6 text-white shadow-lg shadow-red-600/20 hover:shadow-xl hover:shadow-red-600/30 transition-shadow">
           <div className="absolute -right-6 -top-6 h-28 w-28 rounded-full bg-white/10" />
           <div className="relative z-10 flex items-center gap-4">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/15">
@@ -243,7 +243,7 @@ export default function AdminOverview() {
                 <button
                   type="button"
                   onClick={() => navigate('/admin/approvals')}
-                  className="mt-3 rounded-full border border-amber-200 bg-white px-3 py-1.5 text-xs font-black uppercase tracking-widest text-amber-700 transition hover:bg-amber-100"
+                  className="mt-3 rounded-full border border-amber-200 bg-white px-3 py-1.5 text-xs font-black uppercase tracking-widest text-amber-700 transition hover:bg-amber-100 hover:scale-105"
                 >
                   Review
                 </button>
@@ -262,7 +262,7 @@ export default function AdminOverview() {
                 <button
                   type="button"
                   onClick={() => navigate('/admin/users')}
-                  className="mt-3 rounded-full border border-rose-200 bg-white px-3 py-1.5 text-xs font-black uppercase tracking-widest text-rose-700 transition hover:bg-rose-100"
+                  className="mt-3 rounded-full border border-rose-200 bg-white px-3 py-1.5 text-xs font-black uppercase tracking-widest text-rose-700 transition hover:bg-rose-100 hover:scale-105"
                 >
                   Open Users
                 </button>
@@ -277,7 +277,7 @@ export default function AdminOverview() {
             <button
               type="button"
               onClick={() => navigate('/admin/payments')}
-              className="rounded-full px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-indigo-600 transition hover:bg-indigo-50"
+              className="rounded-full px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-red-600 transition hover:bg-red-50 hover:scale-105"
             >
               View All
             </button>

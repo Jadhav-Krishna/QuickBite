@@ -53,4 +53,9 @@ public class ReviewController {
     public ResponseEntity<Double> getDeliveryAgentRating(@PathVariable("agentId") Long agentId) {
         return ResponseEntity.ok(reviewService.getDeliveryAgentAverageRating(agentId));
     }
+
+    @GetMapping("/all")
+    public ResponseEntity<List<ReviewDTO>> getAllReviews() {
+        return ResponseEntity.ok(reviewService.getAllReviews());
+    }
 }

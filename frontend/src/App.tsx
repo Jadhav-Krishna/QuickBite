@@ -50,11 +50,13 @@ import AdminPayments from './pages/admin/AdminPayments';
 import AdminReviews from './pages/admin/AdminReviews';
 import AdminSystemHealth from './pages/admin/AdminSystemHealth';
 import AdminConfiguration from './pages/admin/AdminConfiguration';
+import AdminAgents from './pages/admin/AdminAgents';
 
 // Agent Pages
 import AgentDashboard from './pages/agent/AgentDashboard';
 import AgentNavigation from './pages/agent/AgentNavigation';
 import AgentEarnings from './pages/agent/AgentEarnings';
+import AgentProfile from './pages/agent/AgentProfile';
 
 function App() {
   return (
@@ -106,6 +108,7 @@ function App() {
           <Route path="approvals" element={<AdminApprovals />} />
           <Route path="payments" element={<AdminPayments />} />
           <Route path="reviews" element={<AdminReviews />} />
+          <Route path="agents" element={<AdminAgents />} />
           <Route path="system-health" element={<AdminSystemHealth />} />
           <Route path="configuration" element={<AdminConfiguration />} />
         </Route>
@@ -115,6 +118,7 @@ function App() {
           <Route path="dashboard" element={<AgentDashboard />} />
           <Route path="navigation" element={<AgentNavigation />} />
           <Route path="earnings" element={<AgentEarnings />} />
+          <Route path="profile" element={<AgentProfile />} />
         </Route>
 
       </Routes>

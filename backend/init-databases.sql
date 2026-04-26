@@ -230,18 +230,29 @@ USE quickbite_delivery;
 CREATE TABLE IF NOT EXISTS delivery_agents (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     user_id BIGINT NOT NULL,
-    license_number VARCHAR(50) UNIQUE NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    phone VARCHAR(20) UNIQUE NOT NULL,
     vehicle_type VARCHAR(50) NOT NULL,
     vehicle_number VARCHAR(50) NOT NULL,
-    is_available BOOLEAN DEFAULT true,
+    license_number VARCHAR(50) NOT NULL,
+    aadhar_number VARCHAR(12),
     current_latitude DOUBLE,
     current_longitude DOUBLE,
-    total_deliveries INT DEFAULT 0,
-    rating DOUBLE DEFAULT 0,
+    last_known_address VARCHAR(500),
+    last_location_update_time TIMESTAMP,
+    last_status_update_time TIMESTAMP,
+    average_rating DOUBLE DEFAULT 0,
+    total_deliveries BIGINT DEFAULT 0,
+    is_active BOOLEAN DEFAULT true,
+    is_verified BOOLEAN DEFAULT false,
+    is_online BOOLEAN DEFAULT false,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_user_id (user_id),
-    INDEX idx_is_available (is_available)
+    INDEX idx_email (email),
+    INDEX idx_phone (phone),
+    INDEX idx_is_online (is_online)
 );
 
 CREATE TABLE IF NOT EXISTS deliveries (

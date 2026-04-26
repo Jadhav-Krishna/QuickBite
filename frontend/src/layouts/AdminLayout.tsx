@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Users, ShieldCheck, CreditCard, LogOut, Bell, Search, Settings, Activity, Star, X } from 'lucide-react';
+import { LayoutDashboard, Users, ShieldCheck, CreditCard, LogOut, Bell, Search, Settings, Activity, Star, X, Bike } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useEffect, useState } from 'react';
 import { notificationService, type NotificationDTO } from '../api/notification';
@@ -60,6 +60,7 @@ export default function AdminLayout() {
   const navItems = [
     { to: "/admin/overview", icon: LayoutDashboard, label: "Overview" },
     { to: "/admin/users", icon: Users, label: "User Control" },
+    { to: "/admin/agents", icon: Bike, label: "Agents" },
     { to: "/admin/approvals", icon: ShieldCheck, label: "Approvals" },
     { to: "/admin/payments", icon: CreditCard, label: "Financials" },
     { to: "/admin/reviews", icon: Star, label: "Reviews" },

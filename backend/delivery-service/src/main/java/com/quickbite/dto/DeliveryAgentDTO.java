@@ -40,12 +40,17 @@ public class DeliveryAgentDTO {
     @NotBlank(message = "License number is required")
     private String licenseNumber;
 
+    private String aadharNumber;
+
     private Boolean isVerified;
     private Boolean isActive;
     private Boolean isOnline;
     private Double currentLatitude;
     private Double currentLongitude;
     private Long totalDeliveries;
+    private Double totalEarnings;
+    private Double todayEarnings;
+    private Integer todayDeliveries;
     private Double averageRating;
     private LocalDateTime createdAt;
 }

@@ -64,8 +64,10 @@ public class DeliveryController {
     @PutMapping("/agents/{agentId}/orders/{orderId}/deliver")
     public ResponseEntity<Void> markDelivered(
             @PathVariable("agentId") Long agentId,
-            @PathVariable("orderId") Long orderId) {
+            @PathVariable("orderId") Long orderId,
+            @RequestParam("orderAmount") Double orderAmount) {
         deliveryService.markOrderDelivered(agentId, orderId);
+        deliveryService.updateAgentEarnings(agentId, orderAmount);
         return ResponseEntity.ok().build();
     }
 
@@ -85,5 +87,13 @@ public class DeliveryController {
     @GetMapping("/agents")
     public ResponseEntity<List<DeliveryAgentDTO>> getAllAgents() {
         return ResponseEntity.ok(deliveryService.getAllAgents());
+    }
+
+    @PutMapping("/agents/{agentId}/profile")
+    public ResponseEntity<DeliveryAgentDTO> updateProfile(
+            @PathVariable("agentId") Long agentId,
+            @RequestBody DeliveryAgentDTO request) {
+        DeliveryAgentDTO updated = deliveryService.updateAgentProfile(agentId, request);
+        return ResponseEntity.ok(updated);
     }
 }

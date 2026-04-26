@@ -9,6 +9,7 @@ export interface DeliveryAgentDTO {
   vehicleType: string;
   vehicleNumber: string;
   licenseNumber: string;
+  aadharNumber?: string;
   isVerified?: boolean;
   isActive?: boolean;
   isOnline?: boolean;
@@ -161,8 +162,8 @@ export const deliveryService = {
     });
   },
 
-  markDelivered(agentId: number, orderId: number) {
-    return request<void>(`${API_BASE_URL}/v1/delivery/agents/${agentId}/orders/${orderId}/deliver`, {
+  markDelivered(agentId: number, orderId: number, orderAmount: number) {
+    return request<void>(`${API_BASE_URL}/v1/delivery/agents/${agentId}/orders/${orderId}/deliver?orderAmount=${orderAmount}`, {
       method: 'PUT',
       headers: {
         ...getOptionalAuthHeader(),
@@ -183,6 +184,17 @@ export const deliveryService = {
       headers: {
         ...getOptionalAuthHeader(),
       },
+    });
+  },
+
+  updateProfile(agentId: number, payload: Partial<DeliveryAgentDTO>) {
+    return request<DeliveryAgentDTO>(`${API_BASE_URL}/v1/delivery/agents/${agentId}/profile`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getOptionalAuthHeader(),
+      },
+      body: JSON.stringify(payload),
     });
   },
 

@@ -294,20 +294,20 @@ export default function AgentNavigation() {
         </MapContainer>
       </div>
 
-      <div className="relative z-10 m-3 mt-4 rounded-2xl border border-white/60 bg-white/90 px-4 py-3 shadow-xl backdrop-blur-xl">
+      <div className="relative z-10 m-3 mt-4 rounded-2xl border border-white/60 bg-white/95 px-4 py-3 shadow-2xl backdrop-blur-xl">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate(-1)} className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100">
+          <button onClick={() => navigate(-1)} className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 transition">
             <ChevronLeft size={18} />
           </button>
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-black uppercase tracking-widest text-indigo-600">
+            <p className="text-[10px] font-black uppercase tracking-widest text-red-600">
               {isHeadingToCustomer ? 'Heading to customer' : 'Heading to restaurant'}
             </p>
             <p className="truncate text-sm font-black text-slate-900">{destinationLabel}</p>
             <p className="text-[11px] font-semibold text-slate-500 mt-0.5">{stepMeta.label}</p>
           </div>
           <div className="text-right">
-            <p className="text-sm font-black text-indigo-600">{eta}</p>
+            <p className="text-sm font-black text-red-600">{eta}</p>
             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">ETA</p>
           </div>
         </div>
@@ -321,9 +321,9 @@ export default function AgentNavigation() {
         <div className="mb-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
           <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Delivery Flow</p>
           <div className="mt-2 grid grid-cols-3 gap-2 text-[11px] font-bold">
-            <span className={stepMeta.step >= 1 ? 'text-indigo-600' : 'text-slate-400'}>1. Reach Pickup</span>
-            <span className={stepMeta.step >= 2 ? 'text-indigo-600' : 'text-slate-400'}>2. Start Delivery</span>
-            <span className={stepMeta.step >= 3 ? 'text-indigo-600' : 'text-slate-400'}>3. Drop Order</span>
+            <span className={stepMeta.step >= 1 ? 'text-red-600' : 'text-slate-400'}>1. Reach Pickup</span>
+            <span className={stepMeta.step >= 2 ? 'text-red-600' : 'text-slate-400'}>2. Start Delivery</span>
+            <span className={stepMeta.step >= 3 ? 'text-red-600' : 'text-slate-400'}>3. Drop Order</span>
           </div>
         </div>
 
@@ -345,7 +345,7 @@ export default function AgentNavigation() {
             ) : null}
             <a
               href={`tel:${assignment.customerPhone}`}
-              className="flex h-12 w-12 items-center justify-center rounded-full border border-indigo-200 bg-indigo-50 text-indigo-600"
+              className="flex h-12 w-12 items-center justify-center rounded-full border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 transition"
               title="Call Customer"
             >
               <Phone size={18} />
@@ -365,7 +365,7 @@ export default function AgentNavigation() {
           type="button"
           onClick={openExternalNavigation}
           disabled={!destinationPosition}
-          className="mb-3 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 py-3 text-sm font-bold text-slate-700 disabled:opacity-60"
+          className="mb-3 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 py-3 text-sm font-bold text-slate-700 disabled:opacity-60 hover:bg-slate-100 transition"
         >
           <Navigation2 size={16} /> Open External Navigation
         </button>
@@ -386,19 +386,19 @@ export default function AgentNavigation() {
               }
             }}
             disabled={actionLoading}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-indigo-600 py-4 text-base font-bold text-white disabled:opacity-60"
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-red-600 py-4 text-base font-bold text-white disabled:opacity-60 hover:bg-red-700 transition shadow-lg shadow-red-600/20"
           >
             {actionLoading ? 'Updating...' : <><CheckCircle2 size={18} /> Confirm Pickup at Restaurant</>}
           </button>
         ) : assignment.status === 'READY' && assignment.agentPickupConfirmed && !assignment.restaurantPickupConfirmed ? (
-          <div className="flex w-full items-center justify-center gap-2 rounded-2xl border border-indigo-200 bg-indigo-50 py-4 text-base font-bold text-indigo-700">
+          <div className="flex w-full items-center justify-center gap-2 rounded-2xl border border-blue-200 bg-blue-50 py-4 text-base font-bold text-blue-700">
             <CheckCircle2 size={18} /> Waiting Restaurant Pickup Confirmation
           </div>
         ) : assignment.status === 'PICKED_UP' ? (
           <button
             onClick={() => void handleStatusUpdate('IN_TRANSIT')}
             disabled={actionLoading}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-4 text-base font-bold text-white disabled:opacity-60"
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-4 text-base font-bold text-white disabled:opacity-60 hover:bg-emerald-700 transition shadow-lg shadow-emerald-600/20"
           >
             {actionLoading ? 'Updating...' : <><CheckCircle2 size={18} /> Start Trip to Customer</>}
           </button>
@@ -407,7 +407,7 @@ export default function AgentNavigation() {
             <button
               onClick={handleCollectCash}
               disabled={actionLoading}
-              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-amber-600 py-4 text-base font-bold text-white disabled:opacity-60"
+              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-amber-600 py-4 text-base font-bold text-white disabled:opacity-60 hover:bg-amber-700 transition shadow-lg shadow-amber-600/20"
             >
               <CheckCircle2 size={18} /> Collect Cash
             </button>
@@ -415,7 +415,7 @@ export default function AgentNavigation() {
           <button
             onClick={() => void handleStatusUpdate('DELIVERED')}
             disabled={actionLoading}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-4 text-base font-bold text-white disabled:opacity-60"
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-4 text-base font-bold text-white disabled:opacity-60 hover:bg-emerald-700 transition shadow-lg shadow-emerald-600/20"
           >
             {actionLoading ? 'Completing...' : <><CheckCircle2 size={18} /> Delivery Done</>}
           </button>

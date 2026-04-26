@@ -57,6 +57,7 @@ services:
       - "2181:2181"
     networks:
       - quickbite-network
+    restart: unless-stopped
 
   kafka:
     image: confluentinc/cp-kafka:7.7.8
@@ -69,13 +70,14 @@ services:
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-      CLUSTER_ID: MkQkBh5bSK2MkQkBh5bSK2MkQkBh5bSK2MkQkBh5bSK2=
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_LOG_SEGMENT_BYTES: 1073741824
+      KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS: 300000
     ports:
       - "9092:9092"
-    volumes:
-      - kafka_data:/var/lib/kafka/data
     networks:
       - quickbite-network
+    restart: unless-stopped
 
   sonarqube:
     image: sonarqube:lts-community
@@ -336,7 +338,6 @@ volumes:
   mysql_data:
   redis_data:
   rabbitmq_data:
-  kafka_data:
   sonarqube_data:
   sonarqube_logs:
   sonarqube_extensions:

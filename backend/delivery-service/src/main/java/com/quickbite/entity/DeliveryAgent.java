@@ -42,6 +42,9 @@ public class DeliveryAgent {
     private String licenseNumber;
 
     @Column
+    private String aadharNumber;
+
+    @Column
     private Double currentLatitude;
 
     @Column
@@ -61,6 +64,15 @@ public class DeliveryAgent {
 
     @Column
     private Long totalDeliveries = 0L;
+
+    @Column
+    private Double totalEarnings = 0.0;
+
+    @Column
+    private Double todayEarnings = 0.0;
+
+    @Column
+    private Integer todayDeliveries = 0;
 
     @Column
     private Boolean isActive = true;

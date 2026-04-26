@@ -115,6 +115,10 @@ export default function AgentDashboard() {
     try {
       if (nextStatus === 'PICKUP_CONFIRM') {
         await orderService.confirmPickupByAgent(currentAssignment.orderNumber, agent.id);
+      } else if (nextStatus === 'DELIVERED') {
+        await orderService.updateOrderStatus(currentAssignment.orderNumber, nextStatus);
+        const orderAmount = currentAssignment.finalAmount || currentAssignment.totalAmount || 0;
+        await deliveryService.markDelivered(agent.id, currentAssignment.id, orderAmount);
       } else {
         await orderService.updateOrderStatus(currentAssignment.orderNumber, nextStatus);
       }
@@ -147,29 +151,29 @@ export default function AgentDashboard() {
   }
 
   return (
-    <div className="space-y-6 pt-2 animate-fade-up">
+    <div className="space-y-4 pt-4 animate-fade-up">
       {error ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-700">
+        <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-bold text-red-700">
           {error}
         </div>
       ) : null}
 
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex items-center justify-between gap-3">
         <div>
-          <h2 className="font-display text-3xl font-black">Hi, {agent?.fullName || user?.fullName || 'Agent'}</h2>
-          <p className="mt-1 flex items-center gap-1.5 text-sm font-semibold">
-            <span className="relative flex h-2.5 w-2.5">
+          <h2 className="font-display text-2xl font-black text-slate-900">Hi, {agent?.fullName?.split(' ')[0] || user?.fullName?.split(' ')[0] || 'Agent'}</h2>
+          <p className="mt-1 flex items-center gap-1.5 text-xs font-semibold">
+            <span className="relative flex h-2 w-2">
               {agent?.isOnline ? (
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
               ) : null}
               <span
-                className={`relative inline-flex h-2.5 w-2.5 rounded-full ${
-                  agent?.isOnline ? 'bg-green-500' : 'bg-gray-400'
+                className={`relative inline-flex h-2 w-2 rounded-full ${
+                  agent?.isOnline ? 'bg-emerald-500' : 'bg-slate-400'
                 }`}
               />
             </span>
-            <span className={agent?.isOnline ? 'text-green-600' : 'text-[var(--color-on-surface-variant)]'}>
-              {agent?.isOnline ? 'Online and available' : 'Offline'}
+            <span className={agent?.isOnline ? 'text-emerald-600' : 'text-slate-500'}>
+              {agent?.isOnline ? 'Online' : 'Offline'}
             </span>
           </p>
         </div>
@@ -177,98 +181,99 @@ export default function AgentDashboard() {
         <button
           onClick={toggleOnline}
           disabled={toggling || !agent}
-          className={`relative h-10 w-20 rounded-full p-1 shadow-inner transition-colors duration-500 ${
-            agent?.isOnline ? 'bg-gradient-to-r from-green-400 to-green-500' : 'bg-[var(--color-surface-variant)]'
+          type="button"
+          className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors focus:outline-none disabled:opacity-50 ${
+            agent?.isOnline ? 'bg-emerald-500' : 'bg-slate-300'
           }`}
         >
-          <div
-            className={`absolute top-1 bottom-1 w-8 rounded-full bg-white shadow-[0_2px_8px_rgba(0,0,0,0.2)] transition-transform duration-500 ${
-              agent?.isOnline ? 'translate-x-10' : 'translate-x-0'
+          <span
+            className={`inline-block h-6 w-6 transform rounded-full bg-white shadow-lg transition-transform ${
+              agent?.isOnline ? 'translate-x-7' : 'translate-x-1'
             }`}
           />
         </button>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-[2rem] bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-secondary-container)] p-5 text-white shadow-glow">
-          <div className="mb-3 flex items-center justify-between">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-white/80">Estimated Active Pay</p>
-            <TrendingUp size={14} className="text-white/80" />
+      <div className="grid grid-cols-2 gap-2">
+        <div className="rounded-2xl bg-gradient-to-br from-red-600 to-rose-600 p-4 text-white shadow-lg shadow-red-600/20 hover:shadow-xl hover:shadow-red-600/30 transition-shadow">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-[9px] font-bold uppercase tracking-widest text-white/80">Active Pay</p>
+            <TrendingUp size={12} className="text-white/80" />
           </div>
-          <h3 className="font-display text-3xl font-black">{formatCurrency(todaysStats.estimatedPay)}</h3>
+          <h3 className="font-display text-xl font-black">{formatCurrency(todaysStats.estimatedPay)}</h3>
         </div>
 
-        <div className="rounded-[2rem] border border-[var(--color-outline-variant)]/40 bg-white p-5 shadow-card">
-          <div className="mb-3 flex items-center justify-between">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-on-surface-variant)]">Active Orders</p>
-            <CheckCircle2 size={14} className="text-[var(--color-primary)]" />
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:shadow-md transition-shadow">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Active</p>
+            <CheckCircle2 size={12} className="text-red-600" />
           </div>
-          <h3 className="font-display text-3xl font-black text-[var(--color-on-surface)]">{todaysStats.activeOrders}</h3>
+          <h3 className="font-display text-xl font-black text-slate-900">{todaysStats.activeOrders}</h3>
         </div>
 
-        <div className="rounded-[2rem] border border-[var(--color-outline-variant)]/40 bg-white p-5 shadow-card">
-          <div className="mb-3 flex items-center justify-between">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-on-surface-variant)]">Lifetime Deliveries</p>
-            <Bike size={14} className="text-[var(--color-primary)]" />
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:shadow-md transition-shadow">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Lifetime</p>
+            <Bike size={12} className="text-red-600" />
           </div>
-          <h3 className="font-display text-2xl font-black text-[var(--color-on-surface)]">{agent?.totalDeliveries || 0}</h3>
+          <h3 className="font-display text-lg font-black text-slate-900">{agent?.totalDeliveries || 0}</h3>
         </div>
 
-        <div className="rounded-[2rem] border border-[var(--color-outline-variant)]/40 bg-white p-5 shadow-card">
-          <div className="mb-3 flex items-center justify-between">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-on-surface-variant)]">Rating</p>
-            <Star size={14} className="text-yellow-500" fill="currentColor" />
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:shadow-md transition-shadow">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Rating</p>
+            <Star size={12} className="text-yellow-500" fill="currentColor" />
           </div>
-          <h3 className="font-display text-2xl font-black text-[var(--color-on-surface)]">{rating.toFixed(1)}</h3>
+          <h3 className="font-display text-lg font-black text-slate-900">{rating.toFixed(1)}</h3>
         </div>
       </div>
 
-      <div className="mt-8">
-        <h3 className="mb-4 flex items-center gap-2 font-display text-xl font-bold">Current Assignment</h3>
+      <div className="mt-6">
+        <h3 className="mb-3 flex items-center gap-2 font-display text-lg font-bold text-slate-900">Current Assignment</h3>
 
         {currentAssignment ? (
-          <div className="relative overflow-hidden rounded-[2rem] border border-[var(--color-outline-variant)]/50 bg-white p-6 shadow-card">
-            <div className="absolute -right-20 -top-20 h-40 w-40 rounded-full bg-[var(--color-primary)]/10 blur-3xl" />
+          <div className="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-white p-6 shadow-lg hover:shadow-xl transition-shadow">
+            <div className="absolute -right-20 -top-20 h-40 w-40 rounded-full bg-red-600/10 blur-3xl" />
 
             <div className="relative z-10">
               <div className="flex items-start justify-between">
                 <div>
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-primary)]/10 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-[var(--color-primary)]">
-                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--color-primary)]" />
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-red-600">
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-600" />
                     {currentAssignment.status.replace('_', ' ')}
                   </span>
-                  <h4 className="mt-3 font-display text-2xl font-black">
+                  <h4 className="mt-3 font-display text-2xl font-black text-slate-900">
                     Order #{currentAssignment.orderNumber.slice(-4)}
                   </h4>
-                  <p className="mt-1 flex items-center gap-1 text-xs font-bold text-[var(--color-on-surface-variant)]">
+                  <p className="mt-1 flex items-center gap-1 text-xs font-bold text-slate-500">
                     <Clock size={12} /> Live assignment
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="font-display text-2xl font-black text-[var(--color-on-surface)]">
+                  <p className="font-display text-2xl font-black text-slate-900">
                     {formatCurrency(currentAssignment.finalAmount || currentAssignment.totalAmount || 0)}
                   </p>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-on-surface-variant)]">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
                     Payout: {formatCurrency((currentAssignment.finalAmount || 0) * AGENT_EARNING_RATE)}
                   </p>
                 </div>
               </div>
 
-              <div className="mt-5 rounded-2xl bg-[var(--color-surface-container)] p-4">
+              <div className="mt-5 rounded-2xl bg-slate-50 p-4">
                 <div className="flex gap-3">
                   <div className="mt-1 flex flex-col items-center">
-                    <div className="h-2.5 w-2.5 rounded-full bg-[var(--color-primary)]" />
-                    <div className="h-10 w-0.5 border-l-2 border-dashed border-[var(--color-outline-variant)]" />
-                    <div className="h-2.5 w-2.5 rounded-full bg-[var(--color-on-surface)]" />
+                    <div className="h-2.5 w-2.5 rounded-full bg-red-600" />
+                    <div className="h-10 w-0.5 border-l-2 border-dashed border-slate-300" />
+                    <div className="h-2.5 w-2.5 rounded-full bg-slate-900" />
                   </div>
                   <div className="flex-1 space-y-4">
                     <div>
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-on-surface-variant)]">Pickup</p>
-                      <p className="mt-0.5 text-sm font-bold">Restaurant #{currentAssignment.restaurantId}</p>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Pickup</p>
+                      <p className="mt-0.5 text-sm font-bold text-slate-900">Restaurant #{currentAssignment.restaurantId}</p>
                     </div>
                     <div>
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-on-surface-variant)]">Dropoff</p>
-                      <p className="mt-0.5 line-clamp-1 text-sm font-bold">{currentAssignment.deliveryAddress}</p>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Dropoff</p>
+                      <p className="mt-0.5 line-clamp-1 text-sm font-bold text-slate-900">{currentAssignment.deliveryAddress}</p>
                     </div>
                   </div>
                 </div>
@@ -276,7 +281,7 @@ export default function AgentDashboard() {
 
               <Link
                 to="/agent/navigation"
-                className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-[var(--color-primary)] py-4 text-sm font-bold text-white shadow-glow transition-transform hover:scale-[1.02] active:scale-95"
+                className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-red-600 py-4 text-sm font-bold text-white shadow-lg shadow-red-600/20 transition-transform hover:scale-[1.02] active:scale-95"
               >
                 <Navigation size={16} /> Open Navigation
               </Link>
@@ -324,8 +329,8 @@ export default function AgentDashboard() {
             </div>
           </div>
         ) : (
-          <div className="rounded-[2rem] border border-[var(--color-outline-variant)]/40 bg-white p-6 shadow-card">
-            <p className="text-sm font-semibold text-[var(--color-on-surface-variant)]">
+          <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+            <p className="text-sm font-semibold text-slate-600">
               {agent?.isOnline
                 ? 'No active order. Accept the next available delivery to start navigation.'
                 : 'Go online to receive and accept delivery orders.'}
@@ -335,7 +340,7 @@ export default function AgentDashboard() {
                 type="button"
                 onClick={() => void acceptNextOrder()}
                 disabled={acceptingOrder || availableOrders.length === 0}
-                className="mt-4 rounded-full bg-[var(--color-primary)] px-5 py-3 text-sm font-bold text-white transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60"
+                className="mt-4 rounded-full bg-red-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-red-700 hover:scale-105 disabled:cursor-not-allowed disabled:opacity-60 shadow-lg shadow-red-600/20"
               >
                 {acceptingOrder
                   ? 'Accepting...'

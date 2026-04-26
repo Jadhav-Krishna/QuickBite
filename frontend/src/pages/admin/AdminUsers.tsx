@@ -460,21 +460,19 @@ export default function AdminUsers() {
                     <p className="text-[10px] font-black uppercase tracking-widest text-sky-700/70">Active Assignments</p>
                     <p className="mt-2 font-display text-3xl font-black text-sky-900">{selectedAgentLive}</p>
                   </div>
-                  <div className="sm:col-span-2">
+                  <div className="sm:col-span-2 space-y-3">
                     {agentOrders.length > 0 ? (
-                      <div className="space-y-4">
-                        {agentOrders.map((order) => (
-                          <div key={order.orderNumber} className="flex items-center justify-between rounded-2xl border border-slate-100 p-4 transition hover:border-sky-100 hover:bg-sky-50/40">
-                            <div>
-                              <p className="font-bold text-slate-900">Order #{order.orderNumber}</p>
-                              <p className="text-xs font-semibold text-slate-500">Restaurant ID {order.restaurantId}</p>
-                            </div>
-                            <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-slate-700">
-                              {order.status}
-                            </span>
+                      agentOrders.slice(0, 5).map((order) => (
+                        <div key={order.orderNumber} className="flex items-center justify-between rounded-2xl border border-slate-100 p-4 transition hover:border-sky-100 hover:bg-sky-50/40">
+                          <div>
+                            <p className="font-bold text-slate-900">Order #{order.orderNumber}</p>
+                            <p className="text-xs font-semibold text-slate-500">Restaurant ID {order.restaurantId}</p>
                           </div>
-                        ))}
-                      </div>
+                          <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-slate-700">
+                            {order.status}
+                          </span>
+                        </div>
+                      ))
                     ) : (
                       <p className="rounded-2xl border border-slate-100 bg-slate-50 p-6 text-center text-sm font-bold text-slate-400">
                         No delivery orders found for this agent.

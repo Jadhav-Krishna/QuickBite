@@ -33,6 +33,13 @@ public class DeliveryService {
     public DeliveryAgentDTO registerDeliveryAgent(DeliveryAgentDTO request) {
         log.info("Registering delivery agent: {}", request.getPhone());
 
+        // Check if agent already exists by userId
+        Optional<DeliveryAgent> existingAgent = agentRepository.findByUserId(request.getUserId());
+        if (existingAgent.isPresent()) {
+            log.info("Agent already exists for userId: {}", request.getUserId());
+            return mapToDTO(existingAgent.get());
+        }
+
         DeliveryAgent agent = DeliveryAgent.builder()
                 .userId(request.getUserId())
                 .fullName(request.getFullName())
@@ -41,6 +48,7 @@ public class DeliveryService {
                 .vehicleType(request.getVehicleType())
                 .vehicleNumber(request.getVehicleNumber())
                 .licenseNumber(request.getLicenseNumber())
+                .aadharNumber(request.getAadharNumber())
                 .isVerified(false)
                 .isActive(false)
                 .currentLatitude(0.0)
@@ -122,9 +130,35 @@ public class DeliveryService {
         // Implementation to update order status
     }
 
+    public void updateAgentEarnings(Long agentId, Double orderAmount) {
+        log.info("Updating agent earnings - Agent: {}, Amount: {}", agentId, orderAmount);
+        
+        DeliveryAgent agent = agentRepository.findById(agentId)
+                .orElseThrow(() -> new RuntimeException("Delivery agent not found"));
+        
+        // Calculate agent commission (12% of order amount)
+        Double commission = orderAmount * 0.12;
+        
+        // Update earnings
+        agent.setTotalEarnings((agent.getTotalEarnings() != null ? agent.getTotalEarnings() : 0.0) + commission);
+        agent.setTodayEarnings((agent.getTodayEarnings() != null ? agent.getTodayEarnings() : 0.0) + commission);
+        
+        agentRepository.save(agent);
+        log.info("Agent earnings updated: {} - Commission: {}", agentId, commission);
+    }
+
     public void markOrderDelivered(Long agentId, Long orderId) {
         log.info("Marking order delivered - Order: {}, Agent: {}", orderId, agentId);
-        // Implementation to update order status and complete delivery
+        
+        DeliveryAgent agent = agentRepository.findById(agentId)
+                .orElseThrow(() -> new RuntimeException("Delivery agent not found"));
+        
+        // Update delivery count
+        agent.setTotalDeliveries(agent.getTotalDeliveries() + 1);
+        agent.setTodayDeliveries((agent.getTodayDeliveries() != null ? agent.getTodayDeliveries() : 0) + 1);
+        
+        agentRepository.save(agent);
+        log.info("Agent delivery count updated: {}", agentId);
     }
 
     public DeliveryAgentDTO getAgentEarnings(Long agentId) {
@@ -151,6 +185,26 @@ public class DeliveryService {
                 .collect(Collectors.toList());
     }
 
+    public DeliveryAgentDTO updateAgentProfile(Long agentId, DeliveryAgentDTO request) {
+        log.info("Updating agent profile: {}", agentId);
+        
+        DeliveryAgent agent = agentRepository.findById(agentId)
+                .orElseThrow(() -> new RuntimeException("Delivery agent not found"));
+        
+        if (request.getFullName() != null) agent.setFullName(request.getFullName());
+        if (request.getPhone() != null) agent.setPhone(request.getPhone());
+        if (request.getEmail() != null) agent.setEmail(request.getEmail());
+        if (request.getVehicleType() != null) agent.setVehicleType(request.getVehicleType());
+        if (request.getVehicleNumber() != null) agent.setVehicleNumber(request.getVehicleNumber());
+        if (request.getLicenseNumber() != null) agent.setLicenseNumber(request.getLicenseNumber());
+        if (request.getAadharNumber() != null) agent.setAadharNumber(request.getAadharNumber());
+        
+        DeliveryAgent updated = agentRepository.save(agent);
+        log.info("Agent profile updated: {}", agentId);
+        
+        return mapToDTO(updated);
+    }
+
     private DeliveryAgentDTO mapToDTO(DeliveryAgent agent) {
         return DeliveryAgentDTO.builder()
                 .id(agent.getId())
@@ -161,12 +215,16 @@ public class DeliveryService {
                 .vehicleType(agent.getVehicleType())
                 .vehicleNumber(agent.getVehicleNumber())
                 .licenseNumber(agent.getLicenseNumber())
+                .aadharNumber(agent.getAadharNumber())
                 .isVerified(agent.getIsVerified())
                 .isActive(agent.getIsActive())
                 .isOnline(agent.getIsOnline())
                 .currentLatitude(agent.getCurrentLatitude())
                 .currentLongitude(agent.getCurrentLongitude())
                 .totalDeliveries(agent.getTotalDeliveries())
+                .totalEarnings(agent.getTotalEarnings())
+                .todayEarnings(agent.getTodayEarnings())
+                .todayDeliveries(agent.getTodayDeliveries())
                 .averageRating(agent.getAverageRating())
                 .createdAt(agent.getCreatedAt())
                 .build();

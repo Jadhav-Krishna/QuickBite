@@ -81,8 +81,8 @@ export default function AgentEarnings() {
   return (
     <div className="space-y-6 pt-4 pb-10 animate-fade-up">
       <header className="flex items-center justify-between mb-4">
-        <h1 className="font-display text-3xl font-black">Earnings</h1>
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-primary-container)] text-[var(--color-on-primary-container)]">
+        <h1 className="font-display text-3xl font-black text-slate-900">Earnings</h1>
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 text-red-600">
           <Banknote size={20} />
         </div>
       </header>
@@ -91,15 +91,15 @@ export default function AgentEarnings() {
         <div className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-700">{error}</div>
       ) : null}
 
-      <div className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-[var(--color-inverse-surface)] to-black p-8 text-white shadow-glow">
-        <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-[var(--color-primary)]/30 blur-3xl" />
+      <div className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-slate-900 to-slate-800 p-8 text-white shadow-2xl">
+        <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-red-600/30 blur-3xl" />
         <div className="relative z-10">
           <p className="text-[10px] font-bold uppercase tracking-widest text-white/60">This Week's Pay</p>
           <div className="mt-2 flex items-end gap-3">
             <h2 className="font-display text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-white/70">
               {formatCurrency(weeklySummary.estimatedPay)}
             </h2>
-            <div className="mb-2 flex items-center gap-1 rounded-full bg-green-500/20 px-2 py-1 text-xs font-bold text-green-400">
+            <div className="mb-2 flex items-center gap-1 rounded-full bg-emerald-500/20 px-2 py-1 text-xs font-bold text-emerald-400">
               <TrendingUp size={12} /> Live
             </div>
           </div>
@@ -115,11 +115,11 @@ export default function AgentEarnings() {
                       {formatCurrency(h.amount)}
                     </div>
                     <div
-                      className={`w-full max-w-[12px] rounded-t-full transition-all duration-1000 ease-out ${isToday ? 'bg-[var(--color-primary)] shadow-[0_0_10px_var(--color-primary)]' : 'bg-white/20 hover:bg-white/40'}`}
+                      className={`w-full max-w-[12px] rounded-t-full transition-all duration-1000 ease-out ${isToday ? 'bg-red-600 shadow-[0_0_10px_#dc2626]' : 'bg-white/20 hover:bg-white/40'}`}
                       style={{ height: `${heightPct}%`, minHeight: '10%' }}
                     />
                   </div>
-                  <span className={`text-[8px] font-bold uppercase ${isToday ? 'text-[var(--color-primary)]' : 'text-white/40'}`}>
+                  <span className={`text-[8px] font-bold uppercase ${isToday ? 'text-red-400' : 'text-white/40'}`}>
                     {h.label.slice(0, 3)}
                   </span>
                 </div>
@@ -150,34 +150,34 @@ export default function AgentEarnings() {
       </div>
 
       <div className="flex gap-3">
-        <button className="flex flex-1 items-center justify-center gap-2 rounded-full bg-[var(--color-primary)] py-4 text-sm font-bold text-white shadow-glow transition hover:scale-105 active:scale-95">
+        <button className="flex flex-1 items-center justify-center gap-2 rounded-full bg-red-600 py-4 text-sm font-bold text-white shadow-lg shadow-red-600/20 transition hover:scale-105 active:scale-95">
           <Wallet size={18} /> Cash Out
         </button>
-        <button onClick={() => void loadEarnings()} className="flex flex-1 items-center justify-center gap-2 rounded-full border border-[var(--color-outline-variant)] bg-white py-4 text-sm font-bold shadow-sm transition hover:bg-[var(--color-surface-variant)] active:scale-95">
+        <button onClick={() => void loadEarnings()} className="flex flex-1 items-center justify-center gap-2 rounded-full border border-slate-200 bg-white py-4 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 active:scale-95">
           <Activity size={18} /> Refresh
         </button>
       </div>
 
       <div className="mt-8">
-        <h3 className="mb-4 font-display text-xl font-bold">Daily Breakdown</h3>
+        <h3 className="mb-4 font-display text-xl font-bold text-slate-900">Daily Breakdown</h3>
         {history.length === 0 ? (
-          <p className="text-sm text-[var(--color-on-surface-variant)]">No delivered orders yet.</p>
+          <p className="text-sm text-slate-500">No delivered orders yet.</p>
         ) : (
           <div className="space-y-3">
             {history.map((item, index) => (
-              <div key={item.label + index} className="flex cursor-pointer items-center justify-between rounded-[1.5rem] bg-white border border-[var(--color-outline-variant)]/40 p-5 shadow-card transition-transform hover:scale-[1.02]">
+              <div key={item.label + index} className="flex cursor-pointer items-center justify-between rounded-[1.5rem] bg-white border border-slate-200 p-5 shadow-sm transition-transform hover:scale-[1.02] hover:shadow-md">
                 <div className="flex items-center gap-4">
-                  <div className={`flex h-12 w-12 items-center justify-center rounded-full ${index === 0 ? 'bg-[var(--color-primary-container)] text-[var(--color-on-primary-container)]' : 'bg-[var(--color-surface-variant)] text-[var(--color-on-surface-variant)]'}`}>
+                  <div className={`flex h-12 w-12 items-center justify-center rounded-full ${index === 0 ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-600'}`}>
                     <Calendar size={20} />
                   </div>
                   <div>
-                    <h4 className="font-display text-lg font-bold">{item.label}</h4>
-                    <p className="text-xs font-semibold text-[var(--color-on-surface-variant)]">{item.deliveries} trips completed</p>
+                    <h4 className="font-display text-lg font-bold text-slate-900">{item.label}</h4>
+                    <p className="text-xs font-semibold text-slate-500">{item.deliveries} trips completed</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <p className="font-display text-xl font-black">{formatCurrency(item.amount)}</p>
-                  <ChevronRight size={16} className="text-[var(--color-outline-variant)]" />
+                  <p className="font-display text-xl font-black text-slate-900">{formatCurrency(item.amount)}</p>
+                  <ChevronRight size={16} className="text-slate-400" />
                 </div>
               </div>
             ))}

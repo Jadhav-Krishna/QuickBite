@@ -80,6 +80,11 @@ public class MenuService {
     }
 
     @Transactional(readOnly = true)
+    public List<MenuItem> getAllMenuItems() {
+        return menuItemRepository.findAll();
+    }
+
+    @Transactional(readOnly = true)
     public MenuItem getMenuItem(Long id) {
         return menuItemRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Menu item not found"));

@@ -72,6 +72,15 @@ public class MenuController {
         return ResponseEntity.status(HttpStatus.CREATED).body(mapMenuItemToDTO(created));
     }
 
+    @GetMapping("/items")
+    public ResponseEntity<List<MenuItemDTO>> getAllMenuItems() {
+        log.info("Fetching all menu items");
+        List<MenuItemDTO> items = menuService.getAllMenuItems().stream()
+                .map(this::mapMenuItemToDTO)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(items);
+    }
+
     @GetMapping("/items/{id}")
     public ResponseEntity<MenuItemDTO> getMenuItem(@PathVariable("id") Long id) {
         MenuItem item = menuService.getMenuItem(id);

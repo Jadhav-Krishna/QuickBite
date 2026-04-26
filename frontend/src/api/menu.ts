@@ -64,6 +64,15 @@ const parseResponse = async <T>(response: Response, fallback: string): Promise<T
 };
 
 export const menuService = {
+  async getAllDishes(): Promise<MenuItem[]> {
+    const response = await fetch(`${API_BASE_URL}/v1/menu/items`, {
+      headers: {
+        ...getOptionalAuthHeader(),
+      },
+    });
+    return parseResponse<MenuItem[]>(response, `Failed to fetch all dishes: ${response.statusText}`);
+  },
+
   async getAllMenuByRestaurant(restaurantId: number): Promise<MenuItem[]> {
     const response = await fetch(`${API_BASE_URL}/v1/menu/items/restaurant/${restaurantId}`, {
       headers: {

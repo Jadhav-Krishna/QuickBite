@@ -28,7 +28,7 @@ export default function FoodAppNavbar() {
     },
     {
       label: 'Search',
-      path: '/restaurants',
+      path: '/search',
       icon: (
         <svg viewBox="0 0 24 24" fill="none" strokeWidth="2.2" strokeLinecap="round">
           <circle className="icon-stroke" cx="11" cy="11" r="7"/>

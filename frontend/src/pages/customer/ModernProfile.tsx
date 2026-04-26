@@ -48,9 +48,14 @@ export default function ModernProfile() {
   });
 
   useEffect(() => {
+    // Check if user is authenticated
+    if (!user) {
+      navigate('/login');
+      return;
+    }
     loadProfile();
     loadAddresses();
-  }, []);
+  }, [user, navigate]);
 
   const loadProfile = async () => {
     setLoading(true);
@@ -75,7 +80,9 @@ export default function ModernProfile() {
       const data = await addressService.getAllAddresses();
       setAddresses(data);
     } catch (err: unknown) {
+      // Silently fail for addresses - user can still use profile without addresses
       console.error('Failed to load addresses:', err);
+      setAddresses([]);
     } finally {
       setLoadingAddresses(false);
     }

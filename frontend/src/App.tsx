@@ -23,6 +23,8 @@ import RequireRole from './components/auth/RequireRole';
 // Customer Pages
 import Landing from './pages/CinematicLandingWhite';
 import Restaurants from './pages/Restaurants';
+import RestaurantsPage from './pages/customer/RestaurantsPage';
+import SearchDishes from './pages/customer/SearchDishes';
 import Menu from './pages/Menu';
 import Checkout from './pages/Checkout';
 import Cart from './pages/customer/Cart';
@@ -75,7 +77,8 @@ function App() {
         {/* Customer Routes */}
         <Route element={<CustomerLayout />}>
           <Route path="/" element={<Landing />} />
-          <Route path="/restaurants" element={<Restaurants />} />
+          <Route path="/search" element={<SearchDishes />} />
+          <Route path="/restaurants" element={<RestaurantsPage />} />
           <Route path="/menu/:restaurantId" element={<Menu />} />
           <Route path="/item/:id" element={<ItemDetails />} />
           <Route path="/cart" element={<Cart />} />

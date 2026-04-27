@@ -91,7 +91,7 @@ export default function SearchDishes() {
   }, [allDishes, searchQuery, selectedCuisine, selectedDietary, sortBy, priceRange, restaurants]);
 
   const handleDishClick = (dish: MenuItem) => {
-    navigate(`/menu/${dish.restaurantId}`, { state: { highlightItem: dish.id } });
+    navigate(`/item/${dish.id}`);
   };
 
   if (loading) {

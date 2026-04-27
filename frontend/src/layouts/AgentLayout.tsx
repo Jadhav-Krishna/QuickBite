@@ -1,5 +1,5 @@
 import { Outlet, NavLink } from 'react-router-dom';
-import { Home, Map, Wallet, User, Sparkles } from 'lucide-react';
+import { Home, Map, Wallet, User, Sparkles, Star } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function AgentLayout() {
@@ -9,6 +9,7 @@ export default function AgentLayout() {
     { to: "/agent/dashboard", icon: Home, label: "Home" },
     { to: "/agent/navigation", icon: Map, label: "Route" },
     { to: "/agent/earnings", icon: Wallet, label: "Earnings" },
+    { to: "/agent/reviews", icon: Star, label: "Reviews" },
     { to: "/agent/profile", icon: User, label: "Profile" },
   ];
 

@@ -36,6 +36,7 @@ import Wallet from './pages/customer/Wallet';
 import ItemDetails from './pages/customer/ItemDetails';
 import SavedAddresses from './pages/customer/SavedAddresses';
 import OrderHistory from './pages/customer/OrderHistory';
+import MyReviews from './pages/customer/MyReviews';
 
 // Partner Pages
 import PartnerDashboard from './pages/partner/PartnerDashboard';
@@ -43,6 +44,7 @@ import PartnerOrders from './pages/partner/PartnerOrders';
 import PartnerMenu from './pages/partner/PartnerMenu';
 import PartnerAnalytics from './pages/partner/PartnerAnalytics';
 import PartnerReviews from './pages/partner/PartnerReviews';
+import PartnerReviewsPage from './pages/partner/PartnerReviewsPage';
 
 // Admin Pages
 import AdminOverview from './pages/admin/AdminOverview';
@@ -50,6 +52,7 @@ import AdminUsers from './pages/admin/AdminUsers';
 import AdminApprovals from './pages/admin/AdminApprovals';
 import AdminPayments from './pages/admin/AdminPayments';
 import AdminReviews from './pages/admin/AdminReviews';
+import AdminReviewsPage from './pages/admin/AdminReviewsPage';
 import AdminSystemHealth from './pages/admin/AdminSystemHealth';
 import AdminConfiguration from './pages/admin/AdminConfiguration';
 import AdminAgents from './pages/admin/AdminAgents';
@@ -59,6 +62,7 @@ import AgentDashboard from './pages/agent/AgentDashboard';
 import AgentNavigation from './pages/agent/AgentNavigation';
 import AgentEarnings from './pages/agent/AgentEarnings';
 import AgentProfile from './pages/agent/AgentProfile';
+import AgentReviews from './pages/agent/AgentReviews';
 
 function App() {
   return (
@@ -91,6 +95,7 @@ function App() {
           <Route path="/wallet" element={<RequireAuth><Wallet /></RequireAuth>} />
           <Route path="/customer/addresses" element={<RequireAuth><SavedAddresses /></RequireAuth>} />
           <Route path="/customer/history" element={<RequireAuth><OrderHistory /></RequireAuth>} />
+          <Route path="/customer/reviews" element={<RequireAuth><MyReviews /></RequireAuth>} />
         </Route>
 
         {/* Partner Routes */}
@@ -100,7 +105,7 @@ function App() {
           <Route path="orders" element={<PartnerOrders />} />
           <Route path="menu" element={<PartnerMenu />} />
           <Route path="analytics" element={<PartnerAnalytics />} />
-          <Route path="reviews" element={<PartnerReviews />} />
+          <Route path="reviews" element={<PartnerReviewsPage />} />
         </Route>
 
         {/* Admin Routes */}
@@ -110,7 +115,7 @@ function App() {
           <Route path="users" element={<AdminUsers />} />
           <Route path="approvals" element={<AdminApprovals />} />
           <Route path="payments" element={<AdminPayments />} />
-          <Route path="reviews" element={<AdminReviews />} />
+          <Route path="reviews" element={<AdminReviewsPage />} />
           <Route path="agents" element={<AdminAgents />} />
           <Route path="system-health" element={<AdminSystemHealth />} />
           <Route path="configuration" element={<AdminConfiguration />} />
@@ -121,6 +126,7 @@ function App() {
           <Route path="dashboard" element={<AgentDashboard />} />
           <Route path="navigation" element={<AgentNavigation />} />
           <Route path="earnings" element={<AgentEarnings />} />
+          <Route path="reviews" element={<AgentReviews />} />
           <Route path="profile" element={<AgentProfile />} />
         </Route>
 

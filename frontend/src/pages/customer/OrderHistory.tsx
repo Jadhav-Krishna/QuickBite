@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Package, Clock, CheckCircle, XCircle, Truck, ChefHat, MapPin, Phone, Receipt, Download, X, ArrowLeft } from 'lucide-react';
+import { Package, Clock, CheckCircle, XCircle, Truck, ChefHat, MapPin, Phone, Receipt, Download, X, Star, MessageSquare } from 'lucide-react';
 import { orderService, type OrderDTO } from '../../api/order';
 import { restaurantService, type Restaurant } from '../../api/restaurant';
+import { reviewService, type ReviewDTO } from '../../api/review';
 import { requireCurrentUserId } from '../../utils/session';
+import ReviewModal from '../../components/ReviewModal';
 
 const formatOrderDate = (value?: string) => {
   if (!value) return 'Date unavailable';
@@ -55,13 +57,34 @@ const getOrderSteps = (status: string) => {
 export default function OrderHistory() {
   const [orders, setOrders] = useState<OrderDTO[]>([]);
   const [restaurants, setRestaurants] = useState<Map<number, Restaurant>>(new Map());
+  const [reviews, setReviews] = useState<Map<number, ReviewDTO>>(new Map());
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<OrderDTO | null>(null);
   const [showInvoice, setShowInvoice] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [reviewingOrder, setReviewingOrder] = useState<OrderDTO | null>(null);
+  const customerId = requireCurrentUserId();
 
   useEffect(() => {
     loadOrders();
   }, []);
+
+  // Auto-show review modal for newly delivered orders without reviews
+  useEffect(() => {
+    if (orders.length > 0 && reviews.size >= 0) {
+      const deliveredWithoutReview = orders.find(
+        order => order.status.toUpperCase() === 'DELIVERED' && !reviews.has(order.id)
+      );
+      
+      if (deliveredWithoutReview && !showReviewModal) {
+        // Show review modal after a short delay
+        const timer = setTimeout(() => {
+          handleOpenReviewModal(deliveredWithoutReview);
+        }, 1000);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [orders, reviews]);
 
   const loadOrders = async () => {
     setLoading(true);
@@ -76,6 +99,18 @@ export default function OrderHistory() {
       const restaurantData = await Promise.all(restaurantPromises);
       const restaurantMap = new Map(restaurantData.map(r => [r.id, r]));
       setRestaurants(restaurantMap);
+
+      // Load reviews for all orders
+      const reviewPromises = data.map(order => 
+        reviewService.getReviewByOrder(order.id).catch(() => null)
+      );
+      const reviewData = await Promise.all(reviewPromises);
+      const reviewMap = new Map(
+        reviewData
+          .filter((review): review is ReviewDTO => review !== null)
+          .map(review => [review.orderId, review])
+      );
+      setReviews(reviewMap);
     } catch (err) {
       console.error('Failed to load orders:', err);
     } finally {
@@ -95,6 +130,15 @@ export default function OrderHistory() {
 
   const handlePrintInvoice = () => {
     window.print();
+  };
+
+  const handleOpenReviewModal = (order: OrderDTO) => {
+    setReviewingOrder(order);
+    setShowReviewModal(true);
+  };
+
+  const handleReviewSuccess = () => {
+    loadOrders(); // Reload to get the new review
   };
 
   if (loading) {
@@ -139,6 +183,8 @@ export default function OrderHistory() {
               const restaurant = restaurants.get(order.restaurantId);
               const isDelivered = order.status.toUpperCase() === 'DELIVERED';
               const isCancelled = order.status.toUpperCase() === 'CANCELLED';
+              const hasReview = reviews.has(order.id);
+              const review = reviews.get(order.id);
 
               return (
                 <div
@@ -199,6 +245,32 @@ export default function OrderHistory() {
                                 <span className="text-gray-500"> +{order.items.length - 2} more</span>
                               )}
                             </div>
+
+                            {/* Review Display */}
+                            {hasReview && review && (
+                              <div className="mt-3 pt-3 border-t border-gray-100">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <div className="flex items-center gap-1">
+                                    <Star size={14} className="text-yellow-400 fill-yellow-400" />
+                                    <span className="text-sm font-bold text-gray-900">{review.restaurantRating}/5</span>
+                                  </div>
+                                  <span className="text-xs text-gray-500">Restaurant</span>
+                                  {review.deliveryRating && (
+                                    <>
+                                      <span className="text-gray-300">•</span>
+                                      <div className="flex items-center gap-1">
+                                        <Star size={14} className="text-yellow-400 fill-yellow-400" />
+                                        <span className="text-sm font-bold text-gray-900">{review.deliveryRating}/5</span>
+                                      </div>
+                                      <span className="text-xs text-gray-500">Delivery</span>
+                                    </>
+                                  )}
+                                </div>
+                                {review.restaurantReview && (
+                                  <p className="text-xs text-gray-600 line-clamp-2">{review.restaurantReview}</p>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -210,7 +282,7 @@ export default function OrderHistory() {
                           <p className="font-display text-2xl font-black text-gray-900">₹{order.finalAmount.toFixed(2)}</p>
                         </div>
 
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap gap-2 justify-end">
                           {!isCancelled && !isDelivered && (
                             <button
                               onClick={() => handleViewDetails(order)}
@@ -225,6 +297,24 @@ export default function OrderHistory() {
                           >
                             View Invoice
                           </button>
+                          {isDelivered && !hasReview && (
+                            <button
+                              onClick={() => handleOpenReviewModal(order)}
+                              className="rounded-xl bg-gradient-to-r from-yellow-400 to-orange-400 px-4 py-2 text-sm font-bold text-white hover:from-yellow-500 hover:to-orange-500 transition-colors flex items-center gap-2"
+                            >
+                              <Star size={16} />
+                              Rate Order
+                            </button>
+                          )}
+                          {isDelivered && hasReview && (
+                            <button
+                              onClick={() => handleOpenReviewModal(order)}
+                              className="rounded-xl border-2 border-yellow-400 bg-yellow-50 px-4 py-2 text-sm font-bold text-yellow-700 hover:bg-yellow-100 transition-colors flex items-center gap-2"
+                            >
+                              <MessageSquare size={16} />
+                              View Review
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -322,6 +412,19 @@ export default function OrderHistory() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Review Modal */}
+      {showReviewModal && reviewingOrder && (
+        <ReviewModal
+          order={reviewingOrder}
+          customerId={customerId}
+          onClose={() => {
+            setShowReviewModal(false);
+            setReviewingOrder(null);
+          }}
+          onSuccess={handleReviewSuccess}
+        />
       )}
 
       {/* Invoice Modal */}

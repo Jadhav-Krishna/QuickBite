@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { User, Mail, Phone, Shield, Camera, Award, Package, Heart, LogOut, Edit2, Check, X, MapPin, Plus, Trash2, Navigation } from 'lucide-react';
+import { User, Mail, Phone, Shield, Camera, Award, Package, Heart, LogOut, Edit2, Check, X, MapPin, Plus, Trash2, Navigation, Star } from 'lucide-react';
 import { authService, type UserProfile } from '../../api/auth';
 import { addressService, getCurrentLocation, reverseGeocode, type Address, type CreateAddressRequest } from '../../api/address';
 import { useAuth } from '../../context/AuthContext';
@@ -365,6 +365,13 @@ export default function ModernProfile() {
                 >
                   <Package size={18} />
                   Order History
+                </button>
+                <button
+                  onClick={() => navigate('/customer/reviews')}
+                  className="w-full bg-gray-50 hover:bg-gray-100 text-gray-700 font-bold py-3 px-4 rounded-xl transition flex items-center justify-center gap-2"
+                >
+                  <Star size={18} />
+                  My Reviews
                 </button>
                 <button
                   onClick={() => navigate('/wallet')}

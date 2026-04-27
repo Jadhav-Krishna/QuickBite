@@ -5,11 +5,13 @@ import com.quickbite.dto.MenuItemDTO;
 import com.quickbite.entity.Category;
 import com.quickbite.entity.MenuItem;
 import com.quickbite.service.MenuService;
+import com.quickbite.service.CloudinaryService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -21,6 +23,9 @@ public class MenuController {
 
     @Autowired
     private MenuService menuService;
+
+    @Autowired
+    private CloudinaryService cloudinaryService;
 
     // ==================== Category Endpoints ====================
 
@@ -154,6 +159,55 @@ public class MenuController {
             @PathVariable("id") Long id, @RequestParam("isAvailable") Boolean isAvailable) {
         menuService.updateItemAvailability(id, isAvailable);
         return ResponseEntity.ok().build();
+    }
+
+    // ==================== Image Upload Endpoints ====================
+
+    @PostMapping("/items/{id}/upload-image")
+    public ResponseEntity<String> uploadMenuItemImage(
+            @PathVariable("id") Long id,
+            @RequestParam("image") MultipartFile image) {
+        try {
+            MenuItem item = menuService.getMenuItem(id);
+            
+            // Delete old image if exists
+            if (item.getImageUrl() != null && !item.getImageUrl().isEmpty()) {
+                cloudinaryService.deleteImage(item.getImageUrl());
+            }
+            
+            // Upload new image
+            String imageUrl = cloudinaryService.uploadImage(image, "menu-items");
+            
+            // Update menu item with new image URL
+            MenuItem updateData = new MenuItem();
+            updateData.setImageUrl(imageUrl);
+            menuService.updateMenuItem(id, updateData);
+            
+            return ResponseEntity.ok(imageUrl);
+        } catch (Exception e) {
+            log.error("Failed to upload menu item image", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Failed to upload image: " + e.getMessage());
+        }
+    }
+
+    @DeleteMapping("/items/{id}/delete-image")
+    public ResponseEntity<Void> deleteMenuItemImage(@PathVariable("id") Long id) {
+        try {
+            MenuItem item = menuService.getMenuItem(id);
+            if (item.getImageUrl() != null && !item.getImageUrl().isEmpty()) {
+                cloudinaryService.deleteImage(item.getImageUrl());
+                
+                // Update menu item to remove image URL
+                MenuItem updateData = new MenuItem();
+                updateData.setImageUrl(null);
+                menuService.updateMenuItem(id, updateData);
+            }
+            return ResponseEntity.noContent().build();
+        } catch (Exception e) {
+            log.error("Failed to delete menu item image", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
     // ==================== Helper Mapping ====================

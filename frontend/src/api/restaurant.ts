@@ -189,4 +189,36 @@ export const restaurantService = {
     });
     return parseResponse<Restaurant>(response, `Failed to update restaurant status: ${response.statusText}`);
   },
+
+  async uploadRestaurantImage(id: number, imageFile: File): Promise<string> {
+    const formData = new FormData();
+    formData.append('image', imageFile);
+
+    const response = await fetch(`${API_BASE_URL}/v1/restaurants/${id}/upload-image`, {
+      method: 'POST',
+      headers: {
+        ...getOptionalAuthHeader(),
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(errorText || `Failed to upload image: ${response.statusText}`);
+    }
+
+    return response.text();
+  },
+
+  async deleteRestaurantImage(id: number): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/v1/restaurants/${id}/delete-image`, {
+      method: 'DELETE',
+      headers: {
+        ...getOptionalAuthHeader(),
+      },
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to delete image: ${response.statusText}`);
+    }
+  },
 };

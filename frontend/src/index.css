@@ -99,6 +99,11 @@
   100% { transform: scale(1); opacity: 1; }
 }
 
+@keyframes progress {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+
 @layer base {
   :root {
     font-family: var(--font-sans);
@@ -197,6 +202,7 @@
   .animate-mesh-drift { animation: mesh-drift 16s ease-in-out infinite; }
   .animate-scale-in  { animation: scaleIn   0.4s cubic-bezier(0.22, 1, 0.36, 1) both; }
   .animate-bounce-in { animation: bounceIn  0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) both; }
+  .animate-progress  { animation: progress  1.5s ease-in-out infinite; }
 
   .delay-100 { animation-delay: 0.1s; }
   .delay-200 { animation-delay: 0.2s; }

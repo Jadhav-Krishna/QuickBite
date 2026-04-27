@@ -3,6 +3,7 @@ import { Search, Plus, Power, Edit3, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { menuService, type MenuCategory, type MenuItem } from '../../api/menu';
 import { restaurantService } from '../../api/restaurant';
+import ImageUpload from '../../components/ImageUpload';
 
 type DishForm = {
   name: string;
@@ -391,6 +392,26 @@ export default function PartnerMenu() {
               <span className="mb-1.5 block">Description*</span>
               <textarea required rows={3} value={dishForm.description} onChange={(e) => setDishForm((prev) => ({ ...prev, description: e.target.value }))} className="w-full rounded-xl border border-[var(--color-outline-variant)]/40 px-4 py-3 text-sm" />
             </label>
+
+            {editingDishId && (
+              <div className="mt-4">
+                <ImageUpload
+                  currentImageUrl={items.find(i => i.id === editingDishId)?.imageUrl}
+                  onUpload={async (file) => {
+                    const imageUrl = await menuService.uploadMenuItemImage(editingDishId, file);
+                    setItems((prev) => prev.map((item) => (item.id === editingDishId ? { ...item, imageUrl } : item)));
+                    return imageUrl;
+                  }}
+                  onDelete={async () => {
+                    await menuService.deleteMenuItemImage(editingDishId);
+                    setItems((prev) => prev.map((item) => (item.id === editingDishId ? { ...item, imageUrl: undefined } : item)));
+                  }}
+                  maxSizeMB={10}
+                  aspectRatio="4/3"
+                  label="Dish Image"
+                />
+              </div>
+            )}
 
             <div className="mt-4 flex items-center gap-6">
               <label className="inline-flex items-center gap-2 text-sm font-semibold">

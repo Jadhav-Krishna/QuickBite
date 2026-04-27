@@ -177,4 +177,36 @@ export const menuService = {
       throw new Error(`Failed to delete menu item: ${response.statusText}`);
     }
   },
+
+  async uploadMenuItemImage(id: number, imageFile: File): Promise<string> {
+    const formData = new FormData();
+    formData.append('image', imageFile);
+
+    const response = await fetch(`${API_BASE_URL}/v1/menu/items/${id}/upload-image`, {
+      method: 'POST',
+      headers: {
+        ...getOptionalAuthHeader(),
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(errorText || `Failed to upload image: ${response.statusText}`);
+    }
+
+    return response.text();
+  },
+
+  async deleteMenuItemImage(id: number): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/v1/menu/items/${id}/delete-image`, {
+      method: 'DELETE',
+      headers: {
+        ...getOptionalAuthHeader(),
+      },
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to delete image: ${response.statusText}`);
+    }
+  },
 };

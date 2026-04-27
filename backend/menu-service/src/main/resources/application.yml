@@ -14,11 +14,21 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.MySQL8Dialect
         format_sql: true
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 10MB
+      max-request-size: 10MB
 
 server:
   port: ${MENU_SERVICE_PORT:8083}
   servlet:
     context-path: /
+
+cloudinary:
+  cloud-name: ${CLOUDINARY_CLOUD_NAME:your_cloud_name}
+  api-key: ${CLOUDINARY_API_KEY:your_api_key}
+  api-secret: ${CLOUDINARY_API_SECRET:your_api_secret}
 
 eureka:
   instance:

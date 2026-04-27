@@ -3,6 +3,7 @@ import { TrendingUp, ShoppingBag, Clock, Star, Store, Activity, X } from 'lucide
 import { useAuth } from '../../context/AuthContext';
 import { restaurantService, type Restaurant, type UpsertRestaurantRequest } from '../../api/restaurant';
 import { orderService, type OrderDTO } from '../../api/order';
+import ImageUpload from '../../components/ImageUpload';
 
 type RestaurantForm = {
   name: string;
@@ -395,6 +396,28 @@ export default function PartnerDashboard() {
                 className="w-full rounded-xl border border-[var(--color-outline-variant)]/40 px-4 py-3 text-sm"
               />
             </label>
+
+            {primaryRestaurant?.id && (
+              <div className="mt-4">
+                <ImageUpload
+                  currentImageUrl={primaryRestaurant.imageUrl}
+                  onUpload={async (file) => {
+                    const imageUrl = await restaurantService.uploadRestaurantImage(primaryRestaurant.id, file);
+                    setRestaurants((prev) => prev.map((r) => (r.id === primaryRestaurant.id ? { ...r, imageUrl } : r)));
+                    setRestaurantForm((prev) => ({ ...prev, imageUrl }));
+                    return imageUrl;
+                  }}
+                  onDelete={async () => {
+                    await restaurantService.deleteRestaurantImage(primaryRestaurant.id);
+                    setRestaurants((prev) => prev.map((r) => (r.id === primaryRestaurant.id ? { ...r, imageUrl: undefined } : r)));
+                    setRestaurantForm((prev) => ({ ...prev, imageUrl: '' }));
+                  }}
+                  maxSizeMB={10}
+                  aspectRatio="16/9"
+                  label="Restaurant Image"
+                />
+              </div>
+            )}
 
             <div className="mt-6 flex justify-end gap-2">
               <button type="button" onClick={closeRestaurantForm} className="rounded-full border border-[var(--color-outline-variant)]/40 px-5 py-2.5 text-sm font-semibold">

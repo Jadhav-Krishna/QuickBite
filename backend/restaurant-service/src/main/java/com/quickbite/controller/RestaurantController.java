@@ -3,6 +3,7 @@ package com.quickbite.controller;
 import com.quickbite.dto.RestaurantDTO;
 import com.quickbite.entity.Restaurant;
 import com.quickbite.service.RestaurantService;
+import com.quickbite.service.CloudinaryService;
 import lombok.extern.slf4j.Slf4j;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
@@ -11,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -22,6 +24,9 @@ public class RestaurantController {
 
     @Autowired
     private RestaurantService restaurantService;
+
+    @Autowired
+    private CloudinaryService cloudinaryService;
 
     private static final GeometryFactory geometryFactory = new GeometryFactory(new PrecisionModel(), 4326);
 
@@ -154,6 +159,55 @@ public class RestaurantController {
     public ResponseEntity<Void> deleteRestaurant(@PathVariable("id") Long id) {
         restaurantService.deleteRestaurant(id);
         return ResponseEntity.noContent().build();
+    }
+
+    // ==================== Image Upload Endpoints ====================
+
+    @PostMapping("/{id}/upload-image")
+    public ResponseEntity<String> uploadRestaurantImage(
+            @PathVariable("id") Long id,
+            @RequestParam("image") MultipartFile image) {
+        try {
+            Restaurant restaurant = restaurantService.getRestaurantById(id);
+            
+            // Delete old image if exists
+            if (restaurant.getImageUrl() != null && !restaurant.getImageUrl().isEmpty()) {
+                cloudinaryService.deleteImage(restaurant.getImageUrl());
+            }
+            
+            // Upload new image
+            String imageUrl = cloudinaryService.uploadImage(image, "restaurants");
+            
+            // Update restaurant with new image URL
+            Restaurant updateData = new Restaurant();
+            updateData.setImageUrl(imageUrl);
+            restaurantService.updateRestaurant(id, updateData);
+            
+            return ResponseEntity.ok(imageUrl);
+        } catch (Exception e) {
+            log.error("Failed to upload restaurant image", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Failed to upload image: " + e.getMessage());
+        }
+    }
+
+    @DeleteMapping("/{id}/delete-image")
+    public ResponseEntity<Void> deleteRestaurantImage(@PathVariable("id") Long id) {
+        try {
+            Restaurant restaurant = restaurantService.getRestaurantById(id);
+            if (restaurant.getImageUrl() != null && !restaurant.getImageUrl().isEmpty()) {
+                cloudinaryService.deleteImage(restaurant.getImageUrl());
+                
+                // Update restaurant to remove image URL
+                Restaurant updateData = new Restaurant();
+                updateData.setImageUrl(null);
+                restaurantService.updateRestaurant(id, updateData);
+            }
+            return ResponseEntity.noContent().build();
+        } catch (Exception e) {
+            log.error("Failed to delete restaurant image", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
     // Helper mapping methods since mapstruct wasn't configured

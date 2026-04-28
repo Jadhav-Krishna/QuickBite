@@ -1,4 +1,5 @@
 import { API_BASE_URL, getOptionalAuthHeader } from './auth';
+
 export interface OrderItemDTO {
   id?: number;
   menuItemId: number;
@@ -7,6 +8,23 @@ export interface OrderItemDTO {
   price: number;
   specialInstructions?: string;
 }
+
+export interface CreateOrderRequest {
+  customerId: number;
+  restaurantId: number;
+  deliveryAddress: string;
+  deliveryLatitude?: number;
+  deliveryLongitude?: number;
+  customerPhone: string;
+  specialInstructions?: string;
+  paymentMethod: 'CASH_ON_DELIVERY' | 'ONLINE' | 'CARD';
+  items: OrderItemDTO[];
+  totalAmount?: number;
+  deliveryCharge?: number;
+  discountAmount?: number;
+  finalAmount?: number;
+}
+
 export interface OrderDTO {
   id: number;
   orderNumber: string;
@@ -15,9 +33,11 @@ export interface OrderDTO {
   status: string;
   totalAmount: number;
   deliveryCharge: number;
-  discountAmount: number;
+  discountAmount?: number;
   finalAmount: number;
   deliveryAddress: string;
+  deliveryLatitude?: number;
+  deliveryLongitude?: number;
   customerPhone: string;
   specialInstructions?: string;
   deliveryAgentId?: number;
@@ -26,25 +46,13 @@ export interface OrderDTO {
   agentPickupConfirmed?: boolean;
   agentPickupConfirmedAt?: string;
   estimatedDeliveryTime?: string;
+  actualDeliveryTime?: string;
   paymentMethod: string;
-  paymentStatus?: string;
+  paymentStatus: string;
   paymentCompleted?: boolean;
   items: OrderItemDTO[];
-  createdAt?: string;
+  createdAt: string;
   updatedAt?: string;
-}
-export interface PlaceOrderRequest {
-  customerId: number;
-  restaurantId: number;
-  deliveryAddress: string;
-  customerPhone: string;
-  specialInstructions?: string;
-  paymentMethod: string;
-  items: OrderItemDTO[];
-  totalAmount: number;
-  deliveryCharge: number;
-  discountAmount: number;
-  finalAmount: number;
 }
 
 const request = async <T>(url: string, init?: RequestInit): Promise<T> => {
@@ -55,22 +63,22 @@ const request = async <T>(url: string, init?: RequestInit): Promise<T> => {
   }
   return response.json() as Promise<T>;
 };
+
 export const orderService = {
-  placeOrder(payload: PlaceOrderRequest) {
-    return request<OrderDTO>(`${API_BASE_URL}/v1/orders`, {
+  async createOrder(request: CreateOrderRequest): Promise<OrderDTO> {
+    const response = await fetch(`${API_BASE_URL}/v1/orders`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...getOptionalAuthHeader() },
-      body: JSON.stringify(payload),
-    });
-  },
-  getOrder(orderNumber: string) {
-    return request<OrderDTO>(`${API_BASE_URL}/v1/orders/${orderNumber}`, {
-      headers: {
+      headers: { 
+        'Content-Type': 'application/json',
         ...getOptionalAuthHeader(),
       },
+      body: JSON.stringify(request),
     });
+    if (!response.ok) throw new Error('Failed to create order');
+    return response.json();
   },
-  getCustomerOrders(customerId: number) {
+
+  async getCustomerOrders(customerId: number): Promise<OrderDTO[]> {
     return request<OrderDTO[]>(`${API_BASE_URL}/v1/orders/customer/${customerId}`, {
       headers: {
         ...getOptionalAuthHeader(),
@@ -78,7 +86,7 @@ export const orderService = {
     });
   },
 
-  getRestaurantOrders(restaurantId: number) {
+  async getRestaurantOrders(restaurantId: number): Promise<OrderDTO[]> {
     return request<OrderDTO[]>(`${API_BASE_URL}/v1/orders/restaurant/${restaurantId}`, {
       headers: {
         ...getOptionalAuthHeader(),
@@ -86,32 +94,15 @@ export const orderService = {
     });
   },
 
-  getAgentOrders(agentId: number) {
-    return request<OrderDTO[]>(`${API_BASE_URL}/v1/orders/delivery-agent/${agentId}`, {
+  async getOrder(orderNumber: string): Promise<OrderDTO> {
+    return request<OrderDTO>(`${API_BASE_URL}/v1/orders/${orderNumber}`, {
       headers: {
         ...getOptionalAuthHeader(),
       },
     });
   },
 
-  getAvailableOrders() {
-    return request<OrderDTO[]>(`${API_BASE_URL}/v1/orders/delivery/available`, {
-      headers: {
-        ...getOptionalAuthHeader(),
-      },
-    });
-  },
-
-  updateOrderStatus(orderNumber: string, status: string) {
-    return request<OrderDTO>(`${API_BASE_URL}/v1/orders/${orderNumber}/status?status=${encodeURIComponent(status)}`, {
-      method: 'PUT',
-      headers: {
-        ...getOptionalAuthHeader(),
-      },
-    });
-  },
-
-  confirmOrder(orderNumber: string) {
+  async confirmOrder(orderNumber: string): Promise<OrderDTO> {
     return request<OrderDTO>(`${API_BASE_URL}/v1/orders/${orderNumber}/confirm`, {
       method: 'PUT',
       headers: {
@@ -120,7 +111,28 @@ export const orderService = {
     });
   },
 
-  assignDeliveryAgent(orderNumber: string, deliveryAgentId: number) {
+  async updateOrderStatus(orderNumber: string, status: string): Promise<OrderDTO> {
+    return request<OrderDTO>(`${API_BASE_URL}/v1/orders/${orderNumber}/status?status=${status}`, {
+      method: 'PUT',
+      headers: {
+        ...getOptionalAuthHeader(),
+      },
+    });
+  },
+
+  async cancelOrder(orderNumber: string, reason?: string): Promise<OrderDTO> {
+    const url = reason 
+      ? `${API_BASE_URL}/v1/orders/${orderNumber}/cancel?reason=${encodeURIComponent(reason)}`
+      : `${API_BASE_URL}/v1/orders/${orderNumber}/cancel`;
+    return request<OrderDTO>(url, {
+      method: 'PUT',
+      headers: {
+        ...getOptionalAuthHeader(),
+      },
+    });
+  },
+
+  async assignDeliveryAgent(orderNumber: string, deliveryAgentId: number): Promise<OrderDTO> {
     return request<OrderDTO>(`${API_BASE_URL}/v1/orders/${orderNumber}/assign-delivery?deliveryAgentId=${deliveryAgentId}`, {
       method: 'PUT',
       headers: {
@@ -129,7 +141,7 @@ export const orderService = {
     });
   },
 
-  confirmPickupByRestaurant(orderNumber: string) {
+  async confirmRestaurantPickup(orderNumber: string): Promise<OrderDTO> {
     return request<OrderDTO>(`${API_BASE_URL}/v1/orders/${orderNumber}/pickup/restaurant-confirm`, {
       method: 'PUT',
       headers: {
@@ -138,20 +150,8 @@ export const orderService = {
     });
   },
 
-  confirmPickupByAgent(orderNumber: string, deliveryAgentId: number) {
-    return request<OrderDTO>(
-      `${API_BASE_URL}/v1/orders/${orderNumber}/pickup/agent-confirm?deliveryAgentId=${deliveryAgentId}`,
-      {
-        method: 'PUT',
-        headers: {
-          ...getOptionalAuthHeader(),
-        },
-      },
-    );
-  },
-
-  claimOrder(orderNumber: string, deliveryAgentId: number) {
-    return request<OrderDTO>(`${API_BASE_URL}/v1/orders/${orderNumber}/assign-delivery?deliveryAgentId=${deliveryAgentId}`, {
+  async confirmAgentPickup(orderNumber: string, deliveryAgentId: number): Promise<OrderDTO> {
+    return request<OrderDTO>(`${API_BASE_URL}/v1/orders/${orderNumber}/pickup/agent-confirm?deliveryAgentId=${deliveryAgentId}`, {
       method: 'PUT',
       headers: {
         ...getOptionalAuthHeader(),
@@ -159,9 +159,49 @@ export const orderService = {
     });
   },
 
-  cancelOrder(orderNumber: string, reason?: string) {
-    const query = reason ? `?reason=${encodeURIComponent(reason)}` : '';
-    return request<OrderDTO>(`${API_BASE_URL}/v1/orders/${orderNumber}/cancel${query}`, {
+  async getDeliveryAgentOrders(agentId: number): Promise<OrderDTO[]> {
+    return request<OrderDTO[]>(`${API_BASE_URL}/v1/orders/delivery-agent/${agentId}`, {
+      headers: {
+        ...getOptionalAuthHeader(),
+      },
+    });
+  },
+
+  async getAvailableOrdersForDelivery(): Promise<OrderDTO[]> {
+    return request<OrderDTO[]>(`${API_BASE_URL}/v1/orders/delivery/available`, {
+      headers: {
+        ...getOptionalAuthHeader(),
+      },
+    });
+  },
+
+  async getAgentOrders(agentId: number): Promise<OrderDTO[]> {
+    return request<OrderDTO[]>(`${API_BASE_URL}/v1/orders/delivery-agent/${agentId}`, {
+      headers: {
+        ...getOptionalAuthHeader(),
+      },
+    });
+  },
+
+  async getAvailableOrders(): Promise<OrderDTO[]> {
+    return request<OrderDTO[]>(`${API_BASE_URL}/v1/orders/delivery/available`, {
+      headers: {
+        ...getOptionalAuthHeader(),
+      },
+    });
+  },
+
+  async claimOrder(orderNumber: string, agentId: number): Promise<OrderDTO> {
+    return request<OrderDTO>(`${API_BASE_URL}/v1/orders/${orderNumber}/assign-delivery?deliveryAgentId=${agentId}`, {
+      method: 'PUT',
+      headers: {
+        ...getOptionalAuthHeader(),
+      },
+    });
+  },
+
+  async confirmPickupByAgent(orderNumber: string, agentId: number): Promise<OrderDTO> {
+    return request<OrderDTO>(`${API_BASE_URL}/v1/orders/${orderNumber}/pickup/agent-confirm?deliveryAgentId=${agentId}`, {
       method: 'PUT',
       headers: {
         ...getOptionalAuthHeader(),

@@ -29,7 +29,7 @@ public class Review {
     @Column(nullable = false)
     private Long restaurantId;
 
-    @Column(nullable = false)
+    @Column
     private Integer restaurantRating; // 1-5
 
     @Column(length = 500)

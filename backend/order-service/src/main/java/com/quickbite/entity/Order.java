@@ -51,6 +51,12 @@ public class Order {
     private String deliveryAddress;
 
     @Column
+    private Double deliveryLatitude;
+
+    @Column
+    private Double deliveryLongitude;
+
+    @Column
     private String customerPhone;
 
     @Column(length = 500)

@@ -83,3 +83,8 @@ logging:
     com.quickbite: DEBUG
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+
+
+locationiq:
+  api:
+    key: ${LOCATIONIQ_API_KEY:pk.624c039520a7274798e5f0e6445f04ec}

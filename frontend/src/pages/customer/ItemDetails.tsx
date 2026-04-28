@@ -53,10 +53,9 @@ export default function ItemDetails() {
       name: item.name,
       price: item.discountedPrice || item.price,
       quantity,
-      img: item.imageUrl,
       restaurantId: item.restaurantId,
     });
-    navigate('/customer/cart');
+    navigate('/cart');
   };
 
   if (loading) {

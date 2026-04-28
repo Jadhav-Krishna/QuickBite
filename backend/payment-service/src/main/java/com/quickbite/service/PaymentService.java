@@ -33,4 +33,6 @@ public interface PaymentService {
     java.util.List<PaymentResponse> getPaymentsByCustomer(Long customerId);
 
     List<PaymentResponse> getAllPayments();
+
+    PaymentResponse updatePaymentStatus(Long paymentId, String status);
 }

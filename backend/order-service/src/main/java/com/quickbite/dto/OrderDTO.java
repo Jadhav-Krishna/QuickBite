@@ -26,6 +26,8 @@ public class OrderDTO {
     private Double discountAmount;
     private Double finalAmount;
     private String deliveryAddress;
+    private Double deliveryLatitude;
+    private Double deliveryLongitude;
     private String customerPhone;
     private String specialInstructions;
     private Long deliveryAgentId;

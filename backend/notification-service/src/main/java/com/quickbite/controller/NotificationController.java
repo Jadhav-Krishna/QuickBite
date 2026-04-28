@@ -26,23 +26,23 @@ public class NotificationController {
     }
 
     @GetMapping("/user/{userId}")
-    public ResponseEntity<List<Notification>> getUserNotifications(@PathVariable Long userId) {
+    public ResponseEntity<List<Notification>> getUserNotifications(@PathVariable("userId") Long userId) {
         return ResponseEntity.ok(notificationService.getUserNotifications(userId));
     }
 
     @GetMapping("/user/{userId}/unread")
-    public ResponseEntity<List<Notification>> getUnreadNotifications(@PathVariable Long userId) {
+    public ResponseEntity<List<Notification>> getUnreadNotifications(@PathVariable("userId") Long userId) {
         return ResponseEntity.ok(notificationService.getUnreadNotifications(userId));
     }
 
     @PutMapping("/{notificationId}/read")
-    public ResponseEntity<Void> markAsRead(@PathVariable Long notificationId) {
+    public ResponseEntity<Void> markAsRead(@PathVariable("notificationId") Long notificationId) {
         notificationService.markAsRead(notificationId);
         return ResponseEntity.ok().build();
     }
 
     @PutMapping("/user/{userId}/read-all")
-    public ResponseEntity<Void> markAllAsRead(@PathVariable Long userId) {
+    public ResponseEntity<Void> markAllAsRead(@PathVariable("userId") Long userId) {
         notificationService.markAllAsRead(userId);
         return ResponseEntity.ok().build();
     }

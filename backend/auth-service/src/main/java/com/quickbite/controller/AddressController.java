@@ -4,6 +4,7 @@ import com.quickbite.dto.AddressDTO;
 import com.quickbite.dto.CreateAddressRequest;
 import com.quickbite.dto.UpdateAddressRequest;
 import com.quickbite.service.AddressService;
+import com.quickbite.service.GeocodingService;
 import com.quickbite.util.JwtTokenProvider;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
@@ -12,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/addresses")
@@ -19,10 +21,12 @@ import java.util.List;
 public class AddressController {
     private final AddressService addressService;
     private final JwtTokenProvider jwtTokenProvider;
+    private final GeocodingService geocodingService;
 
-    public AddressController(AddressService addressService, JwtTokenProvider jwtTokenProvider) {
+    public AddressController(AddressService addressService, JwtTokenProvider jwtTokenProvider, GeocodingService geocodingService) {
         this.addressService = addressService;
         this.jwtTokenProvider = jwtTokenProvider;
+        this.geocodingService = geocodingService;
     }
 
     private Long getUserIdFromToken(String authHeader) {
@@ -113,5 +117,25 @@ public class AddressController {
             log.error("Error setting default address: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
+    }
+
+    @GetMapping("/geocode")
+    public ResponseEntity<Map<String, Double>> geocodeAddress(@RequestParam("address") String address) {
+        Map<String, Double> coordinates = geocodingService.geocodeAddress(address);
+        if (coordinates != null) {
+            return ResponseEntity.ok(coordinates);
+        }
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+    }
+
+    @GetMapping("/reverse-geocode")
+    public ResponseEntity<Map<String, String>> reverseGeocodeAddress(
+            @RequestParam("latitude") double latitude,
+            @RequestParam("longitude") double longitude) {
+        Map<String, String> address = geocodingService.reverseGeocode(latitude, longitude);
+        if (address != null) {
+            return ResponseEntity.ok(address);
+        }
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
     }
 }

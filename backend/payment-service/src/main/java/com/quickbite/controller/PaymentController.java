@@ -129,4 +129,13 @@ public class PaymentController {
     public ResponseEntity<List<PaymentResponse>> getAllPayments() {
         return ResponseEntity.ok(paymentService.getAllPayments());
     }
+
+    @PutMapping("/{paymentId}/status")
+    public ResponseEntity<PaymentResponse> updatePaymentStatus(
+            @PathVariable("paymentId") Long paymentId,
+            @RequestParam("status") String status) {
+        log.info("Updating payment {} status to {}", paymentId, status);
+        PaymentResponse response = paymentService.updatePaymentStatus(paymentId, status);
+        return ResponseEntity.ok(response);
+    }
 }

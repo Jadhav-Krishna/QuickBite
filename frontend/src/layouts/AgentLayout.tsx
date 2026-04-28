@@ -1,6 +1,7 @@
 import { Outlet, NavLink } from 'react-router-dom';
 import { Home, Map, Wallet, User, Sparkles, Star } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import NotificationBell from '../components/NotificationBell';
 
 export default function AgentLayout() {
   const { user } = useAuth();
@@ -34,6 +35,7 @@ export default function AgentLayout() {
                   </p>
                 </div>
               </div>
+              <NotificationBell />
             </div>
           </header>
 

@@ -9,6 +9,8 @@ CREATE DATABASE IF NOT EXISTS quickbite_payment;
 CREATE DATABASE IF NOT EXISTS quickbite_delivery;
 CREATE DATABASE IF NOT EXISTS quickbite_review;
 CREATE DATABASE IF NOT EXISTS quickbite_notification;
+CREATE DATABASE IF NOT EXISTS quickbite_location;
+CREATE DATABASE IF NOT EXISTS quickbite_tracking;
 
 GRANT ALL PRIVILEGES ON quickbite_auth.* TO 'quickbite'@'%';
 GRANT ALL PRIVILEGES ON quickbite_restaurant.* TO 'quickbite'@'%';
@@ -19,6 +21,8 @@ GRANT ALL PRIVILEGES ON quickbite_payment.* TO 'quickbite'@'%';
 GRANT ALL PRIVILEGES ON quickbite_delivery.* TO 'quickbite'@'%';
 GRANT ALL PRIVILEGES ON quickbite_review.* TO 'quickbite'@'%';
 GRANT ALL PRIVILEGES ON quickbite_notification.* TO 'quickbite'@'%';
+GRANT ALL PRIVILEGES ON quickbite_location.* TO 'quickbite'@'%';
+GRANT ALL PRIVILEGES ON quickbite_tracking.* TO 'quickbite'@'%';
 FLUSH PRIVILEGES;
 
 -- Use auth database and create users table with OAuth support

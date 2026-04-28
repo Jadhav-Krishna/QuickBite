@@ -4,6 +4,7 @@ import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import FoodAppNavbar from '../components/FoodAppNavbar';
 import ScrollToTop from '../components/ScrollToTop';
+import NotificationBell from '../components/NotificationBell';
 
 const NAV_LINKS = [
   { to: '/restaurants', label: 'Restaurants' },
@@ -36,6 +37,9 @@ export default function CustomerLayout() {
 
             {/* Right actions */}
             <div className="flex items-center gap-3">
+              {/* Notifications */}
+              <NotificationBell />
+              
               {/* Cart */}
               <Link
                 to="/cart"

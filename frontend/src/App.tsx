@@ -4,65 +4,64 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 
-// Layouts
-import CustomerLayout from './layouts/CustomerLayout';
-import PartnerLayout from './layouts/PartnerLayout';
-import AdminLayout from './layouts/AdminLayout';
-import AgentLayout from './layouts/AgentLayout';
-
-// General Auth/Landing
-import AuthLanding from './pages/AuthLanding';
-import ForgotPassword from './pages/ForgotPassword';
-import Login from './pages/Login';
-import SignUp from './pages/SignUp';
-import GoogleCallback from './pages/GoogleCallback';
-import GitHubCallback from './pages/GitHubCallback';
-import RequireAuth from './components/auth/RequireAuth';
-import RequireRole from './components/auth/RequireRole';
-
-// Customer Pages
-import Landing from './pages/CinematicLandingWhite';
-import Restaurants from './pages/Restaurants';
-import RestaurantsPage from './pages/customer/RestaurantsPage';
-import SearchDishes from './pages/customer/SearchDishes';
-import Menu from './pages/Menu';
-import Checkout from './pages/Checkout';
-import Cart from './pages/customer/Cart';
-import OrderTracking from './pages/customer/OrderTracking';
-import NotificationCenter from './pages/customer/NotificationCenter';
-import OrderSuccess from './pages/customer/OrderSuccess';
-import Profile from './pages/customer/ModernProfile';
-import Wallet from './pages/customer/Wallet';
-import ItemDetails from './pages/customer/ItemDetails';
-import SavedAddresses from './pages/customer/SavedAddresses';
-import OrderHistory from './pages/customer/OrderHistory';
-import MyReviews from './pages/customer/MyReviews';
-
-// Partner Pages
-import PartnerDashboard from './pages/partner/PartnerDashboard';
-import PartnerOrders from './pages/partner/PartnerOrders';
-import PartnerMenu from './pages/partner/PartnerMenu';
-import PartnerAnalytics from './pages/partner/PartnerAnalytics';
-import PartnerReviews from './pages/partner/PartnerReviews';
-import PartnerReviewsPage from './pages/partner/PartnerReviewsPage';
-
-// Admin Pages
-import AdminOverview from './pages/admin/AdminOverview';
-import AdminUsers from './pages/admin/AdminUsers';
-import AdminApprovals from './pages/admin/AdminApprovals';
-import AdminPayments from './pages/admin/AdminPayments';
-import AdminReviews from './pages/admin/AdminReviews';
-import AdminReviewsPage from './pages/admin/AdminReviewsPage';
-import AdminSystemHealth from './pages/admin/AdminSystemHealth';
-import AdminConfiguration from './pages/admin/AdminConfiguration';
-import AdminAgents from './pages/admin/AdminAgents';
-
-// Agent Pages
-import AgentDashboard from './pages/agent/AgentDashboard';
-import AgentNavigation from './pages/agent/AgentNavigation';
-import AgentEarnings from './pages/agent/AgentEarnings';
-import AgentProfile from './pages/agent/AgentProfile';
-import AgentReviews from './pages/agent/AgentReviews';
+// Import all pages and components from centralized routes
+import {
+  // Auth
+  AuthLanding,
+  ForgotPassword,
+  Login,
+  SignUp,
+  GoogleCallback,
+  GitHubCallback,
+  RequireAuth,
+  RequireRole,
+  // Layouts
+  CustomerLayout,
+  PartnerLayout,
+  AdminLayout,
+  AgentLayout,
+  // Customer Pages
+  Landing,
+  Restaurants,
+  RestaurantsPage,
+  SearchDishes,
+  Menu,
+  Checkout,
+  Cart,
+  OrderTracking,
+  NotificationCenter,
+  OrderSuccess,
+  Profile,
+  Wallet,
+  ItemDetails,
+  SavedAddresses,
+  OrderHistory,
+  MyReviews,
+  // Partner Pages
+  PartnerDashboard,
+  PartnerOrders,
+  PartnerMenu,
+  PartnerAnalytics,
+  PartnerReviews,
+  PartnerReviewsPage,
+  // Admin Pages
+  AdminOverview,
+  AdminUsers,
+  AdminApprovals,
+  AdminPayments,
+  AdminReviews,
+  AdminReviewsPage,
+  AdminSystemHealth,
+  AdminConfiguration,
+  AdminAgents,
+  AdminOrderUtility,
+  // Agent Pages
+  AgentDashboard,
+  AgentNavigation,
+  AgentEarnings,
+  AgentProfile,
+  AgentReviews,
+} from './routes';
 
 function App() {
   return (
@@ -119,6 +118,7 @@ function App() {
           <Route path="agents" element={<AdminAgents />} />
           <Route path="system-health" element={<AdminSystemHealth />} />
           <Route path="configuration" element={<AdminConfiguration />} />
+          <Route path="order-utility" element={<AdminOrderUtility />} />
         </Route>
 
         {/* Agent Routes */}

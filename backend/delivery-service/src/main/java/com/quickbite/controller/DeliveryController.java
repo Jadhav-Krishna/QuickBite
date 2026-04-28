@@ -3,6 +3,7 @@ package com.quickbite.controller;
 import com.quickbite.dto.DeliveryAgentDTO;
 import com.quickbite.dto.LocationUpdateDTO;
 import com.quickbite.service.DeliveryService;
+import com.quickbite.service.RoutingService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -10,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/delivery")
@@ -18,6 +20,9 @@ public class DeliveryController {
 
     @Autowired
     private DeliveryService deliveryService;
+
+    @Autowired
+    private RoutingService routingService;
 
     @PostMapping("/agents/register")
     public ResponseEntity<DeliveryAgentDTO> registerAgent(@RequestBody DeliveryAgentDTO request) {
@@ -95,5 +100,15 @@ public class DeliveryController {
             @RequestBody DeliveryAgentDTO request) {
         DeliveryAgentDTO updated = deliveryService.updateAgentProfile(agentId, request);
         return ResponseEntity.ok(updated);
+    }
+
+    @GetMapping("/route")
+    public ResponseEntity<Map<String, Object>> getRoute(
+            @RequestParam("startLon") double startLon,
+            @RequestParam("startLat") double startLat,
+            @RequestParam("endLon") double endLon,
+            @RequestParam("endLat") double endLat) {
+        Map<String, Object> route = routingService.getRoute(startLon, startLat, endLon, endLat);
+        return ResponseEntity.ok(route);
     }
 }

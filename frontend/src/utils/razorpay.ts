@@ -1,4 +1,4 @@
-const RAZORPAY_SCRIPT_URL = 'https://checkout.razorpay.com/v1/checkout.js';
+ const RAZORPAY_SCRIPT_URL = 'https://checkout.razorpay.com/v1/checkout.js';
 
 let scriptLoadPromise: Promise<void> | null = null;
 

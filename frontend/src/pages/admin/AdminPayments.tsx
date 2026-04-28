@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CreditCard, Download, RefreshCcw, ShieldAlert, Wallet } from 'lucide-react';
+import { CreditCard, Download, RefreshCcw, ShieldAlert, Wallet, Edit2 } from 'lucide-react';
 import { authService, type UserDTO } from '../../api/auth';
 import { paymentService, type PaymentResponse } from '../../api/payment';
 
@@ -16,6 +16,8 @@ export default function AdminPayments() {
   const [walletExposure, setWalletExposure] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [editingPaymentId, setEditingPaymentId] = useState<number | null>(null);
+  const [selectedStatus, setSelectedStatus] = useState<string>('');
 
   useEffect(() => {
     void loadPayments();
@@ -45,11 +47,15 @@ export default function AdminPayments() {
     setError(null);
 
     try {
+      console.log('Loading payments...');
       const users = await authService.getAllUsers();
+      console.log('Users loaded:', users.length);
       const customers = users.filter((user) => user.role.toUpperCase().includes('CUSTOMER'));
+      console.log('Customers found:', customers.length);
 
       try {
         const allPayments = await paymentService.getAllPayments();
+        console.log('All payments loaded:', allPayments.length);
         const paymentRows = buildPaymentRows(allPayments, users).sort(
           (left, right) => new Date(right.createdAt || 0).getTime() - new Date(left.createdAt || 0).getTime(),
         );
@@ -68,13 +74,23 @@ export default function AdminPayments() {
           0,
         );
 
+        console.log('Wallet exposure:', nextWalletExposure);
+        console.log('Payment rows:', paymentRows.length);
+        
+        if (paymentRows.length === 0) {
+          console.log('No payments found in the system');
+        }
+        
         setWalletExposure(nextWalletExposure);
         setPayments(paymentRows);
+        setLoading(false);
         return;
-      } catch {
+      } catch (err) {
+        console.error('Error loading all payments, trying fallback:', err);
         // Fallback to per-customer fan-out if aggregated endpoint isn't available.
       }
 
+      console.log('Using fallback method...');
       const results = await Promise.allSettled(
         customers.map(async (customer) => {
           const [customerPayments, walletBalance] = await Promise.all([
@@ -144,6 +160,16 @@ export default function AdminPayments() {
       failedCount30d: failedPayments.length,
     };
   }, [payments]);
+
+  const updatePaymentStatus = async (paymentId: number, newStatus: string) => {
+    try {
+      await paymentService.updatePaymentStatus(paymentId, newStatus);
+      setEditingPaymentId(null);
+      await loadPayments();
+    } catch (err: any) {
+      setError(err?.message || 'Failed to update payment status');
+    }
+  };
 
   const exportCsv = () => {
     const rows = [
@@ -289,17 +315,58 @@ export default function AdminPayments() {
                         <p className="font-display text-lg font-black text-slate-900">{formatCurrency(Number(payment.amount || 0))}</p>
                       </td>
                       <td className="px-8 py-4 text-right">
-                        <span
-                          className={`inline-flex justify-center rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-widest ${
-                            isSuccess
-                              ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                              : isRefund
-                                ? 'border-amber-200 bg-amber-50 text-amber-700'
-                                : 'border-rose-200 bg-rose-50 text-rose-700'
-                          }`}
-                        >
-                          {payment.status}
-                        </span>
+                        {editingPaymentId === payment.paymentId ? (
+                          <div className="flex items-center justify-end gap-2">
+                            <select
+                              value={selectedStatus}
+                              onChange={(e) => setSelectedStatus(e.target.value)}
+                              className="rounded-lg border border-slate-300 px-3 py-1 text-xs font-bold"
+                            >
+                              <option value="PENDING">PENDING</option>
+                              <option value="INITIATED">INITIATED</option>
+                              <option value="SUCCESS">SUCCESS</option>
+                              <option value="FAILED">FAILED</option>
+                              <option value="CANCELLED">CANCELLED</option>
+                              <option value="REFUNDED">REFUNDED</option>
+                            </select>
+                            <button
+                              onClick={() => void updatePaymentStatus(payment.paymentId, selectedStatus)}
+                              className="rounded-lg bg-indigo-600 px-3 py-1 text-xs font-bold text-white hover:bg-indigo-700"
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={() => setEditingPaymentId(null)}
+                              className="rounded-lg bg-slate-200 px-3 py-1 text-xs font-bold text-slate-700 hover:bg-slate-300"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-end gap-2">
+                            <span
+                              className={`inline-flex justify-center rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-widest ${
+                                isSuccess
+                                  ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                                  : isRefund
+                                    ? 'border-amber-200 bg-amber-50 text-amber-700'
+                                    : 'border-rose-200 bg-rose-50 text-rose-700'
+                              }`}
+                            >
+                              {payment.status}
+                            </span>
+                            <button
+                              onClick={() => {
+                                setEditingPaymentId(payment.paymentId);
+                                setSelectedStatus(payment.status);
+                              }}
+                              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                              title="Edit status"
+                            >
+                              <Edit2 size={14} />
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   );

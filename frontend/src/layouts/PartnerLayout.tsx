@@ -1,6 +1,7 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, ShoppingBag, UtensilsCrossed, BarChart3, Star, Bell, Settings, LogOut } from 'lucide-react';
+import { LayoutDashboard, ShoppingBag, UtensilsCrossed, BarChart3, Star, Settings, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import NotificationBell from '../components/NotificationBell';
 
 export default function PartnerLayout() {
   const navigate = useNavigate();
@@ -74,10 +75,7 @@ export default function PartnerLayout() {
             <span className="rounded bg-green-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-green-700">Open</span>
           </div>
           <div className="flex items-center gap-4">
-            <button className="relative flex h-10 w-10 items-center justify-center rounded-full border border-[var(--color-outline-variant)] bg-white text-[var(--color-on-surface-variant)] hover:text-[var(--color-primary)] transition-colors shadow-sm">
-              <Bell size={18} />
-              <span className="absolute top-2 right-2.5 h-2 w-2 rounded-full bg-red-500 animate-pulse-glow" />
-            </button>
+            <NotificationBell />
             <div className="h-10 w-10 rounded-full bg-[var(--color-surface-variant)] overflow-hidden shadow-inner">
               <img src="https://images.unsplash.com/photo-1585937421612-70a008356fbe?auto=format&fit=crop&w=100&q=80" alt="Restaurant Logo" className="h-full w-full object-cover" />
             </div>

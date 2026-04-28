@@ -7,7 +7,7 @@ export interface PaymentResponse {
   transactionId?: string;
   amount: number;
   currency: string;
-  status: string;
+  status: 'PENDING' | 'INITIATED' | 'SUCCESS' | 'FAILED' | 'CANCELLED' | 'REFUNDED';
   paymentMethod: string;
   razorpayOrderId?: string;
   razorpaySignature?: string;
@@ -168,6 +168,15 @@ export const paymentService = {
   refundPayment(paymentId: number, reason: string) {
     return request<PaymentResponse>(`${API_BASE_URL}/payments/refund/${paymentId}?reason=${encodeURIComponent(reason)}`, {
       method: 'POST',
+      headers: {
+        ...getOptionalAuthHeader(),
+      },
+    });
+  },
+
+  updatePaymentStatus(paymentId: number, status: string) {
+    return request<PaymentResponse>(`${API_BASE_URL}/payments/${paymentId}/status?status=${encodeURIComponent(status)}`, {
+      method: 'PUT',
       headers: {
         ...getOptionalAuthHeader(),
       },

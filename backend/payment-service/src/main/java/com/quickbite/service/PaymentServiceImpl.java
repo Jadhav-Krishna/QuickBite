@@ -340,6 +340,23 @@ public class PaymentServiceImpl implements PaymentService {
                 .collect(java.util.stream.Collectors.toList());
     }
 
+    @Override
+    public PaymentResponse updatePaymentStatus(Long paymentId, String status) {
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new RuntimeException("Payment not found with id: " + paymentId));
+
+        try {
+            PaymentStatus newStatus = PaymentStatus.valueOf(status.toUpperCase());
+            payment.setStatus(newStatus);
+            payment.setUpdatedAt(LocalDateTime.now());
+            Payment savedPayment = paymentRepository.save(payment);
+            log.info("Payment status updated to {} for payment: {}", newStatus, paymentId);
+            return mapToResponse(savedPayment);
+        } catch (IllegalArgumentException e) {
+            throw new RuntimeException("Invalid payment status: " + status);
+        }
+    }
+
     private Wallet createWallet(Long customerId) {
         Wallet wallet = Wallet.builder()
                 .customerId(customerId)

@@ -26,7 +26,11 @@ public class ReviewController {
 
     @GetMapping("/order/{orderId}")
     public ResponseEntity<ReviewDTO> getReviewByOrder(@PathVariable("orderId") Long orderId) {
-        return ResponseEntity.ok(reviewService.getReviewByOrderId(orderId));
+        try {
+            return ResponseEntity.ok(reviewService.getReviewByOrderId(orderId));
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 
     @GetMapping("/restaurant/{restaurantId}")

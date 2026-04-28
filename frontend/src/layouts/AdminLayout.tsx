@@ -26,6 +26,9 @@ export default function AdminLayout() {
       setUnreadCount(data.filter(n => !n.isRead).length);
     } catch (err) {
       console.error('Failed to fetch notifications:', err);
+      // Set empty notifications instead of showing error
+      setNotifications([]);
+      setUnreadCount(0);
     }
   };
 

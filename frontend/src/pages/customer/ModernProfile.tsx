@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { User, Mail, Phone, Shield, Camera, Award, Package, Heart, LogOut, Edit2, Check, X, MapPin, Plus, Trash2, Navigation, Star } from 'lucide-react';
 import { authService, type UserProfile } from '../../api/auth';
-import { addressService, getCurrentLocation, reverseGeocode, type Address, type CreateAddressRequest } from '../../api/address';
+import { addressService, type AddressDTO, type CreateAddressRequest } from '../../api/address';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
@@ -10,7 +10,7 @@ export default function ModernProfile() {
   const navigate = useNavigate();
   
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [addresses, setAddresses] = useState<Address[]>([]);
+  const [addresses, setAddresses] = useState<AddressDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingAddresses, setLoadingAddresses] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -91,30 +91,33 @@ export default function ModernProfile() {
   const handleDetectLocation = async () => {
     setDetectingLocation(true);
     setError(null);
+    setSuccess(null);
+    
     try {
-      console.log('Getting current location...');
-      const coords = await getCurrentLocation();
-      console.log('Coordinates:', coords);
+      // Step 1: Get browser location (latitude, longitude)
+      const coords = await addressService.getCurrentLocation();
       
-      console.log('Reverse geocoding...');
-      const address = await reverseGeocode(coords.latitude, coords.longitude);
-      console.log('Address:', address);
+      // Step 2: Convert coordinates to address using Nominatim API
+      const address = await addressService.reverseGeocode(coords.latitude, coords.longitude);
       
+      // Step 3: Auto-fill the form with detected location and address
       setAddressForm(prev => ({
         ...prev,
-        addressLine1: address.addressLine1,
-        city: address.city,
-        state: address.state,
-        pincode: address.pincode,
+        addressLine1: address.addressLine1 || '',
+        addressLine2: '',
+        city: address.city || '',
+        state: address.state || '',
+        pincode: address.pincode || '',
         latitude: coords.latitude,
         longitude: coords.longitude,
       }));
       
-      setSuccess('Location detected successfully!');
-      setTimeout(() => setSuccess(null), 3000);
+      setSuccess(`✓ Location detected: ${address.addressLine1}, ${address.city}`);
+      setTimeout(() => setSuccess(null), 5000);
     } catch (err: unknown) {
-      console.error('Location detection error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to detect location');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to detect location';
+      setError(errorMessage);
+      setTimeout(() => setError(null), 8000);
     } finally {
       setDetectingLocation(false);
     }
@@ -154,7 +157,7 @@ export default function ModernProfile() {
     }
   };
 
-  const handleEditAddress = (address: Address) => {
+  const handleEditAddress = (address: AddressDTO) => {
     setEditingAddressId(address.id);
     setAddressForm({
       label: address.label,
@@ -546,12 +549,23 @@ export default function ModernProfile() {
                     <button
                       onClick={handleDetectLocation}
                       disabled={detectingLocation}
-                      className="flex items-center gap-2 text-red-600 hover:text-red-700 font-bold text-sm disabled:opacity-50"
+                      className="flex items-center gap-2 text-red-600 hover:text-red-700 font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Click to detect your current location"
                     >
-                      <Navigation size={16} />
-                      {detectingLocation ? 'Detecting...' : 'Auto-detect'}
+                      <Navigation size={16} className={detectingLocation ? 'animate-pulse' : ''} />
+                      {detectingLocation ? 'Detecting...' : 'Auto-detect Location'}
                     </button>
                   </div>
+
+                  {detectingLocation && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 flex items-start gap-3">
+                      <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-bold text-blue-900">Detecting your location...</p>
+                        <p className="text-xs text-blue-700 mt-1">Please allow location access when prompted by your browser</p>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-2 gap-4">
                     <input

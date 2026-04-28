@@ -8,6 +8,7 @@ import com.google.zxing.common.BitMatrix;
 import com.quickbite.entity.Notification;
 import com.quickbite.event.NotificationEvent;
 import com.quickbite.repository.NotificationRepository;
+import com.quickbite.websocket.NotificationWebSocketHandler;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -45,6 +46,9 @@ public class NotificationService {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private NotificationWebSocketHandler webSocketHandler;
 
     @Value("${internal.api.base-url:http://gateway:8000/api}")
     private String internalApiBaseUrl;
@@ -145,11 +149,21 @@ public class NotificationService {
     }
 
     public List<Notification> getUserNotifications(Long userId) {
-        return notificationRepository.findByUserIdOrderByCreatedAtDesc(userId);
+        try {
+            return notificationRepository.findByUserIdOrderByCreatedAtDesc(userId);
+        } catch (Exception e) {
+            log.error("Error fetching notifications for user {}: {}", userId, e.getMessage());
+            return List.of();
+        }
     }
 
     public List<Notification> getUnreadNotifications(Long userId) {
-        return notificationRepository.findByUserIdAndIsReadFalseOrderByCreatedAtDesc(userId);
+        try {
+            return notificationRepository.findByUserIdAndIsReadFalseOrderByCreatedAtDesc(userId);
+        } catch (Exception e) {
+            log.error("Error fetching unread notifications for user {}: {}", userId, e.getMessage());
+            return List.of();
+        }
     }
 
     public void markAsRead(Long notificationId) {
@@ -178,7 +192,18 @@ public class NotificationService {
                 .isRead(false)
                 .build();
 
-        notificationRepository.save(notification);
+        Notification saved = notificationRepository.save(notification);
+        
+        // Broadcast notification via WebSocket for real-time delivery
+        try {
+            webSocketHandler.sendNotificationToUser(userId, Map.of(
+                "type", "NEW_NOTIFICATION",
+                "notification", saved
+            ));
+            log.info("Real-time notification sent to user {} via WebSocket", userId);
+        } catch (Exception e) {
+            log.warn("Failed to send real-time notification to user {}: {}", userId, e.getMessage());
+        }
     }
 
     private JsonNode fetchJson(String relativePath) {

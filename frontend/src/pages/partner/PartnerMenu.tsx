@@ -42,6 +42,7 @@ export default function PartnerMenu() {
   const [editingDishId, setEditingDishId] = useState<number | null>(null);
   const [dishForm, setDishForm] = useState<DishForm>(EMPTY_DISH);
   const [savingDish, setSavingDish] = useState(false);
+  const [dishImageFile, setDishImageFile] = useState<File | null>(null);
 
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -98,11 +99,13 @@ export default function PartnerMenu() {
   const openCreateDish = () => {
     setEditingDishId(null);
     setDishForm(EMPTY_DISH);
+    setDishImageFile(null);
     setShowDishModal(true);
   };
 
   const openEditDish = (item: MenuItem) => {
     setEditingDishId(item.id);
+    setDishImageFile(null);
     setDishForm({
       name: item.name,
       description: item.description || '',
@@ -162,6 +165,8 @@ export default function PartnerMenu() {
     setSavingDish(true);
     setError(null);
     try {
+      let dishId: number;
+      
       if (editingDishId) {
         const updated = await menuService.updateMenuItem(editingDishId, {
           name: dishForm.name.trim(),
@@ -170,6 +175,7 @@ export default function PartnerMenu() {
           discountedPrice: Number(dishForm.discountedPrice || dishForm.price),
           preparationTime: Number(dishForm.preparationTime),
         });
+        dishId = editingDishId;
         setItems((prev) => prev.map((item) => (item.id === editingDishId ? { ...item, ...updated } : item)));
       } else {
         const created = await menuService.createMenuItem({
@@ -183,10 +189,24 @@ export default function PartnerMenu() {
           isVegetarian: dishForm.isVegetarian,
           isSpicy: dishForm.isSpicy,
         });
+        dishId = created.id;
         setItems((prev) => [created, ...prev]);
       }
+      
+      // Upload image if selected
+      if (dishImageFile) {
+        try {
+          const imageUrl = await menuService.uploadMenuItemImage(dishId, dishImageFile);
+          setItems((prev) => prev.map((item) => (item.id === dishId ? { ...item, imageUrl } : item)));
+        } catch (imgErr: unknown) {
+          console.error('Image upload failed:', imgErr);
+          setError('Dish saved but image upload failed: ' + (imgErr instanceof Error ? imgErr.message : 'Unknown error'));
+        }
+      }
+      
       setShowDishModal(false);
       setDishForm(EMPTY_DISH);
+      setDishImageFile(null);
       setEditingDishId(null);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to save dish.');
@@ -293,7 +313,19 @@ export default function PartnerMenu() {
           const categoryName = categories.find((c) => c.id === item.categoryId)?.name || 'Uncategorized';
 
           return (
-            <div key={item.id} className={`group relative rounded-[2rem] bg-white border border-[var(--color-outline-variant)]/40 p-6 shadow-card transition-all hover:shadow-ambient ${!item.isAvailable ? 'opacity-75 grayscale-[0.2]' : ''}`}>
+            <div key={item.id} className={`group relative rounded-[2rem] bg-white border border-[var(--color-outline-variant)]/40 shadow-card transition-all hover:shadow-ambient overflow-hidden ${!item.isAvailable ? 'opacity-75 grayscale-[0.2]' : ''}`}>
+              {item.imageUrl && (
+                <div className="relative h-48 w-full overflow-hidden">
+                  <img
+                    src={item.imageUrl}
+                    alt={item.name}
+                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                </div>
+              )}
+              
+              <div className="p-6">
               <div className="flex justify-between items-start mb-4">
                 <span className="rounded-full bg-[var(--color-surface-container-highest)] px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-[var(--color-on-surface-variant)]">
                   {categoryName}
@@ -338,6 +370,7 @@ export default function PartnerMenu() {
                   </button>
                 </div>
               </div>
+            </div>
             </div>
           );
         })}
@@ -393,25 +426,34 @@ export default function PartnerMenu() {
               <textarea required rows={3} value={dishForm.description} onChange={(e) => setDishForm((prev) => ({ ...prev, description: e.target.value }))} className="w-full rounded-xl border border-[var(--color-outline-variant)]/40 px-4 py-3 text-sm" />
             </label>
 
-            {editingDishId && (
-              <div className="mt-4">
-                <ImageUpload
-                  currentImageUrl={items.find(i => i.id === editingDishId)?.imageUrl}
-                  onUpload={async (file) => {
-                    const imageUrl = await menuService.uploadMenuItemImage(editingDishId, file);
-                    setItems((prev) => prev.map((item) => (item.id === editingDishId ? { ...item, imageUrl } : item)));
-                    return imageUrl;
-                  }}
-                  onDelete={async () => {
-                    await menuService.deleteMenuItemImage(editingDishId);
-                    setItems((prev) => prev.map((item) => (item.id === editingDishId ? { ...item, imageUrl: undefined } : item)));
-                  }}
-                  maxSizeMB={10}
-                  aspectRatio="4/3"
-                  label="Dish Image"
-                />
-              </div>
-            )}
+            <div className="mt-4">
+              <label className="block text-sm font-semibold mb-2">Dish Image</label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    if (file.size > 10 * 1024 * 1024) {
+                      setError('Image size must be less than 10MB');
+                      return;
+                    }
+                    setDishImageFile(file);
+                    setError(null);
+                  }
+                }}
+                className="w-full rounded-xl border border-[var(--color-outline-variant)]/40 px-4 py-3 text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-[var(--color-primary)]/10 file:text-[var(--color-primary)] hover:file:bg-[var(--color-primary)]/20"
+              />
+              {dishImageFile && (
+                <div className="mt-2 flex items-center gap-2 text-sm text-green-600">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  <span>{dishImageFile.name} selected</span>
+                </div>
+              )}
+            </div>
+
 
             <div className="mt-4 flex items-center gap-6">
               <label className="inline-flex items-center gap-2 text-sm font-semibold">

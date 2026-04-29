@@ -18,6 +18,12 @@ const request = async <T>(url: string, init?: RequestInit): Promise<T> => {
     const message = await response.text();
     throw new Error(message || `Request failed with status ${response.status}`);
   }
+  
+  // Handle 204 No Content responses
+  if (response.status === 204) {
+    return undefined as T;
+  }
+  
   return response.json() as Promise<T>;
 };
 
@@ -54,5 +60,31 @@ export const notificationService = {
         ...getOptionalAuthHeader(),
       },
     });
+  },
+
+  async deleteNotification(notificationId: number): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/v1/notifications/${notificationId}`, {
+      method: 'DELETE',
+      headers: {
+        ...getOptionalAuthHeader(),
+      },
+    });
+    if (!response.ok) {
+      const message = await response.text();
+      throw new Error(message || `Failed to delete notification: ${response.status}`);
+    }
+  },
+
+  async clearAllNotifications(userId: number): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/v1/notifications/user/${userId}`, {
+      method: 'DELETE',
+      headers: {
+        ...getOptionalAuthHeader(),
+      },
+    });
+    if (!response.ok) {
+      const message = await response.text();
+      throw new Error(message || `Failed to clear notifications: ${response.status}`);
+    }
   },
 };

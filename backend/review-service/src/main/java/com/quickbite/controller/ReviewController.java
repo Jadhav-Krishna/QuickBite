@@ -13,6 +13,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/reviews")
 @Slf4j
+@CrossOrigin(origins = "*")
 public class ReviewController {
 
     @Autowired
@@ -58,7 +59,7 @@ public class ReviewController {
         return ResponseEntity.ok(reviewService.getDeliveryAgentAverageRating(agentId));
     }
 
-    @GetMapping("/all")
+    @GetMapping
     public ResponseEntity<List<ReviewDTO>> getAllReviews() {
         return ResponseEntity.ok(reviewService.getAllReviews());
     }

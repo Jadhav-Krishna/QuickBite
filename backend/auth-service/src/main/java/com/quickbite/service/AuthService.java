@@ -58,7 +58,8 @@ public class AuthService {
     private static final String GOOGLE_TOKEN_INFO_URL = "https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=";
     private static final String GITHUB_USER_API = "https://api.github.com/user";
     private static final String NOTIFICATION_EXCHANGE = "notification.exchange";
-    private static final String NOTIFICATION_ROUTING_KEY = "notification.login";
+    private static final String NOTIFICATION_ROUTING_KEY_LOGIN = "notification.login";
+    private static final String NOTIFICATION_ROUTING_KEY_SIGNUP = "notification.signup";
 
     // ==================== Registration & Login ====================
 
@@ -90,6 +91,7 @@ public class AuthService {
                 .build();
 
         User savedUser = userRepository.save(user);
+        publishSignupNotification(savedUser);
 
         String accessToken = jwtTokenProvider.generateAccessToken(savedUser);
         String refreshToken = jwtTokenProvider.generateRefreshToken(savedUser.getEmail());
@@ -483,9 +485,31 @@ public class AuthService {
             payload.put("recipientRole", user.getRole().name());
             payload.put("createdAt", LocalDateTime.now().toString());
 
-            rabbitTemplate.convertAndSend(NOTIFICATION_EXCHANGE, NOTIFICATION_ROUTING_KEY, payload);
+            rabbitTemplate.convertAndSend(NOTIFICATION_EXCHANGE, NOTIFICATION_ROUTING_KEY_LOGIN, payload);
         } catch (Exception e) {
             log.warn("Failed to publish login notification for {}: {}", user.getEmail(), e.getMessage());
+        }
+    }
+
+    private void publishSignupNotification(User user) {
+        if (rabbitTemplate == null || user == null) {
+            return;
+        }
+
+        try {
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("eventType", "USER_SIGNUP");
+            payload.put("userId", user.getId());
+            payload.put("title", "Welcome to QuickBite!");
+            payload.put("message", "Welcome " + user.getFullName() + "! Your account has been created successfully. Start exploring delicious food near you.");
+            payload.put("notificationType", "IN_APP");
+            payload.put("recipientEmail", user.getEmail());
+            payload.put("recipientRole", user.getRole().name());
+            payload.put("createdAt", LocalDateTime.now().toString());
+
+            rabbitTemplate.convertAndSend(NOTIFICATION_EXCHANGE, NOTIFICATION_ROUTING_KEY_SIGNUP, payload);
+        } catch (Exception e) {
+            log.warn("Failed to publish signup notification for {}: {}", user.getEmail(), e.getMessage());
         }
     }
 }

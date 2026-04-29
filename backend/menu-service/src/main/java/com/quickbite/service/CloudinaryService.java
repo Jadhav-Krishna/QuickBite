@@ -29,6 +29,18 @@ public class CloudinaryService {
             throw new IllegalArgumentException("Only image files are allowed");
         }
 
+        // Check if Cloudinary is properly configured
+        try {
+            String cloudName = cloudinary.config.cloudName;
+            if (cloudName == null || cloudName.equals("dummy") || cloudName.equals("your_cloud_name")) {
+                log.warn("Cloudinary not configured. Returning placeholder URL.");
+                return "https://via.placeholder.com/800x600?text=Image+Upload+Disabled";
+            }
+        } catch (Exception e) {
+            log.error("Error checking Cloudinary configuration", e);
+            return "https://via.placeholder.com/800x600?text=Image+Upload+Error";
+        }
+
         // Generate unique public ID
         String publicId = folder + "/" + UUID.randomUUID().toString();
 

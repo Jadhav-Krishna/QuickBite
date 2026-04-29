@@ -16,7 +16,6 @@ import { useAuth } from '../../context/AuthContext';
 import { orderService, type OrderDTO } from '../../api/order';
 import { restaurantService } from '../../api/restaurant';
 import { deliveryService, type DeliveryAgentDTO } from '../../api/delivery';
-import { notificationService } from '../../api/notification';
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; border: string }> = {
   PLACED: { label: 'New Order', color: 'text-violet-700', bg: 'bg-violet-50', border: 'border-violet-200' },
@@ -66,27 +65,6 @@ export default function PartnerOrders() {
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
-  };
-
-  const notifyAssignedDeliveryAgent = async (order: OrderDTO) => {
-    if (!order.deliveryAgentId) return;
-    try {
-      const agent = await deliveryService.getAgent(order.deliveryAgentId);
-      if (!agent.userId) return;
-
-      await notificationService.sendTestNotification({
-        eventType: 'ORDER_READY_FOR_PICKUP',
-        orderId: order.id,
-        userId: agent.userId,
-        deliveryAgentId: order.deliveryAgentId,
-        restaurantId: order.restaurantId,
-        title: `Pickup Ready: ${order.orderNumber}`,
-        message: `Order ${order.orderNumber} is packed and ready for pickup.`,
-        notificationType: 'IN_APP',
-      });
-    } catch {
-      // non-blocking
-    }
   };
 
   const hydrateAssignedAgents = useCallback(async (orderList: OrderDTO[]) => {
@@ -167,14 +145,10 @@ export default function PartnerOrders() {
     try {
       const updated =
         nextStatus === 'PICKUP_RESTAURANT_CONFIRM'
-          ? await orderService.confirmPickupByRestaurant(order.orderNumber)
+          ? await orderService.confirmRestaurantPickup(order.orderNumber)
           : await orderService.updateOrderStatus(order.orderNumber, nextStatus);
       setOrders((prev) => prev.map((o) => (o.id === order.id ? updated : o)));
       await hydrateAssignedAgents([updated]);
-
-      if (nextStatus === 'READY') {
-        await notifyAssignedDeliveryAgent(updated);
-      }
 
       showToast(
         nextStatus === 'CONFIRMED'

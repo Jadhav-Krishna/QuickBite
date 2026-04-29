@@ -4,7 +4,6 @@ import { Eye, EyeOff, Mail, Lock, Sparkles, ArrowRight, AlertCircle } from 'luci
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { authService } from '../api/auth';
-import { notificationService } from '../api/notification';
 import { useAuth } from '../context/AuthContext';
 
 gsap.registerPlugin(ScrollTrigger);
@@ -171,16 +170,6 @@ export default function Login() {
       };
 
       saveLogin(user, response.accessToken, response.refreshToken);
-
-      void notificationService.sendTestNotification({
-        eventType: 'USER_LOGIN',
-        userId: response.userId,
-        title: 'Login Successful',
-        message: `Welcome back, ${response.fullName}. You have logged in successfully.`,
-        notificationType: 'IN_APP',
-        recipientEmail: response.email,
-        recipientRole: response.role,
-      }).catch(() => undefined);
 
       // Success animation
       gsap.to(formRef.current, {

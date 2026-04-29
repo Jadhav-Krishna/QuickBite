@@ -133,32 +133,55 @@ public class DeliveryService {
     public void updateAgentEarnings(Long agentId, Double orderAmount) {
         log.info("Updating agent earnings - Agent: {}, Amount: {}", agentId, orderAmount);
         
-        DeliveryAgent agent = agentRepository.findById(agentId)
-                .orElseThrow(() -> new RuntimeException("Delivery agent not found"));
-        
-        // Calculate agent commission (12% of order amount)
-        Double commission = orderAmount * 0.12;
-        
-        // Update earnings
-        agent.setTotalEarnings((agent.getTotalEarnings() != null ? agent.getTotalEarnings() : 0.0) + commission);
-        agent.setTodayEarnings((agent.getTodayEarnings() != null ? agent.getTodayEarnings() : 0.0) + commission);
-        
-        agentRepository.save(agent);
-        log.info("Agent earnings updated: {} - Commission: {}", agentId, commission);
+        try {
+            DeliveryAgent agent = agentRepository.findById(agentId)
+                    .orElseThrow(() -> new RuntimeException("Delivery agent not found with ID: " + agentId));
+            
+            if (orderAmount == null || orderAmount <= 0) {
+                log.warn("Invalid order amount for agent earnings update: {}", orderAmount);
+                return;
+            }
+            
+            // Calculate agent commission (12% of order amount)
+            Double commission = orderAmount * 0.12;
+            
+            // Update earnings with null safety
+            Double currentTotalEarnings = agent.getTotalEarnings() != null ? agent.getTotalEarnings() : 0.0;
+            Double currentTodayEarnings = agent.getTodayEarnings() != null ? agent.getTodayEarnings() : 0.0;
+            
+            agent.setTotalEarnings(currentTotalEarnings + commission);
+            agent.setTodayEarnings(currentTodayEarnings + commission);
+            
+            agentRepository.save(agent);
+            log.info("Agent earnings updated successfully - Agent: {}, Commission: {}, Total: {}, Today: {}", 
+                    agentId, commission, agent.getTotalEarnings(), agent.getTodayEarnings());
+        } catch (Exception e) {
+            log.error("Failed to update agent earnings - Agent: {}, Amount: {}", agentId, orderAmount, e);
+            throw new RuntimeException("Failed to update agent earnings: " + e.getMessage());
+        }
     }
 
     public void markOrderDelivered(Long agentId, Long orderId) {
         log.info("Marking order delivered - Order: {}, Agent: {}", orderId, agentId);
         
-        DeliveryAgent agent = agentRepository.findById(agentId)
-                .orElseThrow(() -> new RuntimeException("Delivery agent not found"));
-        
-        // Update delivery count
-        agent.setTotalDeliveries(agent.getTotalDeliveries() + 1);
-        agent.setTodayDeliveries((agent.getTodayDeliveries() != null ? agent.getTodayDeliveries() : 0) + 1);
-        
-        agentRepository.save(agent);
-        log.info("Agent delivery count updated: {}", agentId);
+        try {
+            DeliveryAgent agent = agentRepository.findById(agentId)
+                    .orElseThrow(() -> new RuntimeException("Delivery agent not found with ID: " + agentId));
+            
+            // Update delivery count with null safety
+            Long currentTotalDeliveries = agent.getTotalDeliveries() != null ? agent.getTotalDeliveries() : 0L;
+            Integer currentTodayDeliveries = agent.getTodayDeliveries() != null ? agent.getTodayDeliveries() : 0;
+            
+            agent.setTotalDeliveries(currentTotalDeliveries + 1);
+            agent.setTodayDeliveries(currentTodayDeliveries + 1);
+            
+            agentRepository.save(agent);
+            log.info("Agent delivery count updated successfully - Agent: {}, Total: {}, Today: {}", 
+                    agentId, agent.getTotalDeliveries(), agent.getTodayDeliveries());
+        } catch (Exception e) {
+            log.error("Failed to mark order delivered - Order: {}, Agent: {}", orderId, agentId, e);
+            throw new RuntimeException("Failed to mark order delivered: " + e.getMessage());
+        }
     }
 
     public DeliveryAgentDTO getAgentEarnings(Long agentId) {

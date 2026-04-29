@@ -21,7 +21,7 @@ spring:
       max-request-size: 10MB
 
 server:
-  port: ${MENU_SERVICE_PORT:8083}
+  port: ${MENU_SERVICE_PORT:8003}
   servlet:
     context-path: /
 

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Bell, Check, CheckCheck, X } from 'lucide-react';
+import { Bell, Check, CheckCheck, X, Trash2 } from 'lucide-react';
 import { useNotifications } from '../hooks/useNotifications';
 import { useAuth } from '../context/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
@@ -7,25 +7,22 @@ import { formatDistanceToNow } from 'date-fns';
 export default function NotificationBell() {
   const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   
   const {
     notifications,
     unreadCount,
-    isConnected,
     loading,
     markAsRead,
     markAllAsRead,
-    requestPermission,
+    deleteNotification,
+    clearAllNotifications,
   } = useNotifications({
     userId: user?.userId || null,
     enabled: !!user,
   });
-
-  // Request notification permission on mount
-  useEffect(() => {
-    void requestPermission();
-  }, []);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -43,6 +40,14 @@ export default function NotificationBell() {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [isOpen]);
+
+  // Auto-hide toast
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
 
   if (!user) return null;
 
@@ -71,7 +76,17 @@ export default function NotificationBell() {
   };
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <>
+      {/* Toast Notification */}
+      {toast && (
+        <div className="fixed top-4 right-4 z-[60] animate-fade-in">
+          <div className="rounded-xl bg-green-600 px-4 py-3 text-sm font-bold text-white shadow-2xl">
+            {toast}
+          </div>
+        </div>
+      )}
+
+      <div className="relative" ref={dropdownRef}>
       {/* Bell Icon Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
@@ -85,11 +100,6 @@ export default function NotificationBell() {
           <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white shadow-lg">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
-        )}
-
-        {/* Connection Status Indicator */}
-        {isConnected && (
-          <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500" />
         )}
       </button>
 
@@ -107,6 +117,24 @@ export default function NotificationBell() {
               )}
             </div>
             <div className="flex items-center gap-2">
+              {notifications.length > 0 && (
+                <button
+                  onClick={async () => {
+                    if (window.confirm('Clear all notifications? This cannot be undone.')) {
+                      setIsClearing(true);
+                      await clearAllNotifications();
+                      setIsClearing(false);
+                      setToast('All notifications cleared');
+                    }
+                  }}
+                  disabled={isClearing}
+                  className="flex items-center gap-1 rounded-lg bg-red-50 px-3 py-1.5 text-xs font-bold text-red-600 transition-colors hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Clear all"
+                >
+                  <Trash2 size={14} />
+                  {isClearing ? 'Clearing...' : 'Clear All'}
+                </button>
+              )}
               {unreadCount > 0 && (
                 <button
                   onClick={() => void markAllAsRead()}
@@ -170,15 +198,31 @@ export default function NotificationBell() {
                           <h4 className="font-bold text-slate-900 text-sm">
                             {notification.title}
                           </h4>
-                          {!notification.isRead && (
+                          <div className="flex items-center gap-1">
+                            {!notification.isRead && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  void markAsRead(notification.id);
+                                }}
+                                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-slate-400 opacity-0 transition-all hover:bg-slate-200 hover:text-slate-700 group-hover:opacity-100"
+                                title="Mark as read"
+                              >
+                                <Check size={14} />
+                              </button>
+                            )}
                             <button
-                              onClick={() => void markAsRead(notification.id)}
-                              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-slate-400 opacity-0 transition-all hover:bg-slate-200 hover:text-slate-700 group-hover:opacity-100"
-                              title="Mark as read"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void deleteNotification(notification.id);
+                                setToast('Notification deleted');
+                              }}
+                              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-slate-400 opacity-0 transition-all hover:bg-red-100 hover:text-red-600 group-hover:opacity-100"
+                              title="Delete"
                             >
-                              <Check size={14} />
+                              <Trash2 size={14} />
                             </button>
-                          )}
+                          </div>
                         </div>
                         <p className="mt-1 text-xs text-slate-600 line-clamp-2">
                           {notification.message}
@@ -207,5 +251,6 @@ export default function NotificationBell() {
         </div>
       )}
     </div>
+    </>
   );
 }

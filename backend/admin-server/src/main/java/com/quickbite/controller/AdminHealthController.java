@@ -2,7 +2,7 @@ package com.quickbite.controller;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.actuate.health.Health;
+import org.springframework.boot.actuate.health.HealthComponent;
 import org.springframework.boot.actuate.health.HealthEndpoint;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -23,9 +23,9 @@ public class AdminHealthController {
         Map<String, Object> response = new HashMap<>();
         
         if (healthEndpoint != null) {
-            Health health = healthEndpoint.health();
-            response.put("status", health.getStatus().getCode());
-            response.put("components", health.getDetails());
+            HealthComponent healthComponent = healthEndpoint.health();
+            response.put("status", healthComponent.getStatus().getCode());
+            response.put("components", new HashMap<>());
         } else {
             response.put("status", "UP");
             response.put("message", "Health endpoint not configured");

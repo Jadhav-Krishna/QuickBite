@@ -44,8 +44,12 @@ public class GatewayConfig {
                         .uri("lb://REVIEW-SERVICE"))
 
                 .route("notification-service", r -> r
-                        .path("/api/v1/notifications/**", "/ws/**")
+                        .path("/api/v1/notifications/**")
                         .uri("lb://NOTIFICATION-SERVICE"))
+
+                .route("delivery-websocket", r -> r
+                        .path("/ws/tracking/**")
+                        .uri("lb:ws://DELIVERY-SERVICE"))
 
                 // Swagger API Docs Routes
                 .route("auth-service-docs", r -> r

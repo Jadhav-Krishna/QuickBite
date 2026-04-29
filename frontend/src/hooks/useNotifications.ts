@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { notificationService, type NotificationDTO } from '../api/notification';
 
-const WS_URL = import.meta.env.VITE_WS_NOTIFICATION_URL || 'ws://localhost:8009/ws/notifications';
-
 interface UseNotificationsOptions {
   userId: number | null;
   enabled?: boolean;
@@ -11,11 +9,10 @@ interface UseNotificationsOptions {
 export const useNotifications = ({ userId, enabled = true }: UseNotificationsOptions) => {
   const [notifications, setNotifications] = useState<NotificationDTO[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [isConnected, setIsConnected] = useState(false);
   const [loading, setLoading] = useState(true);
-  const wsRef = useRef<WebSocket | null>(null);
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Load initial notifications
+  // Load and poll notifications
   useEffect(() => {
     if (!userId || !enabled) {
       setLoading(false);
@@ -46,69 +43,16 @@ export const useNotifications = ({ userId, enabled = true }: UseNotificationsOpt
 
     void loadNotifications();
 
+    // Poll every 5 seconds for real-time updates
+    pollIntervalRef.current = setInterval(() => {
+      void loadNotifications();
+    }, 5000);
+
     return () => {
       cancelled = true;
-    };
-  }, [userId, enabled]);
-
-  // WebSocket connection for real-time updates
-  useEffect(() => {
-    if (!userId || !enabled) return;
-
-    const connect = () => {
-      const ws = new WebSocket(`${WS_URL}?userId=${userId}`);
-      wsRef.current = ws;
-
-      ws.onopen = () => {
-        setIsConnected(true);
-        console.log('Notification WebSocket connected');
-      };
-
-      ws.onclose = () => {
-        setIsConnected(false);
-        console.log('Notification WebSocket disconnected, reconnecting...');
-        setTimeout(connect, 5000);
-      };
-
-      ws.onerror = (error) => {
-        console.error('Notification WebSocket error:', error);
-        ws.close();
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-
-          if (data.type === 'CONNECTED') {
-            console.log('Notification WebSocket connection confirmed');
-            return;
-          }
-
-          if (data.type === 'NEW_NOTIFICATION' && data.notification) {
-            const newNotification = data.notification as NotificationDTO;
-            
-            setNotifications((prev) => [newNotification, ...prev]);
-            setUnreadCount((prev) => prev + 1);
-
-            // Show browser notification if permission granted
-            if ('Notification' in window && Notification.permission === 'granted') {
-              new Notification(newNotification.title, {
-                body: newNotification.message,
-                icon: '/logo.png',
-                badge: '/logo.png',
-              });
-            }
-          }
-        } catch (error) {
-          console.error('Failed to parse notification message:', error);
-        }
-      };
-    };
-
-    connect();
-
-    return () => {
-      wsRef.current?.close();
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
     };
   }, [userId, enabled]);
 
@@ -138,19 +82,59 @@ export const useNotifications = ({ userId, enabled = true }: UseNotificationsOpt
     }
   };
 
-  const requestPermission = async () => {
-    if ('Notification' in window && Notification.permission === 'default') {
-      await Notification.requestPermission();
+  const deleteNotification = async (notificationId: number) => {
+    // Optimistic update - remove immediately from UI
+    const notification = notifications.find((n) => n.id === notificationId);
+    const wasUnread = notification && !notification.isRead;
+    
+    setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
+    if (wasUnread) {
+      setUnreadCount((prev) => Math.max(0, prev - 1));
+    }
+
+    try {
+      await notificationService.deleteNotification(notificationId);
+    } catch (error) {
+      console.error('Failed to delete notification:', error);
+      // Revert on error
+      if (notification) {
+        setNotifications((prev) => [...prev, notification].sort((a, b) => 
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        ));
+        if (wasUnread) {
+          setUnreadCount((prev) => prev + 1);
+        }
+      }
+    }
+  };
+
+  const clearAllNotifications = async () => {
+    if (!userId) return;
+
+    // Optimistic update - clear immediately from UI
+    const previousNotifications = notifications;
+    const previousUnreadCount = unreadCount;
+    
+    setNotifications([]);
+    setUnreadCount(0);
+
+    try {
+      await notificationService.clearAllNotifications(userId);
+    } catch (error) {
+      console.error('Failed to clear all notifications:', error);
+      // Revert on error
+      setNotifications(previousNotifications);
+      setUnreadCount(previousUnreadCount);
     }
   };
 
   return {
     notifications,
     unreadCount,
-    isConnected,
     loading,
     markAsRead,
     markAllAsRead,
-    requestPermission,
+    deleteNotification,
+    clearAllNotifications,
   };
 };

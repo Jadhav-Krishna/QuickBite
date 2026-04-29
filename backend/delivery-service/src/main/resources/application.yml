@@ -37,7 +37,7 @@ spring:
     password: ${RABBITMQ_PASSWORD:guest}
 
 server:
-  port: ${DELIVERY_SERVICE_PORT:8087}
+  port: ${DELIVERY_SERVICE_PORT:8007}
   servlet:
     context-path: /
 

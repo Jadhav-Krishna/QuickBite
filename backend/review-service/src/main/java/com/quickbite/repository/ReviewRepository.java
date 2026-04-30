@@ -3,6 +3,7 @@ package com.quickbite.repository;
 import com.quickbite.entity.Review;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -16,8 +17,8 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     List<Review> findByDeliveryAgentIdOrderByCreatedAtDesc(Long deliveryAgentId);
 
     @Query("SELECT AVG(r.restaurantRating) FROM Review r WHERE r.restaurantId = :restaurantId")
-    Double getAverageRestaurantRating(Long restaurantId);
+    Double getAverageRestaurantRating(@Param("restaurantId") Long restaurantId);
 
     @Query("SELECT AVG(r.deliveryRating) FROM Review r WHERE r.deliveryAgentId = :deliveryAgentId AND r.deliveryRating IS NOT NULL")
-    Double getAverageDeliveryRating(Long deliveryAgentId);
+    Double getAverageDeliveryRating(@Param("deliveryAgentId") Long deliveryAgentId);
 }

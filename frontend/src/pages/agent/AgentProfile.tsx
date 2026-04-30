@@ -59,7 +59,7 @@ export default function AgentProfile() {
     setSuccess(false);
 
     try {
-      await deliveryService.updateProfile(agent.id, formData);
+      await deliveryService.updateAgentProfile(agent.id, formData);
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
       await loadProfile();

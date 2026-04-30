@@ -56,7 +56,7 @@ export const reviewService = {
   },
 
   getAllReviews() {
-    return request<ReviewDTO[]>(`${API_BASE_URL}/v1/reviews/all`, {
+    return request<ReviewDTO[]>(`${API_BASE_URL}/v1/reviews`, {
       headers: {
         ...getOptionalAuthHeader(),
       },

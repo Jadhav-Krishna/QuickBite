@@ -256,7 +256,7 @@ public class OrderService {
 
     @Transactional(readOnly = true)
     public List<OrderDTO> getDeliveryAgentOrders(Long agentId) {
-        return orderRepository.findActiveOrdersByDeliveryAgent(agentId).stream()
+        return orderRepository.findAllOrdersByDeliveryAgent(agentId).stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
     }

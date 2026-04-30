@@ -93,6 +93,7 @@ public class PaymentServiceImpl implements PaymentService {
 
             Optional<Payment> paymentOpt = paymentRepository.findByRazorpayOrderId(orderId);
             if (paymentOpt.isEmpty()) {
+                log.error("Payment not found for Razorpay order: {}", orderId);
                 throw new RuntimeException("Payment not found for order: " + orderId);
             }
 
@@ -100,7 +101,11 @@ public class PaymentServiceImpl implements PaymentService {
 
             // Verify Razorpay signature
             if (verifyRazorpaySignature(orderId, paymentId, signature)) {
-                razorpayClient.payments.fetch(paymentId);
+                try {
+                    razorpayClient.payments.fetch(paymentId);
+                } catch (Exception e) {
+                    log.warn("Could not fetch payment from Razorpay: {}", e.getMessage());
+                }
 
                 payment.setTransactionId(paymentId);
                 payment.setRazorpayPaymentId(paymentId);
@@ -114,13 +119,14 @@ public class PaymentServiceImpl implements PaymentService {
                 return mapToResponse(savedPayment);
             } else {
                 payment.setStatus(PaymentStatus.FAILED);
+                payment.setFailureReason("Signature verification failed");
                 payment.setUpdatedAt(LocalDateTime.now());
                 paymentRepository.save(payment);
 
                 throw new RuntimeException("Payment signature verification failed");
             }
         } catch (Exception e) {
-            log.error("Payment verification failed", e);
+            log.error("Payment verification failed: {}", e.getMessage(), e);
             throw new RuntimeException("Payment verification failed: " + e.getMessage());
         }
     }
@@ -355,6 +361,26 @@ public class PaymentServiceImpl implements PaymentService {
         } catch (IllegalArgumentException e) {
             throw new RuntimeException("Invalid payment status: " + status);
         }
+    }
+
+    @Override
+    public PaymentResponse createCODPayment(Long orderId, Long customerId, Double amount) {
+        log.info("Creating COD payment for order: {}", orderId);
+
+        Payment payment = Payment.builder()
+                .orderId(orderId)
+                .customerId(customerId)
+                .amount(amount)
+                .currency("INR")
+                .paymentMethod(PaymentMethod.CASH_ON_DELIVERY)
+                .status(PaymentStatus.PENDING)
+                .transactionId("COD-" + orderId)
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        Payment savedPayment = paymentRepository.save(payment);
+        log.info("COD payment created for order: {}", orderId);
+        return mapToResponse(savedPayment);
     }
 
     private Wallet createWallet(Long customerId) {

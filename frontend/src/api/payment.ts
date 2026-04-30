@@ -52,7 +52,7 @@ const request = async <T>(url: string, init?: RequestInit): Promise<T> => {
 
 export const paymentService = {
   initiatePayment(payload: InitiatePaymentRequest) {
-    return request<PaymentResponse>(`${API_BASE_URL}/payments/initiate`, {
+    return request<PaymentResponse>(`${API_BASE_URL}/v1/payments/initiate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getOptionalAuthHeader() },
       body: JSON.stringify(payload),
@@ -66,7 +66,7 @@ export const paymentService = {
       orderId: razorpayOrderId,
     });
 
-    return request<PaymentResponse>(`${API_BASE_URL}/payments/verify?${query.toString()}`, {
+    return request<PaymentResponse>(`${API_BASE_URL}/v1/payments/verify?${query.toString()}`, {
       method: 'POST',
       headers: {
         ...getOptionalAuthHeader(),
@@ -82,7 +82,7 @@ export const paymentService = {
       query.append('reason', reason.trim());
     }
 
-    return request<PaymentResponse>(`${API_BASE_URL}/payments/fail?${query.toString()}`, {
+    return request<PaymentResponse>(`${API_BASE_URL}/v1/payments/fail?${query.toString()}`, {
       method: 'POST',
       headers: {
         ...getOptionalAuthHeader(),
@@ -91,7 +91,7 @@ export const paymentService = {
   },
 
   getWalletBalance(customerId: number) {
-    return request<WalletResponse>(`${API_BASE_URL}/payments/wallet/balance/${customerId}`, {
+    return request<WalletResponse>(`${API_BASE_URL}/v1/payments/wallet/balance/${customerId}`, {
       headers: {
         ...getOptionalAuthHeader(),
       },
@@ -99,7 +99,7 @@ export const paymentService = {
   },
 
   depositToWallet(customerId: number, amount: number) {
-    return request<WalletResponse>(`${API_BASE_URL}/payments/wallet/deposit?customerId=${customerId}&amount=${amount}`, {
+    return request<WalletResponse>(`${API_BASE_URL}/v1/payments/wallet/deposit?customerId=${customerId}&amount=${amount}`, {
       method: 'POST',
       headers: {
         ...getOptionalAuthHeader(),
@@ -108,7 +108,7 @@ export const paymentService = {
   },
 
   payFromWallet(customerId: number, orderId: number) {
-    return request<PaymentResponse>(`${API_BASE_URL}/payments/wallet/pay?customerId=${customerId}&orderId=${orderId}`, {
+    return request<PaymentResponse>(`${API_BASE_URL}/v1/payments/wallet/pay?customerId=${customerId}&orderId=${orderId}`, {
       method: 'POST',
       headers: {
         ...getOptionalAuthHeader(),
@@ -125,7 +125,7 @@ export const paymentService = {
       query.append('description', description.trim());
     }
 
-    return request<PaymentResponse>(`${API_BASE_URL}/payments/wallet/pay-amount?${query.toString()}`, {
+    return request<PaymentResponse>(`${API_BASE_URL}/v1/payments/wallet/pay-amount?${query.toString()}`, {
       method: 'POST',
       headers: {
         ...getOptionalAuthHeader(),
@@ -134,7 +134,7 @@ export const paymentService = {
   },
 
   getWalletStatements(customerId: number) {
-    return request<WalletStatementDTO[]>(`${API_BASE_URL}/payments/wallet/statements/${customerId}`, {
+    return request<WalletStatementDTO[]>(`${API_BASE_URL}/v1/payments/wallet/statements/${customerId}`, {
       headers: {
         ...getOptionalAuthHeader(),
       },
@@ -142,7 +142,7 @@ export const paymentService = {
   },
 
   getCustomerPayments(customerId: number) {
-    return request<PaymentResponse[]>(`${API_BASE_URL}/payments/customer/${customerId}`, {
+    return request<PaymentResponse[]>(`${API_BASE_URL}/v1/payments/customer/${customerId}`, {
       headers: {
         ...getOptionalAuthHeader(),
       },
@@ -150,7 +150,7 @@ export const paymentService = {
   },
 
   getAllPayments() {
-    return request<PaymentResponse[]>(`${API_BASE_URL}/payments`, {
+    return request<PaymentResponse[]>(`${API_BASE_URL}/v1/payments`, {
       headers: {
         ...getOptionalAuthHeader(),
       },
@@ -158,7 +158,7 @@ export const paymentService = {
   },
 
   getPaymentByOrderId(orderId: number) {
-    return request<PaymentResponse>(`${API_BASE_URL}/payments/order/${orderId}`, {
+    return request<PaymentResponse>(`${API_BASE_URL}/v1/payments/order/${orderId}`, {
       headers: {
         ...getOptionalAuthHeader(),
       },
@@ -166,7 +166,7 @@ export const paymentService = {
   },
 
   refundPayment(paymentId: number, reason: string) {
-    return request<PaymentResponse>(`${API_BASE_URL}/payments/refund/${paymentId}?reason=${encodeURIComponent(reason)}`, {
+    return request<PaymentResponse>(`${API_BASE_URL}/v1/payments/refund/${paymentId}?reason=${encodeURIComponent(reason)}`, {
       method: 'POST',
       headers: {
         ...getOptionalAuthHeader(),
@@ -175,8 +175,17 @@ export const paymentService = {
   },
 
   updatePaymentStatus(paymentId: number, status: string) {
-    return request<PaymentResponse>(`${API_BASE_URL}/payments/${paymentId}/status?status=${encodeURIComponent(status)}`, {
+    return request<PaymentResponse>(`${API_BASE_URL}/v1/payments/${paymentId}/status?status=${encodeURIComponent(status)}`, {
       method: 'PUT',
+      headers: {
+        ...getOptionalAuthHeader(),
+      },
+    });
+  },
+
+  createCODPayment(orderId: number, customerId: number, amount: number) {
+    return request<PaymentResponse>(`${API_BASE_URL}/v1/payments/cod?orderId=${orderId}&customerId=${customerId}&amount=${amount}`, {
+      method: 'POST',
       headers: {
         ...getOptionalAuthHeader(),
       },

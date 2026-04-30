@@ -1,1 +1,15 @@
 /.metadata/
+.m2
+.idea
+.vscode
+*.iml
+*.log
+*.class
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.bak
+*.tmp
+.DS_Store

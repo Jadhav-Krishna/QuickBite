@@ -17,7 +17,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/payments")
+@RequestMapping("/api/v1/payments")
 @Slf4j
 public class PaymentController {
 
@@ -137,5 +137,15 @@ public class PaymentController {
         log.info("Updating payment {} status to {}", paymentId, status);
         PaymentResponse response = paymentService.updatePaymentStatus(paymentId, status);
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/cod")
+    public ResponseEntity<PaymentResponse> createCODPayment(
+            @RequestParam("orderId") Long orderId,
+            @RequestParam("customerId") Long customerId,
+            @RequestParam("amount") Double amount) {
+        log.info("Creating COD payment for order: {}", orderId);
+        PaymentResponse response = paymentService.createCODPayment(orderId, customerId, amount);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 }

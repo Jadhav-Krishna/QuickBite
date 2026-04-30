@@ -35,4 +35,6 @@ public interface PaymentService {
     List<PaymentResponse> getAllPayments();
 
     PaymentResponse updatePaymentStatus(Long paymentId, String status);
+
+    PaymentResponse createCODPayment(Long orderId, Long customerId, Double amount);
 }

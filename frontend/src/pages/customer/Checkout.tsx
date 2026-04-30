@@ -5,6 +5,7 @@ import { Button } from '../../components/ui/Button';
 import { useCart } from '../../context/CartContext';
 import { addressService, AddressDTO, CreateAddressRequest } from '../../api/address';
 import { orderService, CreateOrderRequest } from '../../api/order';
+import { paymentService } from '../../api/payment';
 
 export default function Checkout() {
   const navigate = useNavigate();
@@ -168,7 +169,11 @@ export default function Checkout() {
         })),
       };
 
-      await orderService.createOrder(orderRequest);
+      const order = await orderService.createOrder(orderRequest);
+      
+      // Create COD payment record
+      await paymentService.createCODPayment(order.id, userId, grandTotal);
+      
       clearCart();
       alert('Order placed successfully!');
       navigate('/orders');

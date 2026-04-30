@@ -36,6 +36,9 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     @Query("SELECT o FROM Order o WHERE o.deliveryAgentId = :agentId AND o.status NOT IN ('DELIVERED', 'CANCELLED') ORDER BY o.estimatedDeliveryTime ASC")
     List<Order> findActiveOrdersByDeliveryAgent(@Param("agentId") Long agentId);
 
+    @Query("SELECT o FROM Order o WHERE o.deliveryAgentId = :agentId ORDER BY o.createdAt DESC")
+    List<Order> findAllOrdersByDeliveryAgent(@Param("agentId") Long agentId);
+
     @Query("SELECT COUNT(o) FROM Order o WHERE o.customerId = :customerId AND o.status = 'DELIVERED'")
     long countDeliveredOrdersByCustomer(@Param("customerId") Long customerId);
 

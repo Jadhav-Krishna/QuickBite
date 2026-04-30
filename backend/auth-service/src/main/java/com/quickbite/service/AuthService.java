@@ -48,6 +48,9 @@ public class AuthService {
     @Value("${oauth2.google.clientId:}")
     private String googleClientId;
 
+    @Value("${oauth2.google.clientSecret:}")
+    private String googleClientSecret;
+
     @Value("${oauth2.github.clientId:}")
     private String githubClientId;
 
@@ -192,7 +195,13 @@ public class AuthService {
 
     private AuthResponse handleGoogleOAuth(OAuth2LoginRequest request) {
         try {
-            String response = restTemplate.getForObject(GOOGLE_TOKEN_INFO_URL + request.getToken(), String.class);
+            // If token looks like a code (no dots), exchange it for access token
+            String accessToken = request.getToken();
+            if (!accessToken.contains(".")) {
+                accessToken = exchangeGoogleCode(accessToken);
+            }
+
+            String response = restTemplate.getForObject(GOOGLE_TOKEN_INFO_URL + accessToken, String.class);
             JsonNode node = objectMapper.readTree(response);
 
             String email = node.get("email").asText();
@@ -300,6 +309,36 @@ public class AuthService {
         }
     }
 
+    private String exchangeGoogleCode(String code) {
+        try {
+            String tokenUrl = "https://oauth2.googleapis.com/token";
+            
+            // Use MultiValueMap for form data
+            org.springframework.util.MultiValueMap<String, String> params = new org.springframework.util.LinkedMultiValueMap<>();
+            params.add("client_id", googleClientId);
+            params.add("client_secret", googleClientSecret);
+            params.add("code", code);
+            params.add("grant_type", "authorization_code");
+            params.add("redirect_uri", "http://localhost:8000/api/v1/auth/oauth2/callback/google");
+
+            var headers = new org.springframework.http.HttpHeaders();
+            headers.setContentType(org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED);
+
+            var entity = new org.springframework.http.HttpEntity<>(params, headers);
+            String response = restTemplate.postForObject(tokenUrl, entity, String.class);
+            JsonNode node = objectMapper.readTree(response);
+
+            if (node.has("access_token")) {
+                return node.get("access_token").asText();
+            }
+
+            throw new AuthenticationException("Failed to exchange Google code for token");
+        } catch (Exception e) {
+            log.error("Google token exchange failed", e);
+            throw new AuthenticationException("Google token exchange failed: " + e.getMessage());
+        }
+    }
+
     private User createOAuthUser(String email, String name, String provider, String providerId) {
         UserRole role = UserRole.CUSTOMER;
 
@@ -312,7 +351,7 @@ public class AuthService {
                 .isEmailVerified(true)
                 .role(role)
                 .password("")
-                .phone("")
+                .phone(null)
                 .lastLogin(LocalDateTime.now())
                 .build();
 

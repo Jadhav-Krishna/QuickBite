@@ -17,7 +17,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping("/api/v1/auth")
 @Slf4j
 public class AuthController {
 
@@ -53,6 +53,66 @@ public class AuthController {
         log.info("OAuth2 login request from provider: {}", request.getProvider());
         AuthResponse response = authService.loginWithOAuth2(request);
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/oauth2/callback/google")
+    public ResponseEntity<String> googleCallback(@RequestParam("code") String code) {
+        log.info("Google OAuth callback received with code");
+        try {
+            OAuth2LoginRequest request = new OAuth2LoginRequest();
+            request.setProvider("GOOGLE");
+            request.setToken(code);
+            AuthResponse response = authService.loginWithOAuth2(request);
+            
+            // Redirect to frontend with tokens
+            String redirectUrl = String.format(
+                "http://localhost:5173/auth/callback?token=%s&refreshToken=%s&userId=%d&email=%s&role=%s&fullName=%s",
+                response.getAccessToken(),
+                response.getRefreshToken(),
+                response.getUserId(),
+                response.getEmail(),
+                response.getRole(),
+                response.getFullName()
+            );
+            return ResponseEntity.status(HttpStatus.FOUND)
+                    .header("Location", redirectUrl)
+                    .build();
+        } catch (Exception e) {
+            log.error("Google OAuth failed: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.FOUND)
+                    .header("Location", "http://localhost:5173/login?error=" + e.getMessage())
+                    .build();
+        }
+    }
+
+    @GetMapping("/oauth2/callback/github")
+    public ResponseEntity<String> githubCallback(@RequestParam("code") String code) {
+        log.info("GitHub OAuth callback received with code");
+        try {
+            OAuth2LoginRequest request = new OAuth2LoginRequest();
+            request.setProvider("GITHUB");
+            request.setToken(code);
+            AuthResponse response = authService.loginWithOAuth2(request);
+            
+            // Redirect to frontend with tokens
+            String redirectUrl = String.format(
+                "http://localhost:5173/auth/callback?token=%s&refreshToken=%s&userId=%d&email=%s&role=%s&fullName=%s",
+                response.getAccessToken(),
+                response.getRefreshToken(),
+                response.getUserId(),
+                response.getEmail(),
+                response.getRole(),
+                response.getFullName()
+            );
+            return ResponseEntity.status(HttpStatus.FOUND)
+                    .header("Location", redirectUrl)
+                    .build();
+        } catch (Exception e) {
+            log.error("GitHub OAuth failed: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.FOUND)
+                    .header("Location", "http://localhost:5173/login?error=" + e.getMessage())
+                    .build();
+        }
     }
 
     @GetMapping("/validate")

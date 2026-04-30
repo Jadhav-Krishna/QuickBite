@@ -74,6 +74,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignUp />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/auth/callback" element={<GoogleCallback />} />
         <Route path="/auth/google/callback" element={<GoogleCallback />} />
         <Route path="/auth/github/callback" element={<GitHubCallback />} />
 

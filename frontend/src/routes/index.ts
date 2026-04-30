@@ -3,7 +3,7 @@ export { default as AuthLanding } from '../pages/AuthLanding';
 export { default as ForgotPassword } from '../pages/ForgotPassword';
 export { default as Login } from '../pages/Login';
 export { default as SignUp } from '../pages/SignUp';
-export { default as GoogleCallback } from '../pages/GoogleCallback';
+export { default as GoogleCallback } from '../pages/OAuthCallback';
 export { default as GitHubCallback } from '../pages/GitHubCallback';
 
 // Customer Pages

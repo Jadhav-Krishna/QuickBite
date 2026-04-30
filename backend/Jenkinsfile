@@ -85,7 +85,7 @@ pipeline {
 
         stage('Quality Gate') {
             steps {
-                echo '🚦 Checking SonarQube Quality Gate...'
+                echo ' Checking SonarQube Quality Gate...'
                 script {
                     try {
                         timeout(time: 5, unit: 'MINUTES') {
@@ -205,7 +205,7 @@ pipeline {
 
         stage('Health Check') {
             steps {
-                echo '🏥 Performing health checks...'
+                echo 'Performing health checks...'
                 script {
                     def services = [
                         [name: 'Eureka Server', url: 'http://localhost:8761/actuator/health'],

@@ -230,6 +230,12 @@ pipeline {
         always {
             echo 'Cleaning up...'
             sh 'docker logout || true'
+            
+            // Archive test reports and coverage
+            archiveArtifacts artifacts: '**/target/surefire-reports/**/*.xml', allowEmptyArchive: true
+            archiveArtifacts artifacts: '**/target/failsafe-reports/**/*.xml', allowEmptyArchive: true
+            archiveArtifacts artifacts: '**/target/site/jacoco/**/*', allowEmptyArchive: true
+            
             cleanWs()
         }
         success {

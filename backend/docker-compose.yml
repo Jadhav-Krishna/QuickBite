@@ -96,6 +96,28 @@ services:
       timeout: 10s
       retries: 3
 
+  jenkins:
+    image: jenkins/jenkins:lts-jdk21
+    container_name: quickbite-jenkins
+    user: root
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./:/workspace
+    environment:
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
+    networks:
+      - quickbite-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/login"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
   eureka-server:
     build: ./eureka-server
     image: ${DOCKER_USERNAME:-quickbite}/eureka-server:latest
@@ -341,6 +363,7 @@ volumes:
   sonarqube_data:
   sonarqube_logs:
   sonarqube_extensions:
+  jenkins_home:
 
 networks:
   quickbite-network:

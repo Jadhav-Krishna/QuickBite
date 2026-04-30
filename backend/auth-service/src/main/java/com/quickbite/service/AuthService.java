@@ -115,6 +115,11 @@ public class AuthService {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new AuthenticationException("Invalid email or password"));
 
+        // Check if user registered via OAuth
+        if (user.getOauthProvider() != null && !user.getOauthProvider().isEmpty()) {
+            throw new AuthenticationException("This account uses " + user.getOauthProvider() + " login. Please use OAuth to sign in.");
+        }
+
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new AuthenticationException("Invalid email or password");
         }
@@ -195,20 +200,30 @@ public class AuthService {
 
     private AuthResponse handleGoogleOAuth(OAuth2LoginRequest request) {
         try {
-            // If token looks like a code (no dots), exchange it for access token
             String accessToken = request.getToken();
+            
+            // If token looks like a code (no dots), exchange it for access token
             if (!accessToken.contains(".")) {
+                log.info("Exchanging Google authorization code for access token");
                 accessToken = exchangeGoogleCode(accessToken);
             }
 
+            log.info("Validating Google access token");
             String response = restTemplate.getForObject(GOOGLE_TOKEN_INFO_URL + accessToken, String.class);
             JsonNode node = objectMapper.readTree(response);
 
+            if (!node.has("email")) {
+                throw new AuthenticationException("Email not found in Google token response");
+            }
+
             String email = node.get("email").asText();
-            String name = node.get("name") != null ? node.get("name").asText() : email.split("@")[0];
+            String name = node.has("name") && !node.get("name").isNull() ? node.get("name").asText() : email.split("@")[0];
+            String googleId = node.has("sub") ? node.get("sub").asText() : node.get("user_id").asText();
+
+            log.info("Google OAuth successful for email: {}", email);
 
             User user = userRepository.findByEmail(email)
-                    .orElseGet(() -> createOAuthUser(email, name, "GOOGLE", node.get("sub").asText()));
+                    .orElseGet(() -> createOAuthUser(email, name, "GOOGLE", googleId));
 
             user.setLastLogin(LocalDateTime.now());
             user = userRepository.save(user);
@@ -216,6 +231,7 @@ public class AuthService {
 
             return buildAuthResponse(user);
         } catch (Exception e) {
+            log.error("Google OAuth validation failed", e);
             throw new AuthenticationException("Google OAuth validation failed: " + e.getMessage());
         }
     }
@@ -284,7 +300,17 @@ public class AuthService {
 
     private String exchangeGitHubCode(String code) {
         try {
+            log.info("Exchanging GitHub authorization code");
             String tokenUrl = "https://github.com/login/oauth/access_token";
+            
+            if (githubClientId == null || githubClientId.isEmpty()) {
+                throw new AuthenticationException("GitHub OAuth not configured. Missing client ID.");
+            }
+            
+            if (githubClientSecret == null || githubClientSecret.isEmpty()) {
+                throw new AuthenticationException("GitHub OAuth not configured. Missing client secret.");
+            }
+            
             Map<String, String> params = new HashMap<>();
             params.put("client_id", githubClientId);
             params.put("client_secret", githubClientSecret);
@@ -298,11 +324,20 @@ public class AuthService {
             String response = restTemplate.postForObject(tokenUrl, entity, String.class);
             JsonNode node = objectMapper.readTree(response);
 
+            if (node.has("error")) {
+                String error = node.get("error").asText();
+                String errorDesc = node.has("error_description") ? node.get("error_description").asText() : "Unknown error";
+                throw new AuthenticationException("GitHub token exchange error: " + error + " - " + errorDesc);
+            }
+
             if (node.has("access_token")) {
+                log.info("Successfully exchanged GitHub code for access token");
                 return node.get("access_token").asText();
             }
 
-            throw new AuthenticationException("Failed to exchange GitHub code for token");
+            throw new AuthenticationException("Failed to exchange GitHub code for token - no access_token in response");
+        } catch (AuthenticationException e) {
+            throw e;
         } catch (Exception e) {
             log.error("GitHub token exchange failed", e);
             throw new AuthenticationException("GitHub token exchange failed: " + e.getMessage());
@@ -311,7 +346,16 @@ public class AuthService {
 
     private String exchangeGoogleCode(String code) {
         try {
+            log.info("Exchanging Google authorization code");
             String tokenUrl = "https://oauth2.googleapis.com/token";
+            
+            if (googleClientId == null || googleClientId.isEmpty()) {
+                throw new AuthenticationException("Google OAuth not configured. Missing client ID.");
+            }
+            
+            if (googleClientSecret == null || googleClientSecret.isEmpty()) {
+                throw new AuthenticationException("Google OAuth not configured. Missing client secret.");
+            }
             
             // Use MultiValueMap for form data
             org.springframework.util.MultiValueMap<String, String> params = new org.springframework.util.LinkedMultiValueMap<>();
@@ -319,7 +363,7 @@ public class AuthService {
             params.add("client_secret", googleClientSecret);
             params.add("code", code);
             params.add("grant_type", "authorization_code");
-            params.add("redirect_uri", "http://localhost:8000/api/v1/auth/oauth2/callback/google");
+            params.add("redirect_uri", "http://localhost:8000/api/auth/oauth2/callback/google");
 
             var headers = new org.springframework.http.HttpHeaders();
             headers.setContentType(org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED);
@@ -328,11 +372,20 @@ public class AuthService {
             String response = restTemplate.postForObject(tokenUrl, entity, String.class);
             JsonNode node = objectMapper.readTree(response);
 
+            if (node.has("error")) {
+                String error = node.get("error").asText();
+                String errorDesc = node.has("error_description") ? node.get("error_description").asText() : "Unknown error";
+                throw new AuthenticationException("Google token exchange error: " + error + " - " + errorDesc);
+            }
+
             if (node.has("access_token")) {
+                log.info("Successfully exchanged Google code for access token");
                 return node.get("access_token").asText();
             }
 
-            throw new AuthenticationException("Failed to exchange Google code for token");
+            throw new AuthenticationException("Failed to exchange Google code for token - no access_token in response");
+        } catch (AuthenticationException e) {
+            throw e;
         } catch (Exception e) {
             log.error("Google token exchange failed", e);
             throw new AuthenticationException("Google token exchange failed: " + e.getMessage());
@@ -350,7 +403,7 @@ public class AuthService {
                 .isActive(true)
                 .isEmailVerified(true)
                 .role(role)
-                .password("")
+                .password(passwordEncoder.encode("")) // Empty password for OAuth users
                 .phone(null)
                 .lastLogin(LocalDateTime.now())
                 .build();
@@ -403,6 +456,11 @@ public class AuthService {
     public void changePassword(String email, ChangePasswordRequest request) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new AuthenticationException("User not found"));
+
+        // Check if user registered via OAuth
+        if (user.getOauthProvider() != null && !user.getOauthProvider().isEmpty()) {
+            throw new InvalidCredentialsException("Cannot change password for OAuth accounts");
+        }
 
         // Verify current password
         if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {

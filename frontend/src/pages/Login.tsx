@@ -197,7 +197,7 @@ export default function Login() {
       return;
     }
     // Redirect to backend OAuth endpoint through API Gateway
-    const redirectUri = `http://localhost:8000/api/v1/auth/oauth2/callback/google`;
+    const redirectUri = `http://localhost:8000/api/auth/oauth2/callback/google`;
     const scope = 'openid email profile';
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${GOOGLE_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent`;
     window.location.href = authUrl;
@@ -209,7 +209,7 @@ export default function Login() {
       return;
     }
     // Redirect to backend OAuth endpoint through API Gateway
-    const redirectUri = `http://localhost:8000/api/v1/auth/oauth2/callback/github`;
+    const redirectUri = `http://localhost:8000/api/auth/oauth2/callback/github`;
     const scope = 'read:user user:email';
     const authUrl = `https://github.com/login/oauth/authorize?client_id=${GITHUB_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}`;
     window.location.href = authUrl;

@@ -15,6 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,6 +47,9 @@ public class AuthService {
     @Autowired(required = false)
     private RabbitTemplate rabbitTemplate;
 
+    @Autowired(required = false)
+    private RedisTemplate<String, Object> redisTemplate;
+
     @Value("${oauth2.google.clientId:}")
     private String googleClientId;
 
@@ -64,6 +68,9 @@ public class AuthService {
     private static final String NOTIFICATION_EXCHANGE = "notification.exchange";
     private static final String NOTIFICATION_ROUTING_KEY_LOGIN = "notification.login";
     private static final String NOTIFICATION_ROUTING_KEY_SIGNUP = "notification.signup";
+    private static final String USER_SESSION_PREFIX = "user:session:";
+    private static final String USER_PROFILE_PREFIX = "user:profile:";
+    private static final long SESSION_TTL = 3600;
 
     // ==================== Registration & Login ====================
 
@@ -116,7 +123,6 @@ public class AuthService {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new AuthenticationException("Invalid email or password"));
 
-        // Check if user registered via OAuth
         if (user.getOauthProvider() != null && !user.getOauthProvider().isEmpty()) {
             throw new AuthenticationException("This account uses " + user.getOauthProvider() + " login. Please use OAuth to sign in.");
         }
@@ -129,7 +135,6 @@ public class AuthService {
             throw new AuthenticationException("User account is deactivated");
         }
 
-        // Update last login timestamp
         user.setLastLogin(LocalDateTime.now());
         userRepository.save(user);
         publishLoginNotification(user);
@@ -137,7 +142,7 @@ public class AuthService {
         String accessToken = jwtTokenProvider.generateAccessToken(user);
         String refreshToken = jwtTokenProvider.generateRefreshToken(user.getEmail());
 
-        return AuthResponse.builder()
+        AuthResponse response = AuthResponse.builder()
                 .userId(user.getId())
                 .email(user.getEmail())
                 .fullName(user.getFullName())
@@ -147,6 +152,11 @@ public class AuthService {
                 .expiresIn(jwtTokenProvider.getTokenExpirationTime())
                 .tokenType("Bearer")
                 .build();
+
+        cacheUserSession(user.getId(), accessToken);
+        cacheUserProfile(user);
+
+        return response;
     }
 
     public AuthResponse refreshToken(String refreshToken) {
@@ -203,7 +213,6 @@ public class AuthService {
         try {
             String accessToken = request.getToken();
             
-            // If token looks like a code (no dots), exchange it for access token
             if (!accessToken.contains(".")) {
                 log.info("Exchanging Google authorization code for access token");
                 accessToken = exchangeGoogleCode(accessToken);
@@ -230,7 +239,11 @@ public class AuthService {
             user = userRepository.save(user);
             publishLoginNotification(user);
 
-            return buildAuthResponse(user);
+            AuthResponse authResponse = buildAuthResponse(user);
+            cacheUserSession(user.getId(), authResponse.getAccessToken());
+            cacheUserProfile(user);
+
+            return authResponse;
         } catch (Exception e) {
             log.error("Google OAuth validation failed", e);
             throw new AuthenticationException("Google OAuth validation failed: " + e.getMessage());
@@ -239,7 +252,6 @@ public class AuthService {
 
     private AuthResponse handleGitHubOAuth(OAuth2LoginRequest request) {
         try {
-            // If token looks like a code (no dots), exchange it for access token
             String accessToken = request.getToken();
             if (!accessToken.contains(".")) {
                 accessToken = exchangeGitHubCode(accessToken);
@@ -254,7 +266,6 @@ public class AuthService {
 
             String email = node.has("email") && !node.get("email").isNull() ? node.get("email").asText() : null;
             
-            // If email is null, fetch from emails endpoint
             if (email == null || email.isEmpty()) {
                 String emailsResponse = restTemplate.exchange(
                     "https://api.github.com/user/emails",
@@ -292,7 +303,11 @@ public class AuthService {
             user = userRepository.save(user);
             publishLoginNotification(user);
 
-            return buildAuthResponse(user);
+            AuthResponse authResponse = buildAuthResponse(user);
+            cacheUserSession(user.getId(), authResponse.getAccessToken());
+            cacheUserProfile(user);
+
+            return authResponse;
         } catch (Exception e) {
             log.error("GitHub OAuth error", e);
             throw new AuthenticationException("GitHub OAuth validation failed: " + e.getMessage());
@@ -358,7 +373,6 @@ public class AuthService {
                 throw new AuthenticationException("Google OAuth not configured. Missing client secret.");
             }
             
-            // Use MultiValueMap for form data
             org.springframework.util.MultiValueMap<String, String> params = new org.springframework.util.LinkedMultiValueMap<>();
             params.add("client_id", googleClientId);
             params.add("client_secret", googleClientSecret);
@@ -404,7 +418,7 @@ public class AuthService {
                 .isActive(true)
                 .isEmailVerified(true)
                 .role(role)
-                .password(passwordEncoder.encode("")) // Empty password for OAuth users
+                .password(passwordEncoder.encode(""))
                 .phone(null)
                 .lastLogin(LocalDateTime.now())
                 .build();
@@ -416,16 +430,32 @@ public class AuthService {
 
     @Transactional(readOnly = true)
     public UserDTO getUserProfile(String email) {
+        UserDTO cachedProfile = getCachedUserProfile(email);
+        if (cachedProfile != null) {
+            return cachedProfile;
+        }
+
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new AuthenticationException("User not found"));
-        return mapToUserDTO(user);
+        UserDTO userDTO = mapToUserDTO(user);
+        
+        cacheUserProfileByEmail(email, userDTO);
+        return userDTO;
     }
 
     @Transactional(readOnly = true)
     public UserDTO getUserById(Long userId) {
+        UserDTO cachedProfile = getCachedUserProfileById(userId);
+        if (cachedProfile != null) {
+            return cachedProfile;
+        }
+
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new AuthenticationException("User not found with id: " + userId));
-        return mapToUserDTO(user);
+        UserDTO userDTO = mapToUserDTO(user);
+        
+        cacheUserProfile(user);
+        return userDTO;
     }
 
     public UserDTO updateProfile(String email, UpdateProfileRequest request) {
@@ -436,7 +466,6 @@ public class AuthService {
             user.setFullName(request.getFullName());
         }
         if (request.getPhone() != null && !request.getPhone().isBlank()) {
-            // Check if phone is already used by another user
             final Long currentUserId = user.getId();
             userRepository.findByPhone(request.getPhone()).ifPresent(existingUser -> {
                 if (!existingUser.getId().equals(currentUserId)) {
@@ -451,6 +480,9 @@ public class AuthService {
 
         User savedUser = userRepository.save(user);
         log.info("Profile updated for user: {}", email);
+        
+        cacheUserProfile(savedUser);
+        
         return mapToUserDTO(savedUser);
     }
 
@@ -458,22 +490,18 @@ public class AuthService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new AuthenticationException("User not found"));
 
-        // Check if user registered via OAuth
         if (user.getOauthProvider() != null && !user.getOauthProvider().isEmpty()) {
             throw new InvalidCredentialsException("Cannot change password for OAuth accounts");
         }
 
-        // Verify current password
         if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
             throw new InvalidCredentialsException("Current password is incorrect");
         }
 
-        // Validate new password matches confirmation
         if (!request.getNewPassword().equals(request.getConfirmPassword())) {
             throw new InvalidCredentialsException("New password and confirmation do not match");
         }
 
-        // Ensure new password is different from current
         if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
             throw new InvalidCredentialsException("New password must be different from current password");
         }
@@ -613,5 +641,71 @@ public class AuthService {
         } catch (Exception e) {
             log.warn("Failed to publish signup notification for {}: {}", user.getEmail(), e.getMessage());
         }
+    }
+
+    // ==================== Redis Cache Methods ====================
+
+    private void cacheUserSession(Long userId, String token) {
+        if (redisTemplate == null) return;
+        try {
+            String key = USER_SESSION_PREFIX + userId;
+            redisTemplate.opsForValue().set(key, token, java.time.Duration.ofSeconds(SESSION_TTL));
+            log.debug("User session cached for userId: {}", userId);
+        } catch (Exception e) {
+            log.warn("Failed to cache user session: {}", e.getMessage());
+        }
+    }
+
+    private void cacheUserProfile(User user) {
+        if (redisTemplate == null) return;
+        try {
+            String key = USER_PROFILE_PREFIX + user.getId();
+            UserDTO userDTO = mapToUserDTO(user);
+            redisTemplate.opsForValue().set(key, userDTO, java.time.Duration.ofSeconds(SESSION_TTL));
+            log.debug("User profile cached for userId: {}", user.getId());
+        } catch (Exception e) {
+            log.warn("Failed to cache user profile: {}", e.getMessage());
+        }
+    }
+
+    private void cacheUserProfileByEmail(String email, UserDTO userDTO) {
+        if (redisTemplate == null) return;
+        try {
+            String key = USER_PROFILE_PREFIX + "email:" + email;
+            redisTemplate.opsForValue().set(key, userDTO, java.time.Duration.ofSeconds(SESSION_TTL));
+            log.debug("User profile cached for email: {}", email);
+        } catch (Exception e) {
+            log.warn("Failed to cache user profile by email: {}", e.getMessage());
+        }
+    }
+
+    private UserDTO getCachedUserProfile(String email) {
+        if (redisTemplate == null) return null;
+        try {
+            String key = USER_PROFILE_PREFIX + "email:" + email;
+            Object cached = redisTemplate.opsForValue().get(key);
+            if (cached instanceof UserDTO) {
+                log.debug("User profile retrieved from cache for email: {}", email);
+                return (UserDTO) cached;
+            }
+        } catch (Exception e) {
+            log.warn("Failed to retrieve cached user profile: {}", e.getMessage());
+        }
+        return null;
+    }
+
+    private UserDTO getCachedUserProfileById(Long userId) {
+        if (redisTemplate == null) return null;
+        try {
+            String key = USER_PROFILE_PREFIX + userId;
+            Object cached = redisTemplate.opsForValue().get(key);
+            if (cached instanceof UserDTO) {
+                log.debug("User profile retrieved from cache for userId: {}", userId);
+                return (UserDTO) cached;
+            }
+        } catch (Exception e) {
+            log.warn("Failed to retrieve cached user profile: {}", e.getMessage());
+        }
+        return null;
     }
 }

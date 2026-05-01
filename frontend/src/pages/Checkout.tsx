@@ -263,16 +263,6 @@ export default function Checkout() {
                 response.razorpay_signature,
                 response.razorpay_order_id,
               );
-
-              const order = await orderService.createOrder(buildCreateOrderPayload(customerId));
-              navigate('/success', {
-                state: {
-                  orderNumber: order.orderNumber,
-                  amount: order.finalAmount,
-                },
-              });
-              clearCart();
-              resolve();
             } catch (verificationError) {
               const failureMessage = verificationError instanceof Error
                 ? verificationError.message
@@ -283,6 +273,21 @@ export default function Checkout() {
                 // Ignore failure tracking errors so the original verification error surfaces.
               }
               reject(verificationError);
+              return;
+            }
+
+            try {
+              const order = await orderService.createOrder(buildCreateOrderPayload(customerId));
+              navigate('/success', {
+                state: {
+                  orderNumber: order.orderNumber,
+                  amount: order.finalAmount,
+                },
+              });
+              clearCart();
+              resolve();
+            } catch (orderError) {
+              reject(orderError);
             }
           },
           theme: {

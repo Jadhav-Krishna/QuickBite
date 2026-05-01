@@ -100,9 +100,6 @@ export default function Wallet() {
                 response.razorpay_signature,
                 response.razorpay_order_id,
               );
-              const updated = await paymentService.depositToWallet(customerId, amount);
-              setWallet(updated);
-              resolve();
             } catch (verificationError) {
               const failureMessage = verificationError instanceof Error
                 ? verificationError.message
@@ -113,6 +110,15 @@ export default function Wallet() {
                 // Ignore failure tracking errors so the original verification error surfaces.
               }
               reject(verificationError);
+              return;
+            }
+
+            try {
+              const updated = await paymentService.depositToWallet(customerId, amount);
+              setWallet(updated);
+              resolve();
+            } catch (depositError) {
+              reject(depositError);
             }
           },
           theme: {

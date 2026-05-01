@@ -23,16 +23,23 @@ public class CreateOrderRequest {
     @NotNull(message = "Order items are required")
     private List<OrderItemDTO> items;
     
-    @NotNull(message = "Total amount is required")
     private Double totalAmount;
     
-    private Double deliveryFee;
+    private Double deliveryCharge;
     
-    @NotNull(message = "Estimated delivery time is required")
-    private Integer estimatedDeliveryTime;
+    private Double discountAmount;
+    
+    private Double finalAmount;
     
     @NotBlank(message = "Delivery address is required")
     private String deliveryAddress;
+    
+    private Double deliveryLatitude;
+    
+    private Double deliveryLongitude;
+    
+    @NotBlank(message = "Customer phone is required")
+    private String customerPhone;
     
     private String specialInstructions;
     

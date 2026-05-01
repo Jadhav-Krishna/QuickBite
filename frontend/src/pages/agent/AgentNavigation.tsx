@@ -185,7 +185,7 @@ export default function AgentNavigation() {
         const nextPos: LatLng = [position.coords.latitude, position.coords.longitude];
         setCurrentPosition(nextPos);
 
-        void deliveryService.updateLocation(agentIdRef.current!, {
+        void deliveryService.updateAgentLocation(agentIdRef.current!, {
           orderId: assignment.id,
           latitude: nextPos[0],
           longitude: nextPos[1],

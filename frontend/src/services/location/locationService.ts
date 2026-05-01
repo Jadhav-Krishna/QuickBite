@@ -1,4 +1,4 @@
-import { API_BASE_URL, getAuthHeader } from '../api/auth';
+import { API_BASE_URL, getAuthHeader } from '../../api/auth';
 
 export interface LocationUpdate {
   agentId: number;

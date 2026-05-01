@@ -1,5 +1,6 @@
 package com.quickbite.service;
 
+import com.quickbite.dto.CreateOrderRequest;
 import com.quickbite.dto.OrderDTO;
 import com.quickbite.dto.OrderItemDTO;
 import com.quickbite.entity.*;
@@ -31,31 +32,31 @@ public class OrderService {
     private static final String ORDER_ROUTING_KEY = "order.#";
 
     @Transactional
-    public OrderDTO placeOrder(OrderDTO orderDTO) {
-        log.info("Placing order for customer: {}, restaurant: {}", orderDTO.getCustomerId(), orderDTO.getRestaurantId());
+    public OrderDTO placeOrder(CreateOrderRequest request) {
+        log.info("Placing order for customer: {}, restaurant: {}", request.getCustomerId(), request.getRestaurantId());
 
-        // Create order with PENDING status
         Order order = new Order();
         order.setOrderNumber(generateOrderNumber());
-        order.setCustomerId(orderDTO.getCustomerId());
-        order.setRestaurantId(orderDTO.getRestaurantId());
+        order.setCustomerId(request.getCustomerId());
+        order.setRestaurantId(request.getRestaurantId());
         order.setStatus(OrderStatus.PLACED);
-        order.setTotalAmount(orderDTO.getTotalAmount());
-        order.setDeliveryCharge(orderDTO.getDeliveryCharge() != null ? orderDTO.getDeliveryCharge() : 0.0);
-        order.setDiscountAmount(orderDTO.getDiscountAmount() != null ? orderDTO.getDiscountAmount() : 0.0);
-        order.setFinalAmount(calculateFinalAmount(orderDTO));
-        order.setDeliveryAddress(orderDTO.getDeliveryAddress());
-        order.setCustomerPhone(orderDTO.getCustomerPhone());
-        order.setSpecialInstructions(orderDTO.getSpecialInstructions());
+        order.setTotalAmount(request.getTotalAmount() != null ? request.getTotalAmount() : 0.0);
+        order.setDeliveryCharge(request.getDeliveryCharge() != null ? request.getDeliveryCharge() : 0.0);
+        order.setDiscountAmount(request.getDiscountAmount() != null ? request.getDiscountAmount() : 0.0);
+        order.setFinalAmount(request.getFinalAmount() != null ? request.getFinalAmount() : calculateFinalAmount(request));
+        order.setDeliveryAddress(request.getDeliveryAddress());
+        order.setDeliveryLatitude(request.getDeliveryLatitude());
+        order.setDeliveryLongitude(request.getDeliveryLongitude());
+        order.setCustomerPhone(request.getCustomerPhone());
+        order.setSpecialInstructions(request.getSpecialInstructions());
         order.setRestaurantPickupConfirmed(false);
         order.setAgentPickupConfirmed(false);
         order.setEstimatedDeliveryTime(LocalDateTime.now().plusMinutes(45));
-        order.setPaymentMethod(orderDTO.getPaymentMethod());
+        order.setPaymentMethod(mapPaymentMethod(request.getPaymentMethod()));
         order.setPaymentStatus(PaymentStatus.PENDING);
 
-        // Add order items
-        if (orderDTO.getItems() != null && !orderDTO.getItems().isEmpty()) {
-            for (OrderItemDTO itemDTO : orderDTO.getItems()) {
+        if (request.getItems() != null && !request.getItems().isEmpty()) {
+            for (OrderItemDTO itemDTO : request.getItems()) {
                 OrderItem item = new OrderItem();
                 item.setMenuItemId(itemDTO.getMenuItemId());
                 item.setItemName(itemDTO.getItemName());
@@ -66,11 +67,9 @@ public class OrderService {
             }
         }
 
-        // Save order
         order = orderRepository.save(order);
         log.info("Order placed successfully: {}", order.getOrderNumber());
 
-        // Publish ORDER_PLACED event
         publishOrderEvent(OrderEvent.EventType.ORDER_PLACED.name(), order, "Order placed successfully");
 
         return convertToDTO(order);
@@ -273,10 +272,31 @@ public class OrderService {
         Order oldOrder = orderRepository.findByOrderNumber(orderNumber)
                 .orElseThrow(() -> new RuntimeException("Order not found: " + orderNumber));
 
-        OrderDTO newOrderDTO = convertToDTO(oldOrder);
-        newOrderDTO.setId(null);
-        newOrderDTO.setOrderNumber(null);
-        return placeOrder(newOrderDTO);
+        CreateOrderRequest newOrderRequest = CreateOrderRequest.builder()
+                .customerId(oldOrder.getCustomerId())
+                .restaurantId(oldOrder.getRestaurantId())
+                .items(oldOrder.getItems().stream()
+                        .map(item -> OrderItemDTO.builder()
+                                .menuItemId(item.getMenuItemId())
+                                .itemName(item.getItemName())
+                                .quantity(item.getQuantity())
+                                .price(item.getPrice())
+                                .specialInstructions(item.getSpecialInstructions())
+                                .build())
+                        .collect(Collectors.toList()))
+                .totalAmount(oldOrder.getTotalAmount())
+                .deliveryCharge(oldOrder.getDeliveryCharge())
+                .discountAmount(oldOrder.getDiscountAmount())
+                .finalAmount(oldOrder.getFinalAmount())
+                .deliveryAddress(oldOrder.getDeliveryAddress())
+                .deliveryLatitude(oldOrder.getDeliveryLatitude())
+                .deliveryLongitude(oldOrder.getDeliveryLongitude())
+                .customerPhone(oldOrder.getCustomerPhone())
+                .specialInstructions(oldOrder.getSpecialInstructions())
+                .paymentMethod(oldOrder.getPaymentMethod().name())
+                .build();
+
+        return placeOrder(newOrderRequest);
     }
 
     @Transactional(readOnly = true)
@@ -314,6 +334,8 @@ public class OrderService {
                 .discountAmount(order.getDiscountAmount())
                 .finalAmount(order.getFinalAmount())
                 .deliveryAddress(order.getDeliveryAddress())
+                .deliveryLatitude(order.getDeliveryLatitude())
+                .deliveryLongitude(order.getDeliveryLongitude())
                 .customerPhone(order.getCustomerPhone())
                 .specialInstructions(order.getSpecialInstructions())
                 .deliveryAgentId(order.getDeliveryAgentId())
@@ -359,15 +381,31 @@ public class OrderService {
         return "ORD-" + System.currentTimeMillis();
     }
 
-    private Double calculateFinalAmount(OrderDTO orderDTO) {
-        Double total = orderDTO.getTotalAmount();
-        if (orderDTO.getDeliveryCharge() != null) {
-            total += orderDTO.getDeliveryCharge();
+    private Double calculateFinalAmount(CreateOrderRequest request) {
+        Double total = request.getTotalAmount() != null ? request.getTotalAmount() : 0.0;
+        if (request.getDeliveryCharge() != null) {
+            total += request.getDeliveryCharge();
         }
-        if (orderDTO.getDiscountAmount() != null) {
-            total -= orderDTO.getDiscountAmount();
+        if (request.getDiscountAmount() != null) {
+            total -= request.getDiscountAmount();
         }
         return Math.max(total, 0.0);
+    }
+
+    private PaymentMethod mapPaymentMethod(String paymentMethod) {
+        if (paymentMethod == null) {
+            return PaymentMethod.CASH_ON_DELIVERY;
+        }
+        return switch (paymentMethod.trim().toUpperCase()) {
+            case "CASH_ON_DELIVERY", "COD" -> PaymentMethod.CASH_ON_DELIVERY;
+            case "CARD", "CREDIT_CARD" -> PaymentMethod.CREDIT_CARD;
+            case "DEBIT_CARD" -> PaymentMethod.DEBIT_CARD;
+            case "UPI" -> PaymentMethod.UPI;
+            case "WALLET" -> PaymentMethod.WALLET;
+            case "NET_BANKING", "NETBANKING" -> PaymentMethod.NET_BANKING;
+            case "ONLINE" -> PaymentMethod.UPI;
+            default -> PaymentMethod.CASH_ON_DELIVERY;
+        };
     }
 
     private boolean isValidStatusTransition(OrderStatus from, OrderStatus to) {

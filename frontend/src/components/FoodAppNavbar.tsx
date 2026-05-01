@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import React from 'react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 
 interface NavItem {
   label: string;
   path: string;
-  icon: JSX.Element;
+  icon: React.ReactElement;
 }
 
 export default function FoodAppNavbar() {

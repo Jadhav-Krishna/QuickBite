@@ -1,10 +1,13 @@
 package com.quickbite.service;
 
-import com.quickbite.dto.PaymentDTO;
+import com.quickbite.dto.PaymentResponse;
 import com.quickbite.entity.Payment;
 import com.quickbite.entity.PaymentMethod;
 import com.quickbite.entity.PaymentStatus;
 import com.quickbite.repository.PaymentRepository;
+import com.quickbite.repository.WalletRepository;
+import com.quickbite.repository.WalletStatementRepository;
+import com.razorpay.RazorpayClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,6 +30,15 @@ class PaymentServiceTest {
     @Mock
     private PaymentRepository paymentRepository;
 
+    @Mock
+    private RazorpayClient razorpayClient;
+
+    @Mock
+    private WalletRepository walletRepository;
+
+    @Mock
+    private WalletStatementRepository walletStatementRepository;
+
     @InjectMocks
     private PaymentServiceImpl paymentService;
 
@@ -34,30 +46,22 @@ class PaymentServiceTest {
 
     @BeforeEach
     void setUp() {
-        testPayment = new Payment();
-        testPayment.setId(1L);
-        testPayment.setOrderId(1L);
-        testPayment.setAmount(new BigDecimal("100.00"));
-        testPayment.setPaymentMethod(PaymentMethod.RAZORPAY);
-        testPayment.setStatus(PaymentStatus.PENDING);
-    }
-
-    @Test
-    void getPaymentById_Success() {
-        when(paymentRepository.findById(anyLong())).thenReturn(Optional.of(testPayment));
-
-        PaymentDTO result = paymentService.getPaymentById(1L);
-
-        assertNotNull(result);
-        assertEquals(1L, result.getId());
-        verify(paymentRepository).findById(1L);
+        testPayment = Payment.builder()
+                .id(1L)
+                .orderId(1L)
+                .customerId(1L)
+                .amount(100.0)
+                .paymentMethod(PaymentMethod.UPI)
+                .status(PaymentStatus.PENDING)
+                .transactionId("TXN-001")
+                .build();
     }
 
     @Test
     void getPaymentByOrderId_Success() {
         when(paymentRepository.findByOrderId(anyLong())).thenReturn(Optional.of(testPayment));
 
-        PaymentDTO result = paymentService.getPaymentByOrderId(1L);
+        PaymentResponse result = paymentService.getPaymentByOrderId(1L);
 
         assertNotNull(result);
         assertEquals(1L, result.getOrderId());
@@ -67,7 +71,7 @@ class PaymentServiceTest {
     void getAllPayments_Success() {
         when(paymentRepository.findAll()).thenReturn(Arrays.asList(testPayment));
 
-        List<PaymentDTO> results = paymentService.getAllPayments();
+        List<PaymentResponse> results = paymentService.getAllPayments();
 
         assertNotNull(results);
         assertEquals(1, results.size());
@@ -78,7 +82,7 @@ class PaymentServiceTest {
         when(paymentRepository.findById(anyLong())).thenReturn(Optional.of(testPayment));
         when(paymentRepository.save(any(Payment.class))).thenReturn(testPayment);
 
-        paymentService.updatePaymentStatus(1L, PaymentStatus.SUCCESS);
+        paymentService.updatePaymentStatus(1L, "SUCCESS");
 
         assertEquals(PaymentStatus.SUCCESS, testPayment.getStatus());
         verify(paymentRepository).save(testPayment);
@@ -88,7 +92,7 @@ class PaymentServiceTest {
     void createCODPayment_Success() {
         when(paymentRepository.save(any(Payment.class))).thenReturn(testPayment);
 
-        PaymentDTO result = paymentService.createCODPayment(1L, new BigDecimal("100.00"));
+        PaymentResponse result = paymentService.createCODPayment(1L, 1L, 100.0);
 
         assertNotNull(result);
         verify(paymentRepository).save(any(Payment.class));

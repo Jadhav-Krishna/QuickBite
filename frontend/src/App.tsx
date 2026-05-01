@@ -22,7 +22,6 @@ import {
   AgentLayout,
   // Customer Pages
   Landing,
-  Restaurants,
   RestaurantsPage,
   SearchDishes,
   Menu,
@@ -42,14 +41,12 @@ import {
   PartnerOrders,
   PartnerMenu,
   PartnerAnalytics,
-  PartnerReviews,
   PartnerReviewsPage,
   // Admin Pages
   AdminOverview,
   AdminUsers,
   AdminApprovals,
   AdminPayments,
-  AdminReviews,
   AdminReviewsPage,
   AdminSystemHealth,
   AdminConfiguration,

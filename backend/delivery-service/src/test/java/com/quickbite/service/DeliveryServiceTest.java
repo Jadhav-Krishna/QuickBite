@@ -2,7 +2,6 @@ package com.quickbite.service;
 
 import com.quickbite.dto.DeliveryAgentDTO;
 import com.quickbite.entity.DeliveryAgent;
-import com.quickbite.entity.DeliveryStatus;
 import com.quickbite.repository.DeliveryAgentRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -10,6 +9,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.kafka.core.KafkaTemplate;
 
 import java.util.Arrays;
 import java.util.List;
@@ -23,7 +23,10 @@ import static org.mockito.Mockito.*;
 class DeliveryServiceTest {
 
     @Mock
-    private DeliveryAgentRepository deliveryAgentRepository;
+    private DeliveryAgentRepository agentRepository;
+
+    @Mock
+    private KafkaTemplate<String, Object> kafkaTemplate;
 
     @InjectMocks
     private DeliveryService deliveryService;
@@ -35,27 +38,30 @@ class DeliveryServiceTest {
         testAgent = new DeliveryAgent();
         testAgent.setId(1L);
         testAgent.setUserId(1L);
-        testAgent.setIsAvailable(true);
+        testAgent.setIsOnline(true);
         testAgent.setIsActive(true);
+        testAgent.setIsVerified(true);
+        testAgent.setCurrentLatitude(12.9716);
+        testAgent.setCurrentLongitude(77.5946);
     }
 
     @Test
     void getAgentById_Success() {
-        when(deliveryAgentRepository.findById(anyLong())).thenReturn(Optional.of(testAgent));
+        when(agentRepository.findById(anyLong())).thenReturn(Optional.of(testAgent));
 
-        DeliveryAgentDTO result = deliveryService.getAgentById(1L);
+        DeliveryAgentDTO result = deliveryService.getDeliveryAgent(1L);
 
         assertNotNull(result);
         assertEquals(1L, result.getId());
-        verify(deliveryAgentRepository).findById(1L);
+        verify(agentRepository).findById(1L);
     }
 
     @Test
     void getAvailableAgents_Success() {
-        when(deliveryAgentRepository.findByIsAvailableAndIsActive(anyBoolean(), anyBoolean()))
+        when(agentRepository.findNearbyAgents(anyDouble(), anyDouble(), anyDouble()))
                 .thenReturn(Arrays.asList(testAgent));
 
-        List<DeliveryAgentDTO> results = deliveryService.getAvailableAgents();
+        List<DeliveryAgentDTO> results = deliveryService.getAvailableAgents(12.9716, 77.5946, 5.0);
 
         assertNotNull(results);
         assertEquals(1, results.size());
@@ -63,21 +69,21 @@ class DeliveryServiceTest {
 
     @Test
     void updateAgentAvailability_Success() {
-        when(deliveryAgentRepository.findById(anyLong())).thenReturn(Optional.of(testAgent));
-        when(deliveryAgentRepository.save(any(DeliveryAgent.class))).thenReturn(testAgent);
+        when(agentRepository.findById(anyLong())).thenReturn(Optional.of(testAgent));
+        when(agentRepository.save(any(DeliveryAgent.class))).thenReturn(testAgent);
 
-        deliveryService.updateAgentAvailability(1L, false);
+        deliveryService.toggleAgentAvailability(1L, false);
 
-        verify(deliveryAgentRepository).save(argThat(agent -> !agent.getIsAvailable()));
+        verify(agentRepository).save(argThat(agent -> !agent.getIsOnline()));
     }
 
     @Test
-    void assignOrderToAgent_Success() {
-        when(deliveryAgentRepository.findById(anyLong())).thenReturn(Optional.of(testAgent));
-        when(deliveryAgentRepository.save(any(DeliveryAgent.class))).thenReturn(testAgent);
+    void getAllAgents_Success() {
+        when(agentRepository.findAll()).thenReturn(Arrays.asList(testAgent));
 
-        deliveryService.assignOrderToAgent(1L, 100L);
+        List<DeliveryAgentDTO> results = deliveryService.getAllAgents();
 
-        verify(deliveryAgentRepository).save(any(DeliveryAgent.class));
+        assertNotNull(results);
+        assertEquals(1, results.size());
     }
 }

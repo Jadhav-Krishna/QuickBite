@@ -1,8 +1,6 @@
 package com.quickbite.service;
 
-import com.quickbite.dto.NotificationDTO;
 import com.quickbite.entity.Notification;
-import com.quickbite.entity.NotificationType;
 import com.quickbite.repository.NotificationRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -10,10 +8,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.mail.javamail.JavaMailSender;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -25,6 +23,9 @@ class NotificationServiceTest {
     @Mock
     private NotificationRepository notificationRepository;
 
+    @Mock
+    private JavaMailSender mailSender;
+
     @InjectMocks
     private NotificationService notificationService;
 
@@ -32,64 +33,43 @@ class NotificationServiceTest {
 
     @BeforeEach
     void setUp() {
-        testNotification = new Notification();
-        testNotification.setId(1L);
-        testNotification.setUserId(1L);
-        testNotification.setTitle("Test Notification");
-        testNotification.setMessage("Test Message");
-        testNotification.setType(NotificationType.IN_APP);
-        testNotification.setIsRead(false);
-    }
-
-    @Test
-    void getNotificationById_Success() {
-        when(notificationRepository.findById(anyLong())).thenReturn(Optional.of(testNotification));
-
-        NotificationDTO result = notificationService.getNotificationById(1L);
-
-        assertNotNull(result);
-        assertEquals(1L, result.getId());
-        verify(notificationRepository).findById(1L);
+        testNotification = Notification.builder()
+                .id(1L)
+                .userId(1L)
+                .title("Test Notification")
+                .message("Test Message")
+                .type("IN_APP")
+                .eventType("ORDER_PLACED")
+                .isRead(false)
+                .build();
     }
 
     @Test
     void getUserNotifications_Success() {
-        when(notificationRepository.findByUserId(anyLong())).thenReturn(Arrays.asList(testNotification));
+        when(notificationRepository.findByUserIdOrderByCreatedAtDesc(anyLong()))
+                .thenReturn(Arrays.asList(testNotification));
 
-        List<NotificationDTO> results = notificationService.getUserNotifications(1L);
+        List<Notification> results = notificationService.getUserNotifications(1L);
+
+        assertNotNull(results);
+        assertEquals(1, results.size());
+        verify(notificationRepository).findByUserIdOrderByCreatedAtDesc(1L);
+    }
+
+    @Test
+    void getUnreadNotifications_Success() {
+        when(notificationRepository.findByUserIdAndIsReadFalseOrderByCreatedAtDesc(anyLong()))
+                .thenReturn(Arrays.asList(testNotification));
+
+        List<Notification> results = notificationService.getUnreadNotifications(1L);
 
         assertNotNull(results);
         assertEquals(1, results.size());
     }
 
     @Test
-    void createNotification_Success() {
-        when(notificationRepository.save(any(Notification.class))).thenReturn(testNotification);
-
-        NotificationDTO dto = new NotificationDTO();
-        dto.setUserId(1L);
-        dto.setTitle("New Notification");
-        dto.setMessage("New Message");
-
-        NotificationDTO result = notificationService.createNotification(dto);
-
-        assertNotNull(result);
-        verify(notificationRepository).save(any(Notification.class));
-    }
-
-    @Test
-    void markAsRead_Success() {
-        when(notificationRepository.findById(anyLong())).thenReturn(Optional.of(testNotification));
-        when(notificationRepository.save(any(Notification.class))).thenReturn(testNotification);
-
-        notificationService.markAsRead(1L);
-
-        verify(notificationRepository).save(argThat(Notification::getIsRead));
-    }
-
-    @Test
     void getUnreadCount_Success() {
-        when(notificationRepository.countByUserIdAndIsRead(anyLong(), anyBoolean())).thenReturn(5L);
+        when(notificationRepository.countByUserIdAndIsReadFalse(anyLong())).thenReturn(5L);
 
         Long count = notificationService.getUnreadCount(1L);
 
@@ -97,12 +77,29 @@ class NotificationServiceTest {
     }
 
     @Test
+    void markAsRead_Success() {
+        doNothing().when(notificationRepository).markAsRead(anyLong());
+
+        notificationService.markAsRead(1L);
+
+        verify(notificationRepository).markAsRead(1L);
+    }
+
+    @Test
     void deleteNotification_Success() {
-        when(notificationRepository.existsById(anyLong())).thenReturn(true);
         doNothing().when(notificationRepository).deleteById(anyLong());
 
         notificationService.deleteNotification(1L);
 
         verify(notificationRepository).deleteById(1L);
+    }
+
+    @Test
+    void markAllAsRead_Success() {
+        doNothing().when(notificationRepository).markAllAsReadByUserId(anyLong());
+
+        notificationService.markAllAsRead(1L);
+
+        verify(notificationRepository).markAllAsReadByUserId(1L);
     }
 }

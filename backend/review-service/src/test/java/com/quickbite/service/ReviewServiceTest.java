@@ -31,31 +31,33 @@ class ReviewServiceTest {
 
     @BeforeEach
     void setUp() {
-        testReview = new Review();
-        testReview.setId(1L);
-        testReview.setOrderId(1L);
-        testReview.setUserId(1L);
-        testReview.setRestaurantId(1L);
-        testReview.setRestaurantRating(5);
-        testReview.setDeliveryRating(4);
+        testReview = Review.builder()
+                .id(1L)
+                .orderId(1L)
+                .customerId(1L)
+                .restaurantId(1L)
+                .restaurantRating(5)
+                .deliveryRating(4)
+                .build();
     }
 
     @Test
-    void getReviewById_Success() {
-        when(reviewRepository.findById(anyLong())).thenReturn(Optional.of(testReview));
+    void getReviewByOrderId_Success() {
+        when(reviewRepository.findByOrderId(anyLong())).thenReturn(Optional.of(testReview));
 
-        ReviewDTO result = reviewService.getReviewById(1L);
+        ReviewDTO result = reviewService.getReviewByOrderId(1L);
 
         assertNotNull(result);
         assertEquals(1L, result.getId());
-        verify(reviewRepository).findById(1L);
+        verify(reviewRepository).findByOrderId(1L);
     }
 
     @Test
     void getReviewsByRestaurant_Success() {
-        when(reviewRepository.findByRestaurantId(anyLong())).thenReturn(Arrays.asList(testReview));
+        when(reviewRepository.findByRestaurantIdOrderByCreatedAtDesc(anyLong()))
+                .thenReturn(Arrays.asList(testReview));
 
-        List<ReviewDTO> results = reviewService.getReviewsByRestaurant(1L);
+        List<ReviewDTO> results = reviewService.getRestaurantReviews(1L);
 
         assertNotNull(results);
         assertEquals(1, results.size());
@@ -63,11 +65,12 @@ class ReviewServiceTest {
 
     @Test
     void createReview_Success() {
+        when(reviewRepository.findByOrderId(anyLong())).thenReturn(Optional.empty());
         when(reviewRepository.save(any(Review.class))).thenReturn(testReview);
 
         ReviewDTO dto = new ReviewDTO();
         dto.setOrderId(1L);
-        dto.setUserId(1L);
+        dto.setCustomerId(1L);
         dto.setRestaurantId(1L);
         dto.setRestaurantRating(5);
 
@@ -81,19 +84,20 @@ class ReviewServiceTest {
     void getAverageRestaurantRating_Success() {
         when(reviewRepository.getAverageRestaurantRating(anyLong())).thenReturn(4.5);
 
-        Double result = reviewService.getAverageRestaurantRating(1L);
+        Double result = reviewService.getRestaurantAverageRating(1L);
 
         assertNotNull(result);
         assertEquals(4.5, result);
     }
 
     @Test
-    void deleteReview_Success() {
-        when(reviewRepository.existsById(anyLong())).thenReturn(true);
-        doNothing().when(reviewRepository).deleteById(anyLong());
+    void getCustomerReviews_Success() {
+        when(reviewRepository.findByCustomerIdOrderByCreatedAtDesc(anyLong()))
+                .thenReturn(Arrays.asList(testReview));
 
-        reviewService.deleteReview(1L);
+        List<ReviewDTO> results = reviewService.getCustomerReviews(1L);
 
-        verify(reviewRepository).deleteById(1L);
+        assertNotNull(results);
+        assertEquals(1, results.size());
     }
 }

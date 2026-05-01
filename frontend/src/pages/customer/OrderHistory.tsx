@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Package, Clock, CheckCircle, XCircle, Truck, ChefHat, MapPin, Phone, Receipt, Download, X, Star, MessageSquare } from 'lucide-react';
+import { Package, Clock, CheckCircle, XCircle, Truck, ChefHat, MapPin, Phone, Download, X, Star, MessageSquare } from 'lucide-react';
 import { orderService, type OrderDTO } from '../../api/order';
 import { restaurantService, type Restaurant } from '../../api/restaurant';
 import { reviewService, type ReviewDTO } from '../../api/review';
@@ -525,10 +525,10 @@ export default function OrderHistory() {
                   <span className="text-gray-600">Delivery Charge</span>
                   <span className="font-bold text-gray-900">₹{selectedOrder.deliveryCharge.toFixed(2)}</span>
                 </div>
-                {selectedOrder.discountAmount > 0 && (
+                {(selectedOrder.discountAmount ?? 0) > 0 && (
                   <div className="flex justify-between text-sm">
                     <span className="text-green-600">Discount</span>
-                    <span className="font-bold text-green-600">-₹{selectedOrder.discountAmount.toFixed(2)}</span>
+                    <span className="font-bold text-green-600">-₹{(selectedOrder.discountAmount ?? 0).toFixed(2)}</span>
                   </div>
                 )}
                 <div className="border-t-2 border-gray-900 pt-2 flex justify-between">

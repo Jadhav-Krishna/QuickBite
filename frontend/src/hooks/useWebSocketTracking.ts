@@ -25,7 +25,7 @@ export const useWebSocketTracking = (orderId?: number) => {
       reconnectDelay: 5000,
       heartbeatIncoming: 4000,
       heartbeatOutgoing: 4000,
-      debug: (str) => {
+      debug: (str: string) => {
         console.log('STOMP:', str);
       },
       onConnect: () => {
@@ -57,7 +57,7 @@ export const useWebSocketTracking = (orderId?: number) => {
           console.log('Tracking update:', update);
         });
       },
-      onStompError: (frame) => {
+      onStompError: (frame: { headers: Record<string, string>; body: string }) => {
         console.error('STOMP error:', frame);
         setError('Connection error');
         setConnected(false);

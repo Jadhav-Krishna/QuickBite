@@ -1,5 +1,6 @@
 package com.quickbite.controller;
 
+import com.quickbite.dto.CreateOrderRequest;
 import com.quickbite.dto.OrderDTO;
 import com.quickbite.entity.OrderStatus;
 import com.quickbite.service.OrderService;
@@ -20,9 +21,9 @@ public class OrderController {
     private OrderService orderService;
 
     @PostMapping
-    public ResponseEntity<OrderDTO> placeOrder(@RequestBody OrderDTO orderDTO) {
-        log.info("Placing order for customer: {}", orderDTO.getCustomerId());
-        OrderDTO createdOrder = orderService.placeOrder(orderDTO);
+    public ResponseEntity<OrderDTO> placeOrder(@RequestBody CreateOrderRequest request) {
+        log.info("Placing order for customer: {}", request.getCustomerId());
+        OrderDTO createdOrder = orderService.placeOrder(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(createdOrder);
     }
 

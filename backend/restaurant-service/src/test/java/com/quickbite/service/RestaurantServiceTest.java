@@ -1,6 +1,5 @@
 package com.quickbite.service;
 
-import com.quickbite.dto.RestaurantDTO;
 import com.quickbite.entity.Restaurant;
 import com.quickbite.repository.RestaurantRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -42,7 +41,7 @@ class RestaurantServiceTest {
     void getRestaurantById_Success() {
         when(restaurantRepository.findById(anyLong())).thenReturn(Optional.of(testRestaurant));
 
-        RestaurantDTO result = restaurantService.getRestaurantById(1L);
+        Restaurant result = restaurantService.getRestaurantById(1L);
 
         assertNotNull(result);
         assertEquals(1L, result.getId());
@@ -53,7 +52,7 @@ class RestaurantServiceTest {
     void getAllRestaurants_Success() {
         when(restaurantRepository.findAll()).thenReturn(Arrays.asList(testRestaurant));
 
-        List<RestaurantDTO> results = restaurantService.getAllRestaurants();
+        List<Restaurant> results = restaurantService.getAllRestaurants();
 
         assertNotNull(results);
         assertEquals(1, results.size());
@@ -63,7 +62,7 @@ class RestaurantServiceTest {
     void getRestaurantsByOwner_Success() {
         when(restaurantRepository.findByOwnerId(anyLong())).thenReturn(Arrays.asList(testRestaurant));
 
-        List<RestaurantDTO> results = restaurantService.getRestaurantsByOwner(1L);
+        List<Restaurant> results = restaurantService.getRestaurantsByOwner(1L);
 
         assertNotNull(results);
         assertEquals(1, results.size());
@@ -74,10 +73,10 @@ class RestaurantServiceTest {
         when(restaurantRepository.findById(anyLong())).thenReturn(Optional.of(testRestaurant));
         when(restaurantRepository.save(any(Restaurant.class))).thenReturn(testRestaurant);
 
-        RestaurantDTO updateDTO = new RestaurantDTO();
-        updateDTO.setName("Updated Restaurant");
+        Restaurant updateRestaurant = new Restaurant();
+        updateRestaurant.setName("Updated Restaurant");
 
-        RestaurantDTO result = restaurantService.updateRestaurant(1L, updateDTO);
+        Restaurant result = restaurantService.updateRestaurant(1L, updateRestaurant);
 
         assertNotNull(result);
         verify(restaurantRepository).save(any(Restaurant.class));

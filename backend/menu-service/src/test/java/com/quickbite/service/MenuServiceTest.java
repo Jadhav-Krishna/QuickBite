@@ -1,7 +1,7 @@
 package com.quickbite.service;
 
-import com.quickbite.dto.MenuItemDTO;
 import com.quickbite.entity.MenuItem;
+import com.quickbite.repository.CategoryRepository;
 import com.quickbite.repository.MenuItemRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -10,7 +10,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -25,6 +24,9 @@ class MenuServiceTest {
     @Mock
     private MenuItemRepository menuItemRepository;
 
+    @Mock
+    private CategoryRepository categoryRepository;
+
     @InjectMocks
     private MenuService menuService;
 
@@ -36,15 +38,21 @@ class MenuServiceTest {
         testMenuItem.setId(1L);
         testMenuItem.setName("Test Item");
         testMenuItem.setRestaurantId(1L);
-        testMenuItem.setPrice(new BigDecimal("10.00"));
+        testMenuItem.setCategoryId(1L);
+        testMenuItem.setPrice(10.0);
+        testMenuItem.setDiscountedPrice(10.0);
         testMenuItem.setIsAvailable(true);
+        testMenuItem.setIsVegetarian(true);
+        testMenuItem.setIsSpicy(false);
+        testMenuItem.setPreparationTime(15);
+        testMenuItem.setOrderCount(0);
     }
 
     @Test
     void getMenuItemById_Success() {
         when(menuItemRepository.findById(anyLong())).thenReturn(Optional.of(testMenuItem));
 
-        MenuItemDTO result = menuService.getMenuItemById(1L);
+        MenuItem result = menuService.getMenuItem(1L);
 
         assertNotNull(result);
         assertEquals(1L, result.getId());
@@ -55,25 +63,10 @@ class MenuServiceTest {
     void getMenuItemsByRestaurant_Success() {
         when(menuItemRepository.findByRestaurantId(anyLong())).thenReturn(Arrays.asList(testMenuItem));
 
-        List<MenuItemDTO> results = menuService.getMenuItemsByRestaurant(1L);
+        List<MenuItem> results = menuService.getRestaurantMenu(1L);
 
         assertNotNull(results);
         assertEquals(1, results.size());
-    }
-
-    @Test
-    void createMenuItem_Success() {
-        when(menuItemRepository.save(any(MenuItem.class))).thenReturn(testMenuItem);
-
-        MenuItemDTO dto = new MenuItemDTO();
-        dto.setName("New Item");
-        dto.setRestaurantId(1L);
-        dto.setPrice(new BigDecimal("15.00"));
-
-        MenuItemDTO result = menuService.createMenuItem(dto);
-
-        assertNotNull(result);
-        verify(menuItemRepository).save(any(MenuItem.class));
     }
 
     @Test
@@ -81,10 +74,10 @@ class MenuServiceTest {
         when(menuItemRepository.findById(anyLong())).thenReturn(Optional.of(testMenuItem));
         when(menuItemRepository.save(any(MenuItem.class))).thenReturn(testMenuItem);
 
-        MenuItemDTO updateDTO = new MenuItemDTO();
-        updateDTO.setName("Updated Item");
+        MenuItem updateData = new MenuItem();
+        updateData.setName("Updated Item");
 
-        MenuItemDTO result = menuService.updateMenuItem(1L, updateDTO);
+        MenuItem result = menuService.updateMenuItem(1L, updateData);
 
         assertNotNull(result);
         verify(menuItemRepository).save(any(MenuItem.class));
@@ -92,7 +85,6 @@ class MenuServiceTest {
 
     @Test
     void deleteMenuItem_Success() {
-        when(menuItemRepository.existsById(anyLong())).thenReturn(true);
         doNothing().when(menuItemRepository).deleteById(anyLong());
 
         menuService.deleteMenuItem(1L);
@@ -101,11 +93,11 @@ class MenuServiceTest {
     }
 
     @Test
-    void toggleAvailability_Success() {
+    void updateItemAvailability_Success() {
         when(menuItemRepository.findById(anyLong())).thenReturn(Optional.of(testMenuItem));
         when(menuItemRepository.save(any(MenuItem.class))).thenReturn(testMenuItem);
 
-        menuService.toggleAvailability(1L);
+        menuService.updateItemAvailability(1L, false);
 
         verify(menuItemRepository).save(argThat(item -> !item.getIsAvailable()));
     }

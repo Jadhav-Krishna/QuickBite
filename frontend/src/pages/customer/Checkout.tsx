@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { useCart } from '../../context/CartContext';
-import { addressService, AddressDTO, CreateAddressRequest } from '../../api/address';
-import { orderService, CreateOrderRequest } from '../../api/order';
+import { addressService, type AddressDTO, type CreateAddressRequest } from '../../api/address';
+import { orderService, type CreateOrderRequest } from '../../api/order';
 import { paymentService } from '../../api/payment';
 
 export default function Checkout() {

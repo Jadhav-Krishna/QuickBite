@@ -135,7 +135,7 @@ export const addressService = {
             longitude: position.coords.longitude,
           });
         },
-        async (error) => {
+        async (_error) => {
           try {
             const response = await fetch(`https://us1.locationiq.com/v1/balance?key=${LOCATIONIQ_API_KEY}`);
             

@@ -23,6 +23,8 @@ public class RabbitMQConfig {
     public static final String PAYMENT_NOTIFICATION_QUEUE = "quickbite.payment.notification.queue";
     public static final String EMAIL_QUEUE = "quickbite.email.queue";
     public static final String SMS_QUEUE = "quickbite.sms.queue";
+    public static final String AUTH_LOGIN_QUEUE = "auth.login.queue";
+    public static final String AUTH_SIGNUP_QUEUE = "auth.signup.queue";
 
     // Routing keys
     public static final String NOTIFICATION_ROUTING_KEY = "notification.#";
@@ -71,6 +73,16 @@ public class RabbitMQConfig {
         return new Queue(SMS_QUEUE, true, false, false);
     }
 
+    @Bean
+    public Queue authLoginQueue() {
+        return new Queue(AUTH_LOGIN_QUEUE, true, false, false);
+    }
+
+    @Bean
+    public Queue authSignupQueue() {
+        return new Queue(AUTH_SIGNUP_QUEUE, true, false, false);
+    }
+
     // Bindings
     @Bean
     public Binding notificationBinding(@Qualifier("notificationQueue") Queue notificationQueue, 
@@ -94,6 +106,22 @@ public class RabbitMQConfig {
         return BindingBuilder.bind(paymentNotificationQueue)
                 .to(paymentExchange)
                 .with(PAYMENT_ROUTING_KEY);
+    }
+
+    @Bean
+    public Binding authLoginBinding(@Qualifier("authLoginQueue") Queue authLoginQueue,
+                                    @Qualifier("notificationExchange") TopicExchange notificationExchange) {
+        return BindingBuilder.bind(authLoginQueue)
+                .to(notificationExchange)
+                .with("notification.login");
+    }
+
+    @Bean
+    public Binding authSignupBinding(@Qualifier("authSignupQueue") Queue authSignupQueue,
+                                     @Qualifier("notificationExchange") TopicExchange notificationExchange) {
+        return BindingBuilder.bind(authSignupQueue)
+                .to(notificationExchange)
+                .with("notification.signup");
     }
 
     @Bean

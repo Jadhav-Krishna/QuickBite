@@ -10,7 +10,7 @@ export const useNotifications = ({ userId, enabled = true }: UseNotificationsOpt
   const [notifications, setNotifications] = useState<NotificationDTO[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const pollIntervalRef = useRef<number | null>(null);
 
   // Load and poll notifications
   useEffect(() => {

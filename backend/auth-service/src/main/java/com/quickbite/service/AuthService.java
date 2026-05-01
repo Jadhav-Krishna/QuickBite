@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.quickbite.dto.*;
 import com.quickbite.entity.User;
 import com.quickbite.entity.UserRole;
+import com.quickbite.event.AuthEvent;
 import com.quickbite.exception.AuthenticationException;
 import com.quickbite.exception.InvalidCredentialsException;
 import com.quickbite.exception.UserAlreadyExistsException;
@@ -572,17 +573,19 @@ public class AuthService {
         }
 
         try {
-            Map<String, Object> payload = new HashMap<>();
-            payload.put("eventType", "USER_LOGIN");
-            payload.put("userId", user.getId());
-            payload.put("title", "Login Successful");
-            payload.put("message", "Welcome back, " + user.getFullName() + ". You are signed in.");
-            payload.put("notificationType", "IN_APP");
-            payload.put("recipientEmail", user.getEmail());
-            payload.put("recipientRole", user.getRole().name());
-            payload.put("createdAt", LocalDateTime.now().toString());
+            AuthEvent event = AuthEvent.builder()
+                    .eventType("USER_LOGIN")
+                    .userId(user.getId())
+                    .title("Login Successful")
+                    .message("Welcome back, " + user.getFullName() + ". You are signed in.")
+                    .notificationType("IN_APP")
+                    .recipientEmail(user.getEmail())
+                    .recipientRole(user.getRole().name())
+                    .createdAt(LocalDateTime.now().toString())
+                    .build();
 
-            rabbitTemplate.convertAndSend(NOTIFICATION_EXCHANGE, NOTIFICATION_ROUTING_KEY_LOGIN, payload);
+            rabbitTemplate.convertAndSend(NOTIFICATION_EXCHANGE, NOTIFICATION_ROUTING_KEY_LOGIN, event);
+            log.info("Published login notification for user: {}", user.getEmail());
         } catch (Exception e) {
             log.warn("Failed to publish login notification for {}: {}", user.getEmail(), e.getMessage());
         }
@@ -594,17 +597,19 @@ public class AuthService {
         }
 
         try {
-            Map<String, Object> payload = new HashMap<>();
-            payload.put("eventType", "USER_SIGNUP");
-            payload.put("userId", user.getId());
-            payload.put("title", "Welcome to QuickBite!");
-            payload.put("message", "Welcome " + user.getFullName() + "! Your account has been created successfully. Start exploring delicious food near you.");
-            payload.put("notificationType", "IN_APP");
-            payload.put("recipientEmail", user.getEmail());
-            payload.put("recipientRole", user.getRole().name());
-            payload.put("createdAt", LocalDateTime.now().toString());
+            AuthEvent event = AuthEvent.builder()
+                    .eventType("USER_SIGNUP")
+                    .userId(user.getId())
+                    .title("Welcome to QuickBite!")
+                    .message("Welcome " + user.getFullName() + "! Your account has been created successfully. Start exploring delicious food near you.")
+                    .notificationType("IN_APP")
+                    .recipientEmail(user.getEmail())
+                    .recipientRole(user.getRole().name())
+                    .createdAt(LocalDateTime.now().toString())
+                    .build();
 
-            rabbitTemplate.convertAndSend(NOTIFICATION_EXCHANGE, NOTIFICATION_ROUTING_KEY_SIGNUP, payload);
+            rabbitTemplate.convertAndSend(NOTIFICATION_EXCHANGE, NOTIFICATION_ROUTING_KEY_SIGNUP, event);
+            log.info("Published signup notification for user: {}", user.getEmail());
         } catch (Exception e) {
             log.warn("Failed to publish signup notification for {}: {}", user.getEmail(), e.getMessage());
         }

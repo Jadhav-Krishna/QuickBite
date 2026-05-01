@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import SockJS from 'sockjs-client';
-import { Client, IMessage } from '@stomp/stompjs';
+import { Client, type IMessage } from '@stomp/stompjs';
 
 interface LocationUpdate {
   agentId: number;

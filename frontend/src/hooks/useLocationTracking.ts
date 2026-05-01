@@ -17,7 +17,7 @@ export const useLocationTracking = ({
   const [isTracking, setIsTracking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const watchIdRef = useRef<number | null>(null);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<number | null>(null);
   const lastPositionRef = useRef<{ latitude: number; longitude: number } | null>(null);
 
   useEffect(() => {

@@ -31,6 +31,11 @@ spring:
           starttls:
             enable: true
 
+mail:
+  from: ${MAIL_FROM:noreply@quickbite.com}
+  admin:
+    email: ${MAIL_ADMIN_EMAIL:${MAIL_USERNAME}}
+
 server:
   port: ${NOTIFICATION_SERVICE_PORT:8089}
   servlet:

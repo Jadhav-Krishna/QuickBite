@@ -107,11 +107,6 @@ pipeline {
             post {
                 always {
                     junit allowEmptyResults: true, testResults: "${BACKEND_DIR}/**/target/surefire-reports/*.xml"
-                    jacoco(
-                        execPattern: "${BACKEND_DIR}/**/target/jacoco.exec",
-                        classPattern: "${BACKEND_DIR}/**/target/classes",
-                        sourcePattern: "${BACKEND_DIR}/**/src/main/java"
-                    )
                 }
             }
         }

@@ -13,7 +13,6 @@ pipeline {
         DOCKERHUB_TOKEN = credentials('dockerhub-token')
         IMAGE_TAG = "${env.BUILD_NUMBER}"
         
-        SONAR_HOME = tool 'Sonar'
         SONAR_HOST_URL = 'http://sonarqube:9000'
         SONAR_TOKEN = credentials('sonarqube-token')
         SONAR_PROJECT_KEY = 'quickbite'
@@ -139,25 +138,18 @@ pipeline {
                 dir("${BACKEND_DIR}") {
                     script {
                         try {
-                            withSonarQubeEnv('Sonar'){
-                                sh """
-                                    SONAR_HOME/bin/sonar-scanner \
-                                      -Dsonar.projectName=QuickBite \
-                                      -Dsonar.projectKey=QuickBite
-                                """
-                            }
                             withSonarQubeEnv('SonarQube') {
                                 sh """
                                     if [ -f "./mvnw" ]; then
                                         ./mvnw sonar:sonar \
                                           -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
                                           -Dsonar.host.url=${SONAR_HOST_URL} \
-                                          -Dsonar.login=${SONAR_TOKEN}
+                                          -Dsonar.token=\${SONAR_TOKEN}
                                     else
                                         mvn sonar:sonar \
                                           -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
                                           -Dsonar.host.url=${SONAR_HOST_URL} \
-                                          -Dsonar.login=${SONAR_TOKEN}
+                                          -Dsonar.token=\${SONAR_TOKEN}
                                     fi
                                 """
                             }
@@ -499,17 +491,13 @@ EOF
                 echo '========== Deploying Infrastructure Services =========='
                 dir("${BACKEND_DIR}") {
                     sh '''
-                        # Stop existing containers
                         docker compose down || true
                         
-                        # Start infrastructure services first
                         docker compose up -d mysql redis rabbitmq zookeeper kafka
                         
-                        # Wait for infrastructure to be ready
                         echo "Waiting for infrastructure services to be healthy..."
                         sleep 60
                         
-                        # Check infrastructure health
                         docker compose ps
                     '''
                 }
@@ -521,20 +509,16 @@ EOF
                 echo '========== Deploying Application Services =========='
                 dir("${BACKEND_DIR}") {
                     sh '''
-                        # Start Eureka Server first
-                        docker-compose up -d eureka-server
+                        docker compose up -d eureka-server
                         echo "Waiting for Eureka Server..."
                         sleep 30
                         
-                        # Start remaining services
-                        docker-compose up -d
+                        docker compose up -d
                         
-                        # Wait for all services to start
                         echo "Waiting for all services to be ready..."
                         sleep 60
                         
-                        # Show running containers
-                        docker-compose ps
+                        docker compose ps
                         docker ps
                     '''
                 }

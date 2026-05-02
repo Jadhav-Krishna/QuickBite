@@ -59,13 +59,16 @@ pipeline {
                         java -version
                         
                         echo "Maven Version:"
-                        mvn -version
+                        mvn -version || echo "Maven will be downloaded by Maven Wrapper"
                         
                         echo "Docker Version:"
                         docker --version
                         
                         echo "Trivy Version:"
-                        trivy --version || echo "Trivy not installed"
+                        trivy --version || echo "Trivy not installed - will skip security scans"
+                        
+                        echo "Node Version:"
+                        node --version || echo "Node not installed"
                     '''
                 }
             }
@@ -75,7 +78,15 @@ pipeline {
             steps {
                 echo '========== Building Backend Microservices =========='
                 dir("${BACKEND_DIR}") {
-                    sh 'mvn clean compile -DskipTests'
+                    sh '''
+                        # Use Maven Wrapper if available, otherwise use system maven
+                        if [ -f "./mvnw" ]; then
+                            chmod +x ./mvnw
+                            ./mvnw clean compile -DskipTests
+                        else
+                            mvn clean compile -DskipTests
+                        fi
+                    '''
                 }
             }
         }
@@ -84,7 +95,13 @@ pipeline {
             steps {
                 echo '========== Running Backend Unit Tests =========='
                 dir("${BACKEND_DIR}") {
-                    sh 'mvn test'
+                    sh '''
+                        if [ -f "./mvnw" ]; then
+                            ./mvnw test
+                        else
+                            mvn test
+                        fi
+                    '''
                 }
             }
             post {
@@ -103,7 +120,13 @@ pipeline {
             steps {
                 echo '========== Running Backend Integration Tests =========='
                 dir("${BACKEND_DIR}") {
-                    sh 'mvn verify -DskipUnitTests'
+                    sh '''
+                        if [ -f "./mvnw" ]; then
+                            ./mvnw verify -DskipUnitTests
+                        else
+                            mvn verify -DskipUnitTests
+                        fi
+                    '''
                 }
             }
             post {
@@ -121,14 +144,25 @@ pipeline {
                         try {
                             withSonarQubeEnv('SonarQube') {
                                 sh """
-                                    mvn sonar:sonar \
-                                      -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                                      -Dsonar.projectName=QuickBite-Backend \
-                                      -Dsonar.host.url=${SONAR_HOST_URL} \
-                                      -Dsonar.login=${SONAR_TOKEN} \
-                                      -Dsonar.java.coveragePlugin=jacoco \
-                                      -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml \
-                                      -Dsonar.exclusions=**/target/**,**/test/**
+                                    if [ -f "./mvnw" ]; then
+                                        ./mvnw sonar:sonar \
+                                          -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                                          -Dsonar.projectName=QuickBite-Backend \
+                                          -Dsonar.host.url=${SONAR_HOST_URL} \
+                                          -Dsonar.login=${SONAR_TOKEN} \
+                                          -Dsonar.java.coveragePlugin=jacoco \
+                                          -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml \
+                                          -Dsonar.exclusions=**/target/**,**/test/**
+                                    else
+                                        mvn sonar:sonar \
+                                          -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                                          -Dsonar.projectName=QuickBite-Backend \
+                                          -Dsonar.host.url=${SONAR_HOST_URL} \
+                                          -Dsonar.login=${SONAR_TOKEN} \
+                                          -Dsonar.java.coveragePlugin=jacoco \
+                                          -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml \
+                                          -Dsonar.exclusions=**/target/**,**/test/**
+                                    fi
                                 """
                             }
                         } catch (Exception e) {
@@ -166,7 +200,13 @@ pipeline {
             steps {
                 echo '========== Packaging Backend Applications =========='
                 dir("${BACKEND_DIR}") {
-                    sh 'mvn package -DskipTests'
+                    sh '''
+                        if [ -f "./mvnw" ]; then
+                            ./mvnw package -DskipTests
+                        else
+                            mvn package -DskipTests
+                        fi
+                    '''
                 }
             }
         }

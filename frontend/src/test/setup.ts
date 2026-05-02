@@ -1,6 +1,10 @@
 import { vi } from 'vitest';
 import * as matchers from '@testing-library/jest-dom/matchers';
 import { expect } from 'vitest';
+import React from 'react';
+
+// Make React globally available for JSX
+global.React = React;
 
 expect.extend(matchers);
 

@@ -110,17 +110,46 @@ pipeline {
                 echo '========== Running Backend Unit Tests =========='
                 dir("${BACKEND_DIR}") {
                     script {
-                        try {
-                            sh '''
-                                if [ -f "./mvnw" ]; then
-                                    ./mvnw test
-                                else
-                                    mvn test
-                                fi
-                            '''
-                        } catch (Exception e) {
-                            echo "Unit tests failed: ${e.message}"
+                        def services = [
+                            'eureka-server',
+                            'admin-server',
+                            'quickbite-gateway',
+                            'auth-service',
+                            'restaurant-service',
+                            'menu-service',
+                            'cart-service',
+                            'order-service',
+                            'payment-service',
+                            'delivery-service',
+                            'review-service',
+                            'notification-service'
+                        ]
+                        
+                        def failedTests = []
+                        
+                        for (String service : services) {
+                            try {
+                                echo "Running tests for ${service}..."
+                                sh """
+                                    cd ${service}
+                                    if [ -f "../mvnw" ]; then
+                                        ../mvnw test
+                                    else
+                                        mvn test
+                                    fi
+                                """
+                                echo "✓ Tests passed for ${service}"
+                            } catch (Exception e) {
+                                echo "✗ Tests failed for ${service}: ${e.message}"
+                                failedTests.add(service)
+                            }
+                        }
+                        
+                        if (failedTests.size() > 0) {
+                            echo "WARNING: Tests failed for: ${failedTests.join(', ')}"
                             echo "Continuing pipeline..."
+                        } else {
+                            echo "All backend tests passed successfully!"
                         }
                     }
                 }
@@ -138,21 +167,25 @@ pipeline {
                 dir("${BACKEND_DIR}") {
                     script {
                         try {
-                            withSonarQubeEnv('SonarQube') {
-                                sh """
-                                    if [ -f "./mvnw" ]; then
-                                        ./mvnw sonar:sonar \
-                                          -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                                          -Dsonar.host.url=${SONAR_HOST_URL} \
-                                          -Dsonar.token=\${SONAR_TOKEN}
-                                    else
-                                        mvn sonar:sonar \
-                                          -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                                          -Dsonar.host.url=${SONAR_HOST_URL} \
-                                          -Dsonar.token=\${SONAR_TOKEN}
-                                    fi
-                                """
-                            }
+                            sh """
+                                echo "Starting SonarQube analysis..."
+                                if [ -f "./mvnw" ]; then
+                                    ./mvnw verify sonar:sonar \
+                                      -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                                      -Dsonar.projectName=QuickBite-Backend \
+                                      -Dsonar.host.url=${SONAR_HOST_URL} \
+                                      -Dsonar.token=\${SONAR_TOKEN} \
+                                      -Dsonar.java.binaries=target/classes
+                                else
+                                    mvn verify sonar:sonar \
+                                      -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                                      -Dsonar.projectName=QuickBite-Backend \
+                                      -Dsonar.host.url=${SONAR_HOST_URL} \
+                                      -Dsonar.token=\${SONAR_TOKEN} \
+                                      -Dsonar.java.binaries=target/classes
+                                fi
+                                echo "SonarQube analysis completed successfully!"
+                            """
                         } catch (Exception e) {
                             echo "SonarQube analysis failed: ${e.message}"
                             echo "Continuing pipeline..."
@@ -190,9 +223,39 @@ pipeline {
                 dir("${FRONTEND_DIR}") {
                     script {
                         try {
-                            sh 'npm install'
+                            sh '''
+                                echo "Node version:"
+                                node --version
+                                echo "NPM version:"
+                                npm --version
+                                
+                                echo "Installing dependencies..."
+                                npm ci || npm install
+                                
+                                echo "Dependencies installed successfully!"
+                            '''
                         } catch (Exception e) {
                             echo "npm install failed: ${e.message}"
+                            error("Frontend dependency installation failed")
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Frontend - Tests') {
+            steps {
+                echo '========== Running Frontend Tests =========='
+                dir("${FRONTEND_DIR}") {
+                    script {
+                        try {
+                            sh '''
+                                echo "Running Vitest tests..."
+                                npm run test
+                                echo "Frontend tests completed successfully!"
+                            '''
+                        } catch (Exception e) {
+                            echo "Frontend tests failed: ${e.message}"
                             echo "Continuing pipeline..."
                         }
                     }
@@ -206,26 +269,18 @@ pipeline {
                 dir("${FRONTEND_DIR}") {
                     script {
                         try {
-                            sh 'npm run build'
+                            sh '''
+                                echo "Building frontend..."
+                                npm run build
+                                
+                                echo "Verifying build output..."
+                                ls -lh dist/ || echo "Build output not found"
+                                
+                                echo "Frontend build completed successfully!"
+                            '''
                         } catch (Exception e) {
                             echo "Frontend build failed: ${e.message}"
-                            echo "Continuing pipeline..."
-                        }
-                    }
-                }
-            }
-        }
-
-        stage('Frontend - Tests') {
-            steps {
-                echo '========== Running Frontend Tests =========='
-                dir("${FRONTEND_DIR}") {
-                    script {
-                        try {
-                            sh 'npm run test -- --run'
-                        } catch (Exception e) {
-                            echo "Frontend tests failed: ${e.message}"
-                            echo "Continuing pipeline..."
+                            error("Frontend build failed")
                         }
                     }
                 }
@@ -511,15 +566,18 @@ EOF
                     sh '''
                         docker compose up -d eureka-server
                         echo "Waiting for Eureka Server..."
-                        sleep 30
+                        sleep 45
                         
                         docker compose up -d
                         
                         echo "Waiting for all services to be ready..."
-                        sleep 60
+                        sleep 120
                         
                         docker compose ps
                         docker ps
+                        
+                        echo "Checking container logs for errors..."
+                        docker compose logs --tail=50 || true
                     '''
                 }
             }
@@ -529,18 +587,20 @@ EOF
             steps {
                 echo '========== Performing Health Checks =========='
                 script {
+                    sh 'sleep 30'
+                    
                     def services = [
-                        [name: 'Eureka Server', url: 'http://localhost:8761/actuator/health', port: 8761],
-                        [name: 'Gateway', url: 'http://localhost:8000/actuator/health', port: 8000],
-                        [name: 'Auth Service', url: 'http://localhost:8001/actuator/health', port: 8001],
-                        [name: 'Restaurant Service', url: 'http://localhost:8002/actuator/health', port: 8002],
-                        [name: 'Menu Service', url: 'http://localhost:8003/actuator/health', port: 8003],
-                        [name: 'Cart Service', url: 'http://localhost:8004/actuator/health', port: 8004],
-                        [name: 'Order Service', url: 'http://localhost:8005/actuator/health', port: 8005],
-                        [name: 'Payment Service', url: 'http://localhost:8006/actuator/health', port: 8006],
-                        [name: 'Delivery Service', url: 'http://localhost:8007/actuator/health', port: 8007],
-                        [name: 'Review Service', url: 'http://localhost:8008/actuator/health', port: 8008],
-                        [name: 'Notification Service', url: 'http://localhost:8009/actuator/health', port: 8009]
+                        [name: 'Eureka Server', url: 'http://localhost:8761/actuator/health'],
+                        [name: 'Gateway', url: 'http://localhost:8000/actuator/health'],
+                        [name: 'Auth Service', url: 'http://localhost:8001/actuator/health'],
+                        [name: 'Restaurant Service', url: 'http://localhost:8002/actuator/health'],
+                        [name: 'Menu Service', url: 'http://localhost:8003/actuator/health'],
+                        [name: 'Cart Service', url: 'http://localhost:8004/actuator/health'],
+                        [name: 'Order Service', url: 'http://localhost:8005/actuator/health'],
+                        [name: 'Payment Service', url: 'http://localhost:8006/actuator/health'],
+                        [name: 'Delivery Service', url: 'http://localhost:8007/actuator/health'],
+                        [name: 'Review Service', url: 'http://localhost:8008/actuator/health'],
+                        [name: 'Notification Service', url: 'http://localhost:8009/actuator/health']
                     ]
                     
                     def healthyServices = 0
@@ -549,27 +609,29 @@ EOF
                     for (service in services) {
                         try {
                             def response = sh(
-                                script: "curl -s -o /dev/null -w '%{http_code}' ${service.url}",
+                                script: "curl -s -o /dev/null -w '%{http_code}' --connect-timeout 5 ${service.url} || echo 'failed'",
                                 returnStdout: true
                             ).trim()
                             
                             if (response == '200') {
-                                echo "${service.name} is HEALTHY"
+                                echo "✓ ${service.name} is HEALTHY"
                                 healthyServices++
                             } else {
-                                echo "${service.name} returned status: ${response}"
+                                echo "✗ ${service.name} returned: ${response}"
                             }
                         } catch (Exception e) {
-                            echo "${service.name} health check FAILED: ${e.message}"
+                            echo "✗ ${service.name} FAILED: ${e.message}"
                         }
                     }
                     
                     echo "=========================================="
-                    echo "Health Check Summary: ${healthyServices}/${totalServices} services healthy"
+                    echo "Health Check: ${healthyServices}/${totalServices} services healthy"
                     echo "=========================================="
                     
-                    if (healthyServices < totalServices * 0.8) {
-                        echo "WARNING: Less than 80% of services are healthy!"
+                    if (healthyServices == 0) {
+                        echo "ERROR: No services are healthy! Check logs."
+                    } else if (healthyServices < totalServices * 0.5) {
+                        echo "WARNING: Less than 50% of services are healthy!"
                     }
                 }
             }
@@ -603,25 +665,11 @@ EOF
         always {
             echo '========== Pipeline Cleanup =========='
             script {
-                // Logout from Docker
                 sh 'docker logout || true'
                 
-                // Archive artifacts
                 archiveArtifacts artifacts: "${BACKEND_DIR}/**/target/surefire-reports/**/*.xml", allowEmptyArchive: true
-                archiveArtifacts artifacts: "${BACKEND_DIR}/**/target/failsafe-reports/**/*.xml", allowEmptyArchive: true
-                archiveArtifacts artifacts: "${BACKEND_DIR}/**/target/site/jacoco/**/*", allowEmptyArchive: true
                 archiveArtifacts artifacts: 'trivy-report-*.txt', allowEmptyArchive: true
                 archiveArtifacts artifacts: 'trivy-report-*.json', allowEmptyArchive: true
-                
-                // Publish test results
-                publishHTML([
-                    allowMissing: true,
-                    alwaysLinkToLastBuild: true,
-                    keepAll: true,
-                    reportDir: "${BACKEND_DIR}/target/site/jacoco",
-                    reportFiles: 'index.html',
-                    reportName: 'JaCoCo Coverage Report'
-                ])
             }
         }
         

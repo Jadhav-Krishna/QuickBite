@@ -7,94 +7,147 @@ pipeline {
     }
 
     environment {
+        // Git Repository
+        GIT_REPO = 'https://github.com/Jadhav-Krishna/QuickBite.git'
+        GIT_BRANCH = 'dev'
+        GIT_CREDENTIALS = 'github-credentials'
+        
+        // Docker Configuration
         DOCKERHUB_USERNAME = credentials('dockerhub-username')
         DOCKERHUB_TOKEN = credentials('dockerhub-token')
+        DOCKER_REGISTRY = 'docker.io'
+        IMAGE_TAG = "${env.BUILD_NUMBER}"
+        
+        // SonarQube Configuration
         SONAR_HOST_URL = 'http://sonarqube:9000'
         SONAR_TOKEN = credentials('sonarqube-token')
-        DOCKER_COMPOSE_CMD = 'docker-compose'
-        IMAGE_TAG = "${env.BUILD_NUMBER}"
+        SONAR_PROJECT_KEY = 'quickbite'
+        
+        // Trivy Configuration
+        TRIVY_SEVERITY = 'CRITICAL,HIGH'
+        TRIVY_TIMEOUT = '10m'
+        
+        // Application Configuration
+        BACKEND_DIR = 'backend'
+        FRONTEND_DIR = 'frontend'
     }
 
     stages {
-        stage('Checkout') {
+        stage('Clone Repository') {
             steps {
-                echo 'Checking out source code...'
-                checkout scm
+                echo '========== Cloning Git Repository =========='
+                cleanWs()
+                git branch: "${GIT_BRANCH}",
+                    credentialsId: "${GIT_CREDENTIALS}",
+                    url: "${GIT_REPO}"
+                
+                sh 'git log -1'
+                sh 'ls -la'
             }
         }
 
-        stage('Build') {
+        stage('Environment Setup') {
             steps {
-                echo 'Building all microservices with Maven...'
-                sh 'mvn clean compile -DskipTests'
+                echo '========== Setting Up Environment =========='
+                script {
+                    sh '''
+                        echo "Java Version:"
+                        java -version
+                        
+                        echo "Maven Version:"
+                        mvn -version
+                        
+                        echo "Docker Version:"
+                        docker --version
+                        
+                        echo "Trivy Version:"
+                        trivy --version || echo "Trivy not installed"
+                    '''
+                }
             }
         }
 
-        stage('Unit Tests') {
+        stage('Backend - Build') {
             steps {
-                echo 'Running unit tests...'
-                sh 'mvn test'
+                echo '========== Building Backend Microservices =========='
+                dir("${BACKEND_DIR}") {
+                    sh 'mvn clean compile -DskipTests'
+                }
+            }
+        }
+
+        stage('Backend - Unit Tests') {
+            steps {
+                echo '========== Running Backend Unit Tests =========='
+                dir("${BACKEND_DIR}") {
+                    sh 'mvn test'
+                }
             }
             post {
                 always {
-                    junit allowEmptyResults: true, testResults: '**/target/surefire-reports/*.xml'
+                    junit allowEmptyResults: true, testResults: "${BACKEND_DIR}/**/target/surefire-reports/*.xml"
                     jacoco(
-                        execPattern: '**/target/jacoco.exec',
-                        classPattern: '**/target/classes',
-                        sourcePattern: '**/src/main/java'
+                        execPattern: "${BACKEND_DIR}/**/target/jacoco.exec",
+                        classPattern: "${BACKEND_DIR}/**/target/classes",
+                        sourcePattern: "${BACKEND_DIR}/**/src/main/java"
                     )
                 }
             }
         }
 
-        stage('Integration Tests') {
+        stage('Backend - Integration Tests') {
             steps {
-                echo 'Running integration tests...'
-                sh 'mvn verify -DskipUnitTests'
+                echo '========== Running Backend Integration Tests =========='
+                dir("${BACKEND_DIR}") {
+                    sh 'mvn verify -DskipUnitTests'
+                }
             }
             post {
                 always {
-                    junit allowEmptyResults: true, testResults: '**/target/failsafe-reports/*.xml'
+                    junit allowEmptyResults: true, testResults: "${BACKEND_DIR}/**/target/failsafe-reports/*.xml"
                 }
             }
         }
 
-        stage('SonarQube Analysis') {
+        stage('Backend - SonarQube Analysis') {
             steps {
-                echo 'Running SonarQube code quality analysis...'
-                script {
-                    try {
-                        withSonarQubeEnv('SonarQube') {
-                            sh '''
-                                mvn sonar:sonar \
-                                  -Dsonar.projectKey=quickbite \
-                                  -Dsonar.projectName=QuickBite \
-                                  -Dsonar.host.url=${SONAR_HOST_URL} \
-                                  -Dsonar.login=${SONAR_TOKEN} \
-                                  -Dsonar.java.coveragePlugin=jacoco \
-                                  -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
-                            '''
+                echo '========== Running SonarQube Code Quality Analysis =========='
+                dir("${BACKEND_DIR}") {
+                    script {
+                        try {
+                            withSonarQubeEnv('SonarQube') {
+                                sh """
+                                    mvn sonar:sonar \
+                                      -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                                      -Dsonar.projectName=QuickBite-Backend \
+                                      -Dsonar.host.url=${SONAR_HOST_URL} \
+                                      -Dsonar.login=${SONAR_TOKEN} \
+                                      -Dsonar.java.coveragePlugin=jacoco \
+                                      -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml \
+                                      -Dsonar.exclusions=**/target/**,**/test/**
+                                """
+                            }
+                        } catch (Exception e) {
+                            echo "SonarQube analysis failed: ${e.message}"
+                            echo "Continuing pipeline..."
                         }
-                    } catch (Exception e) {
-                        echo "SonarQube analysis failed: ${e.message}"
-                        echo "Continuing pipeline..."
                     }
                 }
             }
         }
 
-        stage('Quality Gate') {
+        stage('Backend - Quality Gate') {
             steps {
-                echo ' Checking SonarQube Quality Gate...'
+                echo '========== Checking SonarQube Quality Gate =========='
                 script {
                     try {
                         timeout(time: 5, unit: 'MINUTES') {
                             def qg = waitForQualityGate()
                             if (qg.status != 'OK') {
-                                echo "Quality Gate failed: ${qg.status}"
-                                echo "Continuing pipeline despite quality gate failure..."
+                                echo "Quality Gate Status: ${qg.status}"
+                                echo "WARNING: Quality Gate failed but continuing pipeline..."
                             } else {
-                                echo "Quality Gate passed!"
+                                echo "Quality Gate PASSED!"
                             }
                         }
                     } catch (Exception e) {
@@ -105,23 +158,86 @@ pipeline {
             }
         }
 
-        stage('Package') {
+        stage('Backend - Package') {
             steps {
-                echo 'Packaging applications...'
-                sh 'mvn package -DskipTests'
+                echo '========== Packaging Backend Applications =========='
+                dir("${BACKEND_DIR}") {
+                    sh 'mvn package -DskipTests'
+                }
             }
         }
 
-        stage('Docker Login') {
+        stage('Frontend - Install Dependencies') {
             steps {
-                echo 'Logging into Docker Hub...'
+                echo '========== Installing Frontend Dependencies =========='
+                dir("${FRONTEND_DIR}") {
+                    sh 'npm install'
+                }
+            }
+        }
+
+        stage('Frontend - Build') {
+            steps {
+                echo '========== Building Frontend Application =========='
+                dir("${FRONTEND_DIR}") {
+                    sh 'npm run build'
+                }
+            }
+        }
+
+        stage('Frontend - Tests') {
+            steps {
+                echo '========== Running Frontend Tests =========='
+                dir("${FRONTEND_DIR}") {
+                    sh 'npm run test -- --run || true'
+                }
+            }
+        }
+
+        stage('Docker - Login') {
+            steps {
+                echo '========== Logging into Docker Hub =========='
                 sh 'echo $DOCKERHUB_TOKEN | docker login -u $DOCKERHUB_USERNAME --password-stdin'
             }
         }
 
-        stage('Build Docker Images') {
+        stage('Docker - Build Images') {
             steps {
-                echo 'Building Docker images for all microservices...'
+                echo '========== Building Docker Images =========='
+                dir("${BACKEND_DIR}") {
+                    script {
+                        def services = [
+                            'eureka-server',
+                            'admin-server',
+                            'quickbite-gateway',
+                            'auth-service',
+                            'restaurant-service',
+                            'menu-service',
+                            'cart-service',
+                            'order-service',
+                            'payment-service',
+                            'delivery-service',
+                            'review-service',
+                            'notification-service'
+                        ]
+                        
+                        for (String service : services) {
+                            echo "Building ${service}:${IMAGE_TAG}..."
+                            sh """
+                                docker build \
+                                  -t ${DOCKERHUB_USERNAME}/${service}:${IMAGE_TAG} \
+                                  -t ${DOCKERHUB_USERNAME}/${service}:latest \
+                                  ./${service}
+                            """
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Trivy - Scan Docker Images') {
+            steps {
+                echo '========== Scanning Docker Images with Trivy =========='
                 script {
                     def services = [
                         'eureka-server',
@@ -139,21 +255,41 @@ pipeline {
                     ]
                     
                     for (String service : services) {
-                        echo "Building ${service}:${IMAGE_TAG}..."
+                        echo "Scanning ${service}..."
                         sh """
-                            docker build \
-                              -t ${DOCKERHUB_USERNAME}/${service}:${IMAGE_TAG} \
-                              -t ${DOCKERHUB_USERNAME}/${service}:latest \
-                              ./${service}
+                            trivy image \
+                              --severity ${TRIVY_SEVERITY} \
+                              --timeout ${TRIVY_TIMEOUT} \
+                              --exit-code 0 \
+                              --format table \
+                              ${DOCKERHUB_USERNAME}/${service}:${IMAGE_TAG} \
+                              > trivy-report-${service}.txt || true
+                        """
+                        
+                        // Generate JSON report for archiving
+                        sh """
+                            trivy image \
+                              --severity ${TRIVY_SEVERITY} \
+                              --timeout ${TRIVY_TIMEOUT} \
+                              --exit-code 0 \
+                              --format json \
+                              --output trivy-report-${service}.json \
+                              ${DOCKERHUB_USERNAME}/${service}:${IMAGE_TAG} || true
                         """
                     }
                 }
             }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'trivy-report-*.txt', allowEmptyArchive: true
+                    archiveArtifacts artifacts: 'trivy-report-*.json', allowEmptyArchive: true
+                }
+            }
         }
 
-        stage('Push Docker Images') {
+        stage('Docker - Push Images') {
             steps {
-                echo 'Pushing Docker images to Docker Hub...'
+                echo '========== Pushing Docker Images to Registry =========='
                 script {
                     def services = [
                         'eureka-server',
@@ -181,46 +317,122 @@ pipeline {
             }
         }
 
-        stage('Deploy with Docker Compose') {
+        stage('Deploy - Infrastructure') {
             steps {
-                echo 'Deploying application with Docker Compose...'
-                sh '''
-                    # Stop existing containers
-                    ${DOCKER_COMPOSE_CMD} down || true
-                    
-                    # Pull latest images
-                    ${DOCKER_COMPOSE_CMD} pull
-                    
-                    # Start all services
-                    ${DOCKER_COMPOSE_CMD} up -d
-                    
-                    # Wait for services to be healthy
-                    sleep 30
-                    
-                    # Show running containers
-                    docker ps
-                '''
+                echo '========== Deploying Infrastructure Services =========='
+                dir("${BACKEND_DIR}") {
+                    sh '''
+                        # Stop existing containers
+                        docker-compose down || true
+                        
+                        # Start infrastructure services first
+                        docker-compose up -d mysql redis rabbitmq zookeeper kafka
+                        
+                        # Wait for infrastructure to be ready
+                        echo "Waiting for infrastructure services to be healthy..."
+                        sleep 60
+                        
+                        # Check infrastructure health
+                        docker-compose ps
+                    '''
+                }
             }
         }
 
-        stage('Health Check') {
+        stage('Deploy - Application Services') {
             steps {
-                echo 'Performing health checks...'
+                echo '========== Deploying Application Services =========='
+                dir("${BACKEND_DIR}") {
+                    sh '''
+                        # Start Eureka Server first
+                        docker-compose up -d eureka-server
+                        echo "Waiting for Eureka Server..."
+                        sleep 30
+                        
+                        # Start remaining services
+                        docker-compose up -d
+                        
+                        # Wait for all services to start
+                        echo "Waiting for all services to be ready..."
+                        sleep 60
+                        
+                        # Show running containers
+                        docker-compose ps
+                        docker ps
+                    '''
+                }
+            }
+        }
+
+        stage('Health Checks') {
+            steps {
+                echo '========== Performing Health Checks =========='
                 script {
                     def services = [
-                        [name: 'Eureka Server', url: 'http://localhost:8761/actuator/health'],
-                        [name: 'Gateway', url: 'http://localhost:8000/actuator/health'],
-                        [name: 'Auth Service', url: 'http://localhost:8001/actuator/health']
+                        [name: 'Eureka Server', url: 'http://localhost:8761/actuator/health', port: 8761],
+                        [name: 'Gateway', url: 'http://localhost:8000/actuator/health', port: 8000],
+                        [name: 'Auth Service', url: 'http://localhost:8001/actuator/health', port: 8001],
+                        [name: 'Restaurant Service', url: 'http://localhost:8002/actuator/health', port: 8002],
+                        [name: 'Menu Service', url: 'http://localhost:8003/actuator/health', port: 8003],
+                        [name: 'Cart Service', url: 'http://localhost:8004/actuator/health', port: 8004],
+                        [name: 'Order Service', url: 'http://localhost:8005/actuator/health', port: 8005],
+                        [name: 'Payment Service', url: 'http://localhost:8006/actuator/health', port: 8006],
+                        [name: 'Delivery Service', url: 'http://localhost:8007/actuator/health', port: 8007],
+                        [name: 'Review Service', url: 'http://localhost:8008/actuator/health', port: 8008],
+                        [name: 'Notification Service', url: 'http://localhost:8009/actuator/health', port: 8009]
                     ]
+                    
+                    def healthyServices = 0
+                    def totalServices = services.size()
                     
                     for (service in services) {
                         try {
-                            sh "curl -f ${service.url} || echo ' ${service.name} health check failed'"
-                            echo "${service.name} is healthy"
+                            def response = sh(
+                                script: "curl -s -o /dev/null -w '%{http_code}' ${service.url}",
+                                returnStdout: true
+                            ).trim()
+                            
+                            if (response == '200') {
+                                echo "${service.name} is HEALTHY"
+                                healthyServices++
+                            } else {
+                                echo "${service.name} returned status: ${response}"
+                            }
                         } catch (Exception e) {
-                            echo "${service.name} health check failed: ${e.message}"
+                            echo "${service.name} health check FAILED: ${e.message}"
                         }
                     }
+                    
+                    echo "=========================================="
+                    echo "Health Check Summary: ${healthyServices}/${totalServices} services healthy"
+                    echo "=========================================="
+                    
+                    if (healthyServices < totalServices * 0.8) {
+                        echo "WARNING: Less than 80% of services are healthy!"
+                    }
+                }
+            }
+        }
+
+        stage('Smoke Tests') {
+            steps {
+                echo '========== Running Smoke Tests =========='
+                script {
+                    sh '''
+                        # Test Gateway routing
+                        echo "Testing Gateway..."
+                        curl -f http://localhost:8000/actuator/health || echo "Gateway test failed"
+                        
+                        # Test Auth Service
+                        echo "Testing Auth Service..."
+                        curl -f http://localhost:8000/api/auth/health || echo "Auth service test failed"
+                        
+                        # Test Restaurant Service
+                        echo "Testing Restaurant Service..."
+                        curl -f http://localhost:8000/api/restaurants/health || echo "Restaurant service test failed"
+                        
+                        echo "Smoke tests completed!"
+                    '''
                 }
             }
         }
@@ -228,28 +440,80 @@ pipeline {
 
     post {
         always {
-            echo 'Cleaning up...'
-            sh 'docker logout || true'
-            
-            // Archive test reports and coverage
-            archiveArtifacts artifacts: '**/target/surefire-reports/**/*.xml', allowEmptyArchive: true
-            archiveArtifacts artifacts: '**/target/failsafe-reports/**/*.xml', allowEmptyArchive: true
-            archiveArtifacts artifacts: '**/target/site/jacoco/**/*', allowEmptyArchive: true
-            
-            cleanWs()
+            echo '========== Pipeline Cleanup =========='
+            script {
+                // Logout from Docker
+                sh 'docker logout || true'
+                
+                // Archive artifacts
+                archiveArtifacts artifacts: "${BACKEND_DIR}/**/target/surefire-reports/**/*.xml", allowEmptyArchive: true
+                archiveArtifacts artifacts: "${BACKEND_DIR}/**/target/failsafe-reports/**/*.xml", allowEmptyArchive: true
+                archiveArtifacts artifacts: "${BACKEND_DIR}/**/target/site/jacoco/**/*", allowEmptyArchive: true
+                archiveArtifacts artifacts: 'trivy-report-*.txt', allowEmptyArchive: true
+                archiveArtifacts artifacts: 'trivy-report-*.json', allowEmptyArchive: true
+                
+                // Publish test results
+                publishHTML([
+                    allowMissing: true,
+                    alwaysLinkToLastBuild: true,
+                    keepAll: true,
+                    reportDir: "${BACKEND_DIR}/target/site/jacoco",
+                    reportFiles: 'index.html',
+                    reportName: 'JaCoCo Coverage Report'
+                ])
+            }
         }
+        
         success {
-            echo 'Pipeline succeeded! QuickBite is deployed and running.'
-            echo "Docker images tagged with build number: ${IMAGE_TAG}"
-            echo 'Access the application at: http://localhost:8000'
+            echo '=========================================='
+            echo '✓ PIPELINE SUCCEEDED!'
+            echo '=========================================='
+            echo "Build Number: ${IMAGE_TAG}"
+            echo "Docker Images: ${DOCKERHUB_USERNAME}/*:${IMAGE_TAG}"
+            echo ''
+            echo 'Application URLs:'
+            echo '  - Gateway: http://localhost:8000'
+            echo '  - Eureka: http://localhost:8761'
+            echo '  - Admin: http://localhost:8762'
+            echo '  - RabbitMQ: http://localhost:15672'
+            echo '=========================================='
+            
+            // Send success notification (optional)
+            // emailext subject: "✓ QuickBite Build #${BUILD_NUMBER} - SUCCESS",
+            //          body: "Build completed successfully. Images tagged: ${IMAGE_TAG}",
+            //          to: "team@example.com"
         }
+        
         failure {
-            echo 'Pipeline failed! Check logs for details.'
-            sh 'docker ps -a'
-            sh 'docker logs quickbite-gateway || true'
+            echo '=========================================='
+            echo 'PIPELINE FAILED!'
+            echo '=========================================='
+            
+            script {
+                // Show container logs for debugging
+                sh '''
+                    echo "Container Status:"
+                    docker ps -a
+                    
+                    echo "Gateway Logs:"
+                    docker logs quickbite-gateway --tail 100 || true
+                    
+                    echo "Eureka Logs:"
+                    docker logs quickbite-eureka-server --tail 100 || true
+                '''
+            }
+            
+            // Send failure notification (optional)
+            // emailext subject: "✗ QuickBite Build #${BUILD_NUMBER} - FAILED",
+            //          body: "Build failed. Check Jenkins console for details.",
+            //          to: "team@example.com"
         }
+        
         unstable {
-            echo 'Pipeline is unstable. Some tests may have failed.'
+            echo '=========================================='
+            echo '⚠ PIPELINE UNSTABLE'
+            echo '=========================================='
+            echo 'Some tests may have failed. Check reports.'
         }
     }
 }

@@ -361,17 +361,17 @@ pipeline {
                 dir("${BACKEND_DIR}") {
                     sh '''
                         # Stop existing containers
-                        docker-compose down || true
+                        docker compose down || true
                         
                         # Start infrastructure services first
-                        docker-compose up -d mysql redis rabbitmq zookeeper kafka
+                        docker compose up -d mysql redis rabbitmq zookeeper kafka
                         
                         # Wait for infrastructure to be ready
                         echo "Waiting for infrastructure services to be healthy..."
                         sleep 60
                         
                         # Check infrastructure health
-                        docker-compose ps
+                        docker compose ps
                     '''
                 }
             }

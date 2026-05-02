@@ -1,12 +1,16 @@
 pipeline {
     agent any
 
-    tools {
-        maven 'Maven'
-        jdk 'JDK 21'
-    }
+    // tools {
+    //     maven 'Maven'
+    //     jdk 'JDK 21'
+    // }
 
     environment {
+        // Java and Maven paths
+        JAVA_HOME = '/usr/lib/jvm/java-21-openjdk-amd64'
+        PATH = "${JAVA_HOME}/bin:/usr/bin:/bin:${env.PATH}"
+        
         // Git Repository
         GIT_REPO = 'https://github.com/Jadhav-Krishna/QuickBite.git'
         GIT_BRANCH = 'dev'

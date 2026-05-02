@@ -13,6 +13,7 @@ pipeline {
         DOCKERHUB_TOKEN = credentials('dockerhub-token')
         IMAGE_TAG = "${env.BUILD_NUMBER}"
         
+        SONAR_HOME = tool 'Sonar'
         SONAR_HOST_URL = 'http://sonarqube:9000'
         SONAR_TOKEN = credentials('sonarqube-token')
         SONAR_PROJECT_KEY = 'quickbite'
@@ -138,6 +139,13 @@ pipeline {
                 dir("${BACKEND_DIR}") {
                     script {
                         try {
+                            withSonarQubeEnv('Sonar'){
+                                sh """
+                                    SONAR_HOME/bin/sonar-scanner \
+                                      -Dsonar.projectName=QuickBite \
+                                      -Dsonar.projectKey=QuickBite
+                                """
+                            }
                             withSonarQubeEnv('SonarQube') {
                                 sh """
                                     if [ -f "./mvnw" ]; then
@@ -232,6 +240,28 @@ pipeline {
             }
         }
 
+        stage('Docker - Cleanup') {
+            steps {
+                echo '========== Cleaning Up Docker Resources =========='
+                script {
+                    sh '''
+                        echo "Current disk usage:"
+                        df -h
+                        
+                        echo "Removing unused Docker resources..."
+                        docker system prune -af --volumes || true
+                        
+                        echo "Removing old images..."
+                        docker images | grep "${DOCKERHUB_USERNAME}" | awk '{print $3}' | xargs -r docker rmi -f || true
+                        
+                        echo "After cleanup:"
+                        df -h
+                        docker system df
+                    '''
+                }
+            }
+        }
+
         stage('Docker - Login') {
             steps {
                 echo '========== Logging into Docker Hub =========='
@@ -263,8 +293,8 @@ pipeline {
                             echo "Building ${service}:${IMAGE_TAG}..."
                             sh """
                                 docker build \
-                                  -t ${DOCKERHUB_USERNAME}/${service}:${IMAGE_TAG} \
-                                  -t ${DOCKERHUB_USERNAME}/${service}:latest \
+                                  -t \${DOCKERHUB_USERNAME}/${service}:${IMAGE_TAG} \
+                                  -t \${DOCKERHUB_USERNAME}/${service}:latest \
                                   ./${service}
                             """
                         }
@@ -300,11 +330,10 @@ pipeline {
                               --timeout ${TRIVY_TIMEOUT} \
                               --exit-code 0 \
                               --format table \
-                              ${DOCKERHUB_USERNAME}/${service}:${IMAGE_TAG} \
+                              \${DOCKERHUB_USERNAME}/${service}:${IMAGE_TAG} \
                               > trivy-report-${service}.txt || true
                         """
                         
-                        // Generate JSON report for archiving
                         sh """
                             trivy image \
                               --severity ${TRIVY_SEVERITY} \
@@ -312,7 +341,7 @@ pipeline {
                               --exit-code 0 \
                               --format json \
                               --output trivy-report-${service}.json \
-                              ${DOCKERHUB_USERNAME}/${service}:${IMAGE_TAG} || true
+                              \${DOCKERHUB_USERNAME}/${service}:${IMAGE_TAG} || true
                         """
                     }
                 }
@@ -347,8 +376,8 @@ pipeline {
                     for (String service : services) {
                         echo "Pushing ${service}..."
                         sh """
-                            docker push ${DOCKERHUB_USERNAME}/${service}:${IMAGE_TAG}
-                            docker push ${DOCKERHUB_USERNAME}/${service}:latest
+                            docker push \${DOCKERHUB_USERNAME}/${service}:${IMAGE_TAG}
+                            docker push \${DOCKERHUB_USERNAME}/${service}:latest
                         """
                     }
                 }

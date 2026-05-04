@@ -13,7 +13,7 @@ pipeline {
         DOCKERHUB_TOKEN = credentials('dockerhub-token')
         IMAGE_TAG = "${env.BUILD_NUMBER}"
         
-        SONAR_HOST_URL = 'http://sonarqube:9000'
+        SONAR_HOST_URL = 'http://localhost:9000'
         SONAR_TOKEN = credentials('sonarqube-token')
         SONAR_PROJECT_KEY = 'quickbite'
         

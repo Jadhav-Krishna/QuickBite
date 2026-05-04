@@ -164,31 +164,65 @@ pipeline {
         stage('Backend - SonarQube Analysis') {
             steps {
                 echo '========== Running SonarQube Code Quality Analysis =========='
-                dir("${BACKEND_DIR}") {
-                    script {
-                        try {
-                            sh """
-                                echo "Starting SonarQube analysis..."
-                                if [ -f "./mvnw" ]; then
-                                    ./mvnw verify sonar:sonar \
-                                      -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                                      -Dsonar.projectName=QuickBite-Backend \
-                                      -Dsonar.host.url=${SONAR_HOST_URL} \
-                                      -Dsonar.token=\${SONAR_TOKEN} \
-                                      -Dsonar.java.binaries=target/classes
-                                else
-                                    mvn verify sonar:sonar \
-                                      -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                                      -Dsonar.projectName=QuickBite-Backend \
-                                      -Dsonar.host.url=${SONAR_HOST_URL} \
-                                      -Dsonar.token=\${SONAR_TOKEN} \
-                                      -Dsonar.java.binaries=target/classes
-                                fi
-                                echo "SonarQube analysis completed successfully!"
-                            """
-                        } catch (Exception e) {
-                            echo "SonarQube analysis failed: ${e.message}"
-                            echo "Continuing pipeline..."
+                script {
+                    withSonarQubeEnv('SonarQube') {
+                        dir("${BACKEND_DIR}") {
+                            try {
+                                sh """
+                                    echo "Starting SonarQube analysis..."
+                                    if [ -f "./mvnw" ]; then
+                                        ./mvnw clean verify sonar:sonar \
+                                          -Dsonar.projectKey=${SONAR_PROJECT_KEY}-backend \
+                                          -Dsonar.projectName=QuickBite-Backend \
+                                          -Dsonar.coverage.jacoco.xmlReportPaths=**/target/site/jacoco/jacoco.xml \
+                                          -Dsonar.java.coveragePlugin=jacoco
+                                    else
+                                        mvn clean verify sonar:sonar \
+                                          -Dsonar.projectKey=${SONAR_PROJECT_KEY}-backend \
+                                          -Dsonar.projectName=QuickBite-Backend \
+                                          -Dsonar.coverage.jacoco.xmlReportPaths=**/target/site/jacoco/jacoco.xml \
+                                          -Dsonar.java.coveragePlugin=jacoco
+                                    fi
+                                    echo "Backend SonarQube analysis completed!"
+                                """
+                            } catch (Exception e) {
+                                echo "Backend SonarQube analysis failed: ${e.message}"
+                                echo "Continuing pipeline..."
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Frontend - SonarQube Analysis') {
+            steps {
+                echo '========== Running Frontend SonarQube Analysis =========='
+                script {
+                    withSonarQubeEnv('SonarQube') {
+                        dir("${FRONTEND_DIR}") {
+                            try {
+                                sh '''
+                                    echo "Generating test coverage..."
+                                    npm run test:coverage || npm run test -- --coverage
+                                    
+                                    echo "Starting Frontend SonarQube analysis..."
+                                    npx sonar-scanner \
+                                      -Dsonar.projectKey=quickbite-frontend \
+                                      -Dsonar.projectName=QuickBite-Frontend \
+                                      -Dsonar.sources=src \
+                                      -Dsonar.tests=src \
+                                      -Dsonar.test.inclusions=**/*.test.ts,**/*.test.tsx,**/*.spec.ts,**/*.spec.tsx \
+                                      -Dsonar.exclusions=**/*.test.ts,**/*.test.tsx,**/*.spec.ts,**/*.spec.tsx,**/node_modules/**,**/dist/**,**/coverage/** \
+                                      -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info \
+                                      -Dsonar.typescript.lcov.reportPaths=coverage/lcov.info
+                                    
+                                    echo "Frontend SonarQube analysis completed!"
+                                '''
+                            } catch (Exception e) {
+                                echo "Frontend SonarQube analysis failed: ${e.message}"
+                                echo "Continuing pipeline..."
+                            }
                         }
                     }
                 }
@@ -243,15 +277,19 @@ pipeline {
             }
         }
 
-        stage('Frontend - Tests') {
+        stage('Frontend - Tests with Coverage') {
             steps {
-                echo '========== Running Frontend Tests =========='
+                echo '========== Running Frontend Tests with Coverage =========='
                 dir("${FRONTEND_DIR}") {
                     script {
                         try {
                             sh '''
-                                echo "Running Vitest tests..."
-                                npm run test
+                                echo "Running Vitest tests with coverage..."
+                                npm run test:coverage || npm run test -- --coverage
+                                
+                                echo "Coverage report generated!"
+                                ls -la coverage/ || echo "Coverage directory not found"
+                                
                                 echo "Frontend tests completed successfully!"
                             '''
                         } catch (Exception e) {
@@ -259,6 +297,18 @@ pipeline {
                             echo "Continuing pipeline..."
                         }
                     }
+                }
+            }
+            post {
+                always {
+                    publishHTML([
+                        allowMissing: true,
+                        alwaysLinkToLastBuild: true,
+                        keepAll: true,
+                        reportDir: "${FRONTEND_DIR}/coverage",
+                        reportFiles: 'index.html',
+                        reportName: 'Frontend Coverage Report'
+                    ])
                 }
             }
         }

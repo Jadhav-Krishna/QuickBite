@@ -11,9 +11,21 @@ export default defineConfig({
     clearMocks: true,
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'html'],
+      reporter: ['text', 'html', 'lcov', 'json'],
       include: ['src/**/*.{ts,tsx}'],
-      exclude: ['src/test/**', 'src/main.tsx'],
+      exclude: [
+        'src/test/**',
+        'src/main.tsx',
+        'src/**/*.d.ts',
+        'src/**/*.config.ts',
+        'src/vite-env.d.ts'
+      ],
+      thresholds: {
+        lines: 87,
+        functions: 87,
+        branches: 87,
+        statements: 87
+      }
     },
   },
 });

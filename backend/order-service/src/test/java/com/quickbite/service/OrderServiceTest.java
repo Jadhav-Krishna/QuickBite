@@ -1,124 +1,431 @@
 package com.quickbite.service;
 
-import com.quickbite.dto.OrderDTO;
+import com.quickbite.dto.*;
 import com.quickbite.entity.*;
+import com.quickbite.event.OrderEvent;
 import com.quickbite.repository.OrderRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
+import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class OrderServiceTest {
 
-    @Mock
-    private OrderRepository orderRepository;
+    @Mock private OrderRepository orderRepository;
+    @Mock private RabbitTemplate rabbitTemplate;
 
-    @Mock
-    private RabbitTemplate rabbitTemplate;
+    @InjectMocks private OrderService orderService;
 
-    @InjectMocks
-    private OrderService orderService;
-
-    private Order testOrder;
+    private Order order;
 
     @BeforeEach
-    void setUp() {
-        testOrder = new Order();
-        testOrder.setId(1L);
-        testOrder.setOrderNumber("ORD-001");
-        testOrder.setCustomerId(1L);
-        testOrder.setRestaurantId(1L);
-        testOrder.setStatus(OrderStatus.PLACED);
-        testOrder.setTotalAmount(100.0);
-        testOrder.setFinalAmount(100.0);
-        testOrder.setPaymentMethod(PaymentMethod.UPI);
-        testOrder.setPaymentStatus(PaymentStatus.PENDING);
-        testOrder.setRestaurantPickupConfirmed(false);
-        testOrder.setAgentPickupConfirmed(false);
+    void setup() {
+        order = new Order();
+        order.setId(1L);
+        order.setOrderNumber("ORD-1");
+        order.setCustomerId(1L);
+        order.setRestaurantId(1L);
+        order.setStatus(OrderStatus.PLACED);
+        order.setFinalAmount(100.0);
+        order.setPaymentMethod(PaymentMethod.UPI);
+        order.setRestaurantPickupConfirmed(false);
+        order.setAgentPickupConfirmed(false);
     }
 
-    @Test
-    void getOrderById_Success() {
-        when(orderRepository.findByOrderNumber(anyString())).thenReturn(Optional.of(testOrder));
+    // ================= PLACE ORDER =================
 
-        OrderDTO result = orderService.getOrder("ORD-001");
+    @Test
+    void placeOrder_success() {
+        CreateOrderRequest req = new CreateOrderRequest();
+        req.setCustomerId(1L);
+        req.setRestaurantId(1L);
+        req.setTotalAmount(100.0);
+
+        when(orderRepository.save(any())).thenReturn(order);
+
+        OrderDTO result = orderService.placeOrder(req);
 
         assertNotNull(result);
-        assertEquals(1L, result.getId());
-        verify(orderRepository).findByOrderNumber("ORD-001");
+        verify(orderRepository).save(any());
+    }
+
+    // ================= CONFIRM =================
+
+    @Test
+    void confirmOrder_success() {
+        when(orderRepository.findByOrderNumber(any()))
+                .thenReturn(Optional.of(order));
+        when(orderRepository.save(any())).thenReturn(order);
+
+        OrderDTO result = orderService.confirmOrder("ORD-1");
+
+        assertEquals(OrderStatus.CONFIRMED, order.getStatus());
+        assertEquals(PaymentStatus.SUCCESS, order.getPaymentStatus());
     }
 
     @Test
-    void getOrderById_NotFound() {
-        when(orderRepository.findByOrderNumber(anyString())).thenReturn(Optional.empty());
+    void confirmOrder_invalidState() {
+        order.setStatus(OrderStatus.DELIVERED);
 
-        assertThrows(RuntimeException.class, () -> orderService.getOrder("ORD-999"));
+        when(orderRepository.findByOrderNumber(any()))
+                .thenReturn(Optional.of(order));
+
+        assertThrows(RuntimeException.class,
+                () -> orderService.confirmOrder("ORD-1"));
+    }
+
+    // ================= STATUS =================
+
+    @Test
+    void updateStatus_validTransition() {
+        order.setStatus(OrderStatus.PLACED);
+
+        when(orderRepository.findByOrderNumber(any()))
+                .thenReturn(Optional.of(order));
+        when(orderRepository.save(any())).thenReturn(order);
+
+        orderService.updateOrderStatus("ORD-1", OrderStatus.CONFIRMED);
+
+        assertEquals(OrderStatus.CONFIRMED, order.getStatus());
     }
 
     @Test
-    void getUserOrders_Success() {
-        when(orderRepository.findCustomerOrderHistory(anyLong())).thenReturn(Arrays.asList(testOrder));
+    void updateStatus_invalidTransition() {
+        order.setStatus(OrderStatus.PLACED);
 
-        List<OrderDTO> results = orderService.getCustomerOrders(1L);
+        when(orderRepository.findByOrderNumber(any()))
+                .thenReturn(Optional.of(order));
 
-        assertNotNull(results);
-        assertEquals(1, results.size());
-        verify(orderRepository).findCustomerOrderHistory(1L);
+        assertThrows(RuntimeException.class,
+                () -> orderService.updateOrderStatus("ORD-1", OrderStatus.DELIVERED));
+    }
+
+    // ================= ASSIGN =================
+
+    @Test
+    void assignAgent_success() {
+        order.setStatus(OrderStatus.READY);
+
+        when(orderRepository.findByOrderNumber(any()))
+                .thenReturn(Optional.of(order));
+        when(orderRepository.save(any())).thenReturn(order);
+
+        orderService.assignDeliveryAgent("ORD-1", 10L);
+
+        assertEquals(10L, order.getDeliveryAgentId());
     }
 
     @Test
-    void getRestaurantOrders_Success() {
-        when(orderRepository.findActiveOrdersByRestaurant(anyLong())).thenReturn(Arrays.asList(testOrder));
+    void assignAgent_invalidState() {
+        when(orderRepository.findByOrderNumber(any()))
+                .thenReturn(Optional.of(order));
 
-        List<OrderDTO> results = orderService.getRestaurantActiveOrders(1L);
+        assertThrows(RuntimeException.class,
+                () -> orderService.assignDeliveryAgent("ORD-1", 10L));
+    }
 
-        assertNotNull(results);
-        assertEquals(1, results.size());
-        verify(orderRepository).findActiveOrdersByRestaurant(1L);
+    // ================= CANCEL =================
+
+    @Test
+    void cancelOrder_success() {
+        when(orderRepository.findByOrderNumber(any()))
+                .thenReturn(Optional.of(order));
+        when(orderRepository.save(any())).thenReturn(order);
+
+        orderService.cancelOrder("ORD-1", "test");
+
+        assertEquals(OrderStatus.CANCELLED, order.getStatus());
     }
 
     @Test
-    void updateOrderStatus_Success() {
-        when(orderRepository.findByOrderNumber(anyString())).thenReturn(Optional.of(testOrder));
-        when(orderRepository.save(any(Order.class))).thenReturn(testOrder);
+    void cancelOrder_invalid() {
+        order.setStatus(OrderStatus.DELIVERED);
 
-        OrderDTO result = orderService.updateOrderStatus("ORD-001", OrderStatus.CONFIRMED);
+        when(orderRepository.findByOrderNumber(any()))
+                .thenReturn(Optional.of(order));
+
+        assertThrows(RuntimeException.class,
+                () -> orderService.cancelOrder("ORD-1", "test"));
+    }
+
+    // ================= PICKUP =================
+
+    @Test
+    void confirmPickupRestaurant_success() {
+        order.setStatus(OrderStatus.READY);
+        order.setDeliveryAgentId(10L);
+
+        when(orderRepository.findByOrderNumber(any()))
+                .thenReturn(Optional.of(order));
+        when(orderRepository.save(any())).thenReturn(order);
+
+        orderService.confirmPickupByRestaurant("ORD-1");
+
+        assertTrue(order.getRestaurantPickupConfirmed());
+    }
+
+    @Test
+    void confirmPickupAgent_success() {
+        order.setStatus(OrderStatus.READY);
+        order.setDeliveryAgentId(10L);
+
+        when(orderRepository.findByOrderNumber(any()))
+                .thenReturn(Optional.of(order));
+        when(orderRepository.save(any())).thenReturn(order);
+
+        orderService.confirmPickupByAgent("ORD-1", 10L);
+
+        assertTrue(order.getAgentPickupConfirmed());
+    }
+
+    @Test
+    void confirmPickup_wrongAgent() {
+        order.setStatus(OrderStatus.READY);
+        order.setDeliveryAgentId(10L);
+
+        when(orderRepository.findByOrderNumber(any()))
+                .thenReturn(Optional.of(order));
+
+        assertThrows(RuntimeException.class,
+                () -> orderService.confirmPickupByAgent("ORD-1", 99L));
+    }
+
+    // ================= REORDER =================
+
+    @Test
+    void reorder_success() {
+        when(orderRepository.findByOrderNumber(any()))
+                .thenReturn(Optional.of(order));
+        when(orderRepository.save(any())).thenReturn(order);
+
+        OrderDTO result = orderService.reorderFromHistory("ORD-1");
 
         assertNotNull(result);
-        assertEquals(OrderStatus.CONFIRMED, testOrder.getStatus());
-        verify(orderRepository).save(testOrder);
+    }
+
+    // ================= GET =================
+
+    @Test
+    void getOrder_success() {
+        when(orderRepository.findByOrderNumber(any()))
+                .thenReturn(Optional.of(order));
+
+        OrderDTO dto = orderService.getOrder("ORD-1");
+
+        assertNotNull(dto);
     }
 
     @Test
-    void cancelOrder_Success() {
-        when(orderRepository.findByOrderNumber(anyString())).thenReturn(Optional.of(testOrder));
-        when(orderRepository.save(any(Order.class))).thenReturn(testOrder);
+    void getAvailableOrders_success() {
+        order.setStatus(OrderStatus.READY);
 
-        orderService.cancelOrder("ORD-001", "Customer request");
+        when(orderRepository.findByStatusAndDeliveryAgentIdIsNullOrderByCreatedAtAsc(any()))
+                .thenReturn(List.of(order));
 
-        assertEquals(OrderStatus.CANCELLED, testOrder.getStatus());
-        verify(orderRepository).save(testOrder);
+        assertEquals(1, orderService.getAvailableOrdersForDelivery().size());
     }
 
     @Test
-    void getActiveOrders_Success() {
-        when(orderRepository.findByStatus(any(OrderStatus.class))).thenReturn(Arrays.asList(testOrder));
+    void getOrderCount_success() {
+        when(orderRepository.count()).thenReturn(5L);
 
-        List<OrderDTO> results = orderService.getActiveOrders();
+        assertEquals(5, orderService.getOrderCount());
+    }
 
-        assertNotNull(results);
-        assertFalse(results.isEmpty());
+    @Test
+    void getCustomerOrders_success() {
+        when(orderRepository.findCustomerOrderHistory(anyLong()))
+                .thenReturn(List.of(order));
+
+        List<OrderDTO> result = orderService.getCustomerOrders(1L);
+
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    void getRestaurantActiveOrders_success() {
+        when(orderRepository.findActiveOrdersByRestaurant(anyLong()))
+                .thenReturn(List.of(order));
+
+        List<OrderDTO> result = orderService.getRestaurantActiveOrders(1L);
+
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    void getDeliveryAgentOrders_success() {
+        when(orderRepository.findAllOrdersByDeliveryAgent(anyLong()))
+                .thenReturn(List.of(order));
+
+        List<OrderDTO> result = orderService.getDeliveryAgentOrders(10L);
+
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    void getActiveOrders_success() {
+        when(orderRepository.findByStatus(OrderStatus.PLACED))
+                .thenReturn(List.of(order));
+
+        List<OrderDTO> result = orderService.getActiveOrders();
+
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    void updateStatus_toDelivered() {
+        order.setStatus(OrderStatus.IN_TRANSIT);
+
+        when(orderRepository.findByOrderNumber(any()))
+                .thenReturn(Optional.of(order));
+        when(orderRepository.save(any())).thenReturn(order);
+
+        orderService.updateOrderStatus("ORD-1", OrderStatus.DELIVERED);
+
+        assertEquals(OrderStatus.DELIVERED, order.getStatus());
+        assertNotNull(order.getActualDeliveryTime());
+    }
+
+    @Test
+    void updateStatus_toReady() {
+        order.setStatus(OrderStatus.PREPARING);
+        order.setRestaurantPickupConfirmed(true);
+        order.setAgentPickupConfirmed(true);
+
+        when(orderRepository.findByOrderNumber(any()))
+                .thenReturn(Optional.of(order));
+        when(orderRepository.save(any())).thenReturn(order);
+
+        orderService.updateOrderStatus("ORD-1", OrderStatus.READY);
+
+        assertEquals(OrderStatus.READY, order.getStatus());
+        assertFalse(order.getRestaurantPickupConfirmed());
+        assertFalse(order.getAgentPickupConfirmed());
+    }
+
+    @Test
+    void updateStatus_toPickedUp_withoutConfirmations() {
+        order.setStatus(OrderStatus.READY);
+
+        when(orderRepository.findByOrderNumber(any()))
+                .thenReturn(Optional.of(order));
+
+        assertThrows(RuntimeException.class,
+                () -> orderService.updateOrderStatus("ORD-1", OrderStatus.PICKED_UP));
+    }
+
+    @Test
+    void confirmPickupByRestaurant_noAgent() {
+        order.setStatus(OrderStatus.READY);
+
+        when(orderRepository.findByOrderNumber(any()))
+                .thenReturn(Optional.of(order));
+
+        assertThrows(RuntimeException.class,
+                () -> orderService.confirmPickupByRestaurant("ORD-1"));
+    }
+
+    @Test
+    void confirmPickupByAgent_noAgent() {
+        order.setStatus(OrderStatus.READY);
+
+        when(orderRepository.findByOrderNumber(any()))
+                .thenReturn(Optional.of(order));
+
+        assertThrows(RuntimeException.class,
+                () -> orderService.confirmPickupByAgent("ORD-1", 10L));
+    }
+
+    @Test
+    void confirmPickupByAgent_invalidStatus() {
+        order.setStatus(OrderStatus.PLACED);
+        order.setDeliveryAgentId(10L);
+
+        when(orderRepository.findByOrderNumber(any()))
+                .thenReturn(Optional.of(order));
+
+        assertThrows(RuntimeException.class,
+                () -> orderService.confirmPickupByAgent("ORD-1", 10L));
+    }
+
+    @Test
+    void confirmPickupByRestaurant_invalidStatus() {
+        order.setStatus(OrderStatus.PLACED);
+        order.setDeliveryAgentId(10L);
+
+        when(orderRepository.findByOrderNumber(any()))
+                .thenReturn(Optional.of(order));
+
+        assertThrows(RuntimeException.class,
+                () -> orderService.confirmPickupByRestaurant("ORD-1"));
+    }
+
+    @Test
+    void assignAgent_alreadyAssigned() {
+        order.setStatus(OrderStatus.READY);
+        order.setDeliveryAgentId(5L);
+
+        when(orderRepository.findByOrderNumber(any()))
+                .thenReturn(Optional.of(order));
+
+        assertThrows(RuntimeException.class,
+                () -> orderService.assignDeliveryAgent("ORD-1", 10L));
+    }
+
+    @Test
+    void confirmPickup_bothConfirmed_promotesToPickedUp() {
+        order.setStatus(OrderStatus.READY);
+        order.setDeliveryAgentId(10L);
+        order.setRestaurantPickupConfirmed(true);
+
+        when(orderRepository.findByOrderNumber(any()))
+                .thenReturn(Optional.of(order));
+        when(orderRepository.save(any())).thenReturn(order);
+
+        orderService.confirmPickupByAgent("ORD-1", 10L);
+
+        assertEquals(OrderStatus.PICKED_UP, order.getStatus());
+    }
+
+    @Test
+    void getOrder_notFound() {
+        when(orderRepository.findByOrderNumber(any()))
+                .thenReturn(Optional.empty());
+
+        assertThrows(RuntimeException.class,
+                () -> orderService.getOrder("ORD-1"));
+    }
+
+    @Test
+    void placeOrder_withItems() {
+        CreateOrderRequest req = new CreateOrderRequest();
+        req.setCustomerId(1L);
+        req.setRestaurantId(1L);
+        req.setTotalAmount(100.0);
+        req.setDeliveryCharge(20.0);
+        req.setDiscountAmount(10.0);
+        req.setItems(List.of(
+            OrderItemDTO.builder()
+                .menuItemId(1L)
+                .itemName("Pizza")
+                .quantity(2)
+                .price(50.0)
+                .build()
+        ));
+
+        when(orderRepository.save(any())).thenReturn(order);
+
+        OrderDTO result = orderService.placeOrder(req);
+
+        assertNotNull(result);
+        verify(orderRepository).save(any());
     }
 }

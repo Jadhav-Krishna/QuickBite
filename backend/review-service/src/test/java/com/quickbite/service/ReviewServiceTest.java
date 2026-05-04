@@ -6,67 +6,44 @@ import com.quickbite.repository.ReviewRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
+import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class ReviewServiceTest {
 
-    @Mock
-    private ReviewRepository reviewRepository;
+    @Mock private ReviewRepository reviewRepository;
 
-    @InjectMocks
-    private ReviewService reviewService;
+    @InjectMocks private ReviewService reviewService;
 
-    private Review testReview;
+    private Review review;
 
     @BeforeEach
-    void setUp() {
-        testReview = Review.builder()
+    void setup() {
+        review = Review.builder()
                 .id(1L)
                 .orderId(1L)
                 .customerId(1L)
                 .restaurantId(1L)
                 .restaurantRating(5)
                 .deliveryRating(4)
+                .isAnonymous(false)
                 .build();
     }
 
-    @Test
-    void getReviewByOrderId_Success() {
-        when(reviewRepository.findByOrderId(anyLong())).thenReturn(Optional.of(testReview));
-
-        ReviewDTO result = reviewService.getReviewByOrderId(1L);
-
-        assertNotNull(result);
-        assertEquals(1L, result.getId());
-        verify(reviewRepository).findByOrderId(1L);
-    }
+    // ================= CREATE =================
 
     @Test
-    void getReviewsByRestaurant_Success() {
-        when(reviewRepository.findByRestaurantIdOrderByCreatedAtDesc(anyLong()))
-                .thenReturn(Arrays.asList(testReview));
-
-        List<ReviewDTO> results = reviewService.getRestaurantReviews(1L);
-
-        assertNotNull(results);
-        assertEquals(1, results.size());
-    }
-
-    @Test
-    void createReview_Success() {
-        when(reviewRepository.findByOrderId(anyLong())).thenReturn(Optional.empty());
-        when(reviewRepository.save(any(Review.class))).thenReturn(testReview);
+    void createReview_success() {
+        when(reviewRepository.findByOrderId(any()))
+                .thenReturn(Optional.empty());
+        when(reviewRepository.save(any()))
+                .thenReturn(review);
 
         ReviewDTO dto = new ReviewDTO();
         dto.setOrderId(1L);
@@ -74,30 +51,133 @@ class ReviewServiceTest {
         dto.setRestaurantId(1L);
         dto.setRestaurantRating(5);
 
-        ReviewDTO result = reviewService.createReview(dto);
+        ReviewDTO res = reviewService.createReview(dto);
 
-        assertNotNull(result);
-        verify(reviewRepository).save(any(Review.class));
+        assertNotNull(res);
+        verify(reviewRepository).save(any());
     }
 
     @Test
-    void getAverageRestaurantRating_Success() {
-        when(reviewRepository.getAverageRestaurantRating(anyLong())).thenReturn(4.5);
+    void createReview_duplicate() {
+        when(reviewRepository.findByOrderId(any()))
+                .thenReturn(Optional.of(review));
 
-        Double result = reviewService.getRestaurantAverageRating(1L);
+        ReviewDTO dto = new ReviewDTO();
+        dto.setOrderId(1L);
 
-        assertNotNull(result);
-        assertEquals(4.5, result);
+        assertThrows(RuntimeException.class,
+                () -> reviewService.createReview(dto));
     }
 
     @Test
-    void getCustomerReviews_Success() {
-        when(reviewRepository.findByCustomerIdOrderByCreatedAtDesc(anyLong()))
-                .thenReturn(Arrays.asList(testReview));
+    void createReview_anonymousDefaultFalse() {
+        when(reviewRepository.findByOrderId(any()))
+                .thenReturn(Optional.empty());
+        when(reviewRepository.save(any()))
+                .thenReturn(review);
 
-        List<ReviewDTO> results = reviewService.getCustomerReviews(1L);
+        ReviewDTO dto = new ReviewDTO();
+        dto.setOrderId(1L);
 
-        assertNotNull(results);
-        assertEquals(1, results.size());
+        ReviewDTO res = reviewService.createReview(dto);
+
+        assertFalse(res.getIsAnonymous());
+    }
+
+    // ================= GET =================
+
+    @Test
+    void getReview_success() {
+        when(reviewRepository.findByOrderId(any()))
+                .thenReturn(Optional.of(review));
+
+        ReviewDTO res = reviewService.getReviewByOrderId(1L);
+
+        assertEquals(1L, res.getOrderId());
+    }
+
+    @Test
+    void getReview_notFound() {
+        when(reviewRepository.findByOrderId(any()))
+                .thenReturn(Optional.empty());
+
+        assertThrows(RuntimeException.class,
+                () -> reviewService.getReviewByOrderId(1L));
+    }
+
+    // ================= LIST =================
+
+    @Test
+    void getRestaurantReviews_success() {
+        when(reviewRepository.findByRestaurantIdOrderByCreatedAtDesc(any()))
+                .thenReturn(List.of(review));
+
+        assertEquals(1,
+                reviewService.getRestaurantReviews(1L).size());
+    }
+
+    @Test
+    void getCustomerReviews_success() {
+        when(reviewRepository.findByCustomerIdOrderByCreatedAtDesc(any()))
+                .thenReturn(List.of(review));
+
+        assertEquals(1,
+                reviewService.getCustomerReviews(1L).size());
+    }
+
+    @Test
+    void getDeliveryAgentReviews_success() {
+        when(reviewRepository.findByDeliveryAgentIdOrderByCreatedAtDesc(any()))
+                .thenReturn(List.of(review));
+
+        assertEquals(1,
+                reviewService.getDeliveryAgentReviews(1L).size());
+    }
+
+    @Test
+    void getAllReviews_success() {
+        when(reviewRepository.findAll())
+                .thenReturn(List.of(review));
+
+        assertEquals(1,
+                reviewService.getAllReviews().size());
+    }
+
+    // ================= AVG =================
+
+    @Test
+    void getRestaurantAvg_success() {
+        when(reviewRepository.getAverageRestaurantRating(any()))
+                .thenReturn(4.5);
+
+        assertEquals(4.5,
+                reviewService.getRestaurantAverageRating(1L));
+    }
+
+    @Test
+    void getRestaurantAvg_nullFallback() {
+        when(reviewRepository.getAverageRestaurantRating(any()))
+                .thenReturn(null);
+
+        assertEquals(0.0,
+                reviewService.getRestaurantAverageRating(1L));
+    }
+
+    @Test
+    void getDeliveryAvg_success() {
+        when(reviewRepository.getAverageDeliveryRating(any()))
+                .thenReturn(4.0);
+
+        assertEquals(4.0,
+                reviewService.getDeliveryAgentAverageRating(1L));
+    }
+
+    @Test
+    void getDeliveryAvg_nullFallback() {
+        when(reviewRepository.getAverageDeliveryRating(any()))
+                .thenReturn(null);
+
+        assertEquals(0.0,
+                reviewService.getDeliveryAgentAverageRating(1L));
     }
 }

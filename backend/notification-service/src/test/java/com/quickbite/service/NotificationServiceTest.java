@@ -8,10 +8,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -101,5 +104,47 @@ class NotificationServiceTest {
         notificationService.markAllAsRead(1L);
 
         verify(notificationRepository).markAllAsReadByUserId(1L);
+    }
+
+    @Test
+    void clearAllNotifications_Success() {
+        doNothing().when(notificationRepository).deleteByUserId(anyLong());
+
+        notificationService.clearAllNotifications(1L);
+
+        verify(notificationRepository).deleteByUserId(1L);
+    }
+
+    @Test
+    void processNotification_Success() {
+        Map<String, Object> event = new HashMap<>();
+        event.put("userId", 1L);
+        event.put("title", "Test");
+        event.put("message", "Message");
+        event.put("type", "INFO");
+        event.put("eventType", "ORDER");
+
+        when(notificationRepository.save(any(Notification.class))).thenReturn(testNotification);
+
+        notificationService.processNotification(event);
+
+        verify(notificationRepository).save(any(Notification.class));
+    }
+
+    @Test
+    void processNotification_WithEmail() {
+        Map<String, Object> event = new HashMap<>();
+        event.put("userId", 1L);
+        event.put("title", "Test");
+        event.put("message", "Message");
+        event.put("sendEmail", true);
+        event.put("email", "test@mail.com");
+
+        when(notificationRepository.save(any(Notification.class))).thenReturn(testNotification);
+
+        notificationService.processNotification(event);
+
+        verify(notificationRepository).save(any(Notification.class));
+        verify(mailSender).send(any(SimpleMailMessage.class));
     }
 }

@@ -5,90 +5,420 @@ import com.quickbite.repository.RestaurantRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
+import org.locationtech.jts.geom.*;
+import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class RestaurantServiceTest {
 
-    @Mock
-    private RestaurantRepository restaurantRepository;
+    @Mock private RestaurantRepository restaurantRepository;
 
-    @InjectMocks
-    private RestaurantService restaurantService;
+    @InjectMocks private RestaurantService restaurantService;
 
-    private Restaurant testRestaurant;
+    private Restaurant restaurant;
 
     @BeforeEach
-    void setUp() {
-        testRestaurant = new Restaurant();
-        testRestaurant.setId(1L);
-        testRestaurant.setName("Test Restaurant");
-        testRestaurant.setOwnerId(1L);
-        testRestaurant.setIsActive(true);
+    void setup() {
+        GeometryFactory gf = new GeometryFactory(new PrecisionModel(), 4326);
+        Point location = gf.createPoint(new Coordinate(77.5, 23.2));
+
+        restaurant = new Restaurant();
+        restaurant.setId(1L);
+        restaurant.setName("Test");
+        restaurant.setOwnerId(1L);
+        restaurant.setCuisineType("Indian");
+        restaurant.setAddress("Address");
+        restaurant.setCity("Bhopal");
+        restaurant.setState("MP");
+        restaurant.setPincode("462001");
+        restaurant.setPhoneNumber("9999999999");
+        restaurant.setEmail("test@mail.com");
+        restaurant.setLocation(location);
+        restaurant.setIsApproved(false);
+        restaurant.setIsOpen(false);
+        restaurant.setIsActive(true);
     }
 
-    @Test
-    void getRestaurantById_Success() {
-        when(restaurantRepository.findById(anyLong())).thenReturn(Optional.of(testRestaurant));
+    // ================= CREATE =================
 
-        Restaurant result = restaurantService.getRestaurantById(1L);
+    @Test
+    void createRestaurant_success() {
+        when(restaurantRepository.save(any())).thenReturn(restaurant);
+
+        Restaurant result = restaurantService.createRestaurant(restaurant);
 
         assertNotNull(result);
-        assertEquals(1L, result.getId());
-        verify(restaurantRepository).findById(1L);
+        assertTrue(result.getIsActive());
+        assertFalse(result.getIsOpen());
+        assertFalse(result.getIsApproved());
     }
 
     @Test
-    void getAllRestaurants_Success() {
-        when(restaurantRepository.findAll()).thenReturn(Arrays.asList(testRestaurant));
+    void createRestaurant_missingName() {
+        restaurant.setName(null);
 
-        List<Restaurant> results = restaurantService.getAllRestaurants();
-
-        assertNotNull(results);
-        assertEquals(1, results.size());
+        assertThrows(RuntimeException.class,
+                () -> restaurantService.createRestaurant(restaurant));
     }
 
     @Test
-    void getRestaurantsByOwner_Success() {
-        when(restaurantRepository.findByOwnerId(anyLong())).thenReturn(Arrays.asList(testRestaurant));
+    void createRestaurant_blankName() {
+        restaurant.setName("");
 
-        List<Restaurant> results = restaurantService.getRestaurantsByOwner(1L);
-
-        assertNotNull(results);
-        assertEquals(1, results.size());
+        assertThrows(RuntimeException.class,
+                () -> restaurantService.createRestaurant(restaurant));
     }
 
     @Test
-    void updateRestaurant_Success() {
-        when(restaurantRepository.findById(anyLong())).thenReturn(Optional.of(testRestaurant));
-        when(restaurantRepository.save(any(Restaurant.class))).thenReturn(testRestaurant);
+    void createRestaurant_missingLocation() {
+        restaurant.setLocation(null);
 
-        Restaurant updateRestaurant = new Restaurant();
-        updateRestaurant.setName("Updated Restaurant");
-
-        Restaurant result = restaurantService.updateRestaurant(1L, updateRestaurant);
-
-        assertNotNull(result);
-        verify(restaurantRepository).save(any(Restaurant.class));
+        assertThrows(RuntimeException.class,
+                () -> restaurantService.createRestaurant(restaurant));
     }
 
     @Test
-    void deleteRestaurant_Success() {
-        when(restaurantRepository.existsById(anyLong())).thenReturn(true);
-        doNothing().when(restaurantRepository).deleteById(anyLong());
+    void createRestaurant_missingCuisineType() {
+        restaurant.setCuisineType(null);
+
+        assertThrows(RuntimeException.class,
+                () -> restaurantService.createRestaurant(restaurant));
+    }
+
+    @Test
+    void createRestaurant_missingAddress() {
+        restaurant.setAddress(null);
+
+        assertThrows(RuntimeException.class,
+                () -> restaurantService.createRestaurant(restaurant));
+    }
+
+    @Test
+    void createRestaurant_missingCity() {
+        restaurant.setCity(null);
+
+        assertThrows(RuntimeException.class,
+                () -> restaurantService.createRestaurant(restaurant));
+    }
+
+    @Test
+    void createRestaurant_missingState() {
+        restaurant.setState(null);
+
+        assertThrows(RuntimeException.class,
+                () -> restaurantService.createRestaurant(restaurant));
+    }
+
+    @Test
+    void createRestaurant_missingPincode() {
+        restaurant.setPincode(null);
+
+        assertThrows(RuntimeException.class,
+                () -> restaurantService.createRestaurant(restaurant));
+    }
+
+    @Test
+    void createRestaurant_missingPhoneNumber() {
+        restaurant.setPhoneNumber(null);
+
+        assertThrows(RuntimeException.class,
+                () -> restaurantService.createRestaurant(restaurant));
+    }
+
+    @Test
+    void createRestaurant_missingEmail() {
+        restaurant.setEmail(null);
+
+        assertThrows(RuntimeException.class,
+                () -> restaurantService.createRestaurant(restaurant));
+    }
+
+    @Test
+    void createRestaurant_defaultImageUrl() {
+        restaurant.setImageUrl(null);
+        when(restaurantRepository.save(any())).thenReturn(restaurant);
+
+        Restaurant result = restaurantService.createRestaurant(restaurant);
+
+        assertNotNull(result.getImageUrl());
+    }
+
+    // ================= GET =================
+
+    @Test
+    void getById_success() {
+        when(restaurantRepository.findById(any()))
+                .thenReturn(Optional.of(restaurant));
+
+        assertNotNull(restaurantService.getRestaurantById(1L));
+    }
+
+    @Test
+    void getById_notFound() {
+        when(restaurantRepository.findById(any()))
+                .thenReturn(Optional.empty());
+
+        assertThrows(RuntimeException.class,
+                () -> restaurantService.getRestaurantById(1L));
+    }
+
+    @Test
+    void getByOwner_success() {
+        when(restaurantRepository.findByOwnerId(any()))
+                .thenReturn(List.of(restaurant));
+
+        assertEquals(1, restaurantService.getRestaurantsByOwner(1L).size());
+    }
+
+    @Test
+    void getAllRestaurants_success() {
+        when(restaurantRepository.findAll())
+                .thenReturn(List.of(restaurant));
+
+        assertEquals(1, restaurantService.getAllRestaurants().size());
+    }
+
+    @Test
+    void getActiveRestaurants_success() {
+        when(restaurantRepository.findByIsActiveAndIsApproved(true, true))
+                .thenReturn(List.of(restaurant));
+
+        assertEquals(1, restaurantService.getActiveRestaurants().size());
+    }
+
+    @Test
+    void getByCity_success() {
+        when(restaurantRepository.findByCity(any()))
+                .thenReturn(List.of(restaurant));
+
+        assertEquals(1, restaurantService.getRestaurantsByCity("Bhopal").size());
+    }
+
+    @Test
+    void getByCuisine_success() {
+        when(restaurantRepository.findByCuisineType(any()))
+                .thenReturn(List.of(restaurant));
+
+        assertEquals(1, restaurantService.getRestaurantsByCuisine("Indian").size());
+    }
+
+    // ================= UPDATE =================
+
+    @Test
+    void updateRestaurant_success() {
+        when(restaurantRepository.findById(any()))
+                .thenReturn(Optional.of(restaurant));
+        when(restaurantRepository.save(any())).thenReturn(restaurant);
+
+        Restaurant update = new Restaurant();
+        update.setName("Updated");
+
+        Restaurant result = restaurantService.updateRestaurant(1L, update);
+
+        assertEquals("Updated", result.getName());
+    }
+
+    @Test
+    void updateRestaurant_notFound() {
+        when(restaurantRepository.findById(any()))
+                .thenReturn(Optional.empty());
+
+        assertThrows(RuntimeException.class,
+                () -> restaurantService.updateRestaurant(1L, new Restaurant()));
+    }
+
+    @Test
+    void updateRestaurant_allFields() {
+        when(restaurantRepository.findById(any()))
+                .thenReturn(Optional.of(restaurant));
+        when(restaurantRepository.save(any())).thenReturn(restaurant);
+
+        Restaurant update = new Restaurant();
+        update.setName("New Name");
+        update.setCuisineType("Chinese");
+        update.setDescription("New Desc");
+        update.setAddress("New Address");
+        update.setCity("New City");
+        update.setState("New State");
+        update.setPincode("123456");
+        update.setPhoneNumber("1111111111");
+        update.setEmail("new@mail.com");
+        update.setDeliveryFee(50.0);
+        update.setDeliveryRadius(10.0);
+        update.setMinOrderAmount(100.0);
+        update.setMinDeliveryTime(20);
+        update.setMaxDeliveryTime(40);
+        update.setImageUrl("new-url");
+        update.setEstimatedDeliveryMin(30);
+        update.setCuisines(Set.of("Chinese", "Thai"));
+        update.setOpeningTime("09:00");
+        update.setClosingTime("22:00");
+        update.setIsOpen(true);
+        update.setIsActive(false);
+
+        Restaurant result = restaurantService.updateRestaurant(1L, update);
+
+        assertEquals("New Name", result.getName());
+        assertEquals("Chinese", result.getCuisineType());
+    }
+
+    // ================= APPROVAL =================
+
+    @Test
+    void approveRestaurant_success() {
+        when(restaurantRepository.findById(any()))
+                .thenReturn(Optional.of(restaurant));
+        when(restaurantRepository.save(any())).thenReturn(restaurant);
+
+        Restaurant result = restaurantService.approveRestaurant(1L);
+
+        assertTrue(result.getIsApproved());
+    }
+
+    @Test
+    void approveRestaurant_notFound() {
+        when(restaurantRepository.findById(any()))
+                .thenReturn(Optional.empty());
+
+        assertThrows(RuntimeException.class,
+                () -> restaurantService.approveRestaurant(1L));
+    }
+
+    // ================= OPEN =================
+
+    @Test
+    void toggleOpen_success() {
+        restaurant.setIsApproved(true);
+        restaurant.setIsOpen(false);
+
+        when(restaurantRepository.findById(any()))
+                .thenReturn(Optional.of(restaurant));
+        when(restaurantRepository.save(any())).thenReturn(restaurant);
+
+        Restaurant result = restaurantService.toggleOpen(1L);
+
+        assertTrue(result.getIsOpen());
+    }
+
+    @Test
+    void toggleOpen_notApproved() {
+        restaurant.setIsApproved(false);
+
+        when(restaurantRepository.findById(any()))
+                .thenReturn(Optional.of(restaurant));
+
+        assertThrows(RuntimeException.class,
+                () -> restaurantService.toggleOpen(1L));
+    }
+
+    @Test
+    void toggleOpen_notFound() {
+        when(restaurantRepository.findById(any()))
+                .thenReturn(Optional.empty());
+
+        assertThrows(RuntimeException.class,
+                () -> restaurantService.toggleOpen(1L));
+    }
+
+    // ================= ACTIVE =================
+
+    @Test
+    void toggleActive_success() {
+        restaurant.setIsActive(true);
+
+        when(restaurantRepository.findById(any()))
+                .thenReturn(Optional.of(restaurant));
+        when(restaurantRepository.save(any())).thenReturn(restaurant);
+
+        Restaurant result = restaurantService.toggleActive(1L);
+
+        assertFalse(result.getIsActive());
+    }
+
+    @Test
+    void toggleActive_notFound() {
+        when(restaurantRepository.findById(any()))
+                .thenReturn(Optional.empty());
+
+        assertThrows(RuntimeException.class,
+                () -> restaurantService.toggleActive(1L));
+    }
+
+    // ================= RATING =================
+
+    @Test
+    void updateRating_success() {
+        when(restaurantRepository.findById(any()))
+                .thenReturn(Optional.of(restaurant));
+        when(restaurantRepository.save(any())).thenReturn(restaurant);
+
+        Restaurant result = restaurantService.updateRating(1L, 4.5, 100);
+
+        assertEquals(4.5, result.getRating());
+        assertEquals(100, result.getReviewCount());
+    }
+
+    @Test
+    void updateRating_notFound() {
+        when(restaurantRepository.findById(any()))
+                .thenReturn(Optional.empty());
+
+        assertThrows(RuntimeException.class,
+                () -> restaurantService.updateRating(1L, 4.5, 100));
+    }
+
+    // ================= SEARCH =================
+
+    @Test
+    void search_success() {
+        when(restaurantRepository.findByNameContainingIgnoreCase(any()))
+                .thenReturn(List.of(restaurant));
+
+        assertEquals(1, restaurantService.searchRestaurants("test").size());
+    }
+
+    // ================= GEO =================
+
+    @Test
+    void nearbyRestaurants_success() {
+        when(restaurantRepository.findRestaurantsByLocation(any(), anyDouble(), anyInt()))
+                .thenReturn(List.of(restaurant));
+
+        assertEquals(1,
+                restaurantService.getNearbyRestaurants(23.2, 77.5, 5).size());
+    }
+
+    @Test
+    void nearbyByCuisine_success() {
+        when(restaurantRepository.findRestaurantsByLocationAndCuisine(any(), anyDouble(), any(), anyInt()))
+                .thenReturn(List.of(restaurant));
+
+        assertEquals(1,
+                restaurantService.getNearbyRestaurantsByCuisine(23, 77, 5, "Indian").size());
+    }
+
+    // ================= DELETE =================
+
+    @Test
+    void delete_success() {
+        when(restaurantRepository.existsById(any())).thenReturn(true);
 
         restaurantService.deleteRestaurant(1L);
 
         verify(restaurantRepository).deleteById(1L);
+    }
+
+    @Test
+    void delete_notFound() {
+        when(restaurantRepository.existsById(any())).thenReturn(false);
+
+        assertThrows(RuntimeException.class,
+                () -> restaurantService.deleteRestaurant(1L));
     }
 }

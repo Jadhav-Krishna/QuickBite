@@ -138,9 +138,9 @@ pipeline {
                                         mvn test
                                     fi
                                 """
-                                echo "✓ Tests passed for ${service}"
+                                echo "Tests passed for ${service}"
                             } catch (Exception e) {
-                                echo "✗ Tests failed for ${service}: ${e.message}"
+                                echo "Tests failed for ${service}: ${e.message}"
                                 failedTests.add(service)
                             }
                         }
@@ -664,13 +664,13 @@ EOF
                             ).trim()
                             
                             if (response == '200') {
-                                echo "✓ ${service.name} is HEALTHY"
+                                echo "${service.name} is HEALTHY"
                                 healthyServices++
                             } else {
-                                echo "✗ ${service.name} returned: ${response}"
+                                echo "${service.name} returned: ${response}"
                             }
                         } catch (Exception e) {
-                            echo "✗ ${service.name} FAILED: ${e.message}"
+                            echo "${service.name} FAILED: ${e.message}"
                         }
                     }
                     
@@ -725,7 +725,7 @@ EOF
         
         success {
             echo '=========================================='
-            echo '✓ PIPELINE SUCCEEDED!'
+            echo ' PIPELINE SUCCEEDED!'
             echo '=========================================='
             echo "Build Number: ${IMAGE_TAG}"
             echo "Docker Images: ${DOCKERHUB_USERNAME}/*:${IMAGE_TAG}"
@@ -749,7 +749,6 @@ EOF
             echo '=========================================='
             
             script {
-                // Show container logs for debugging
                 sh '''
                     echo "Container Status:"
                     docker ps -a
@@ -762,15 +761,11 @@ EOF
                 '''
             }
             
-            // Send failure notification (optional)
-            // emailext subject: "✗ QuickBite Build #${BUILD_NUMBER} - FAILED",
-            //          body: "Build failed. Check Jenkins console for details.",
-            //          to: "team@example.com"
         }
         
         unstable {
             echo '=========================================='
-            echo '⚠ PIPELINE UNSTABLE'
+            echo 'PIPELINE UNSTABLE'
             echo '=========================================='
             echo 'Some tests may have failed. Check reports.'
         }

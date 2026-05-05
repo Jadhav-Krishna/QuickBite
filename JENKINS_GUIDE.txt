@@ -1,0 +1,578 @@
+# QuickBite Jenkins CI/CD Setup Guide
+
+## Prerequisites Check Karo
+
+```bash
+# EC2 instance me SSH karo
+ssh -i "your-key.pem" ubuntu@your-ec2-ip
+
+# Check karo sab installed hai ya nahi
+java -version          # Java 21 hona chahiye
+docker --version       # Docker installed hona chahiye
+docker ps              # Docker running hona chahiye
+git --version          # Git installed hona chahiye
+```
+
+---
+
+## Step 1: Jenkins Install Karo
+
+```bash
+# Java install karo (agar nahi hai)
+sudo apt update
+sudo apt install openjdk-21-jdk -y
+
+# Jenkins install karo
+curl -fsSL https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key | sudo tee \
+  /usr/share/keyrings/jenkins-keyring.asc > /dev/null
+echo deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] \
+  https://pkg.jenkins.io/debian-stable binary/ | sudo tee \
+  /etc/apt/sources.list.d/jenkins.list > /dev/null
+
+sudo apt update
+sudo apt install jenkins -y
+
+# Jenkins start karo
+sudo systemctl start jenkins
+sudo systemctl enable jenkins
+sudo systemctl status jenkins
+
+# Initial password nikalo
+sudo cat /var/lib/jenkins/secrets/initialAdminPassword
+```
+
+**Browser me kholo**: `http://your-ec2-ip:8080`
+- Initial password dalo
+- "Install suggested plugins" select karo
+- Admin user banao
+
+---
+
+## Step 2: Required Tools Install Karo
+
+### Maven Install Karo
+```bash
+sudo apt install maven -y
+mvn -version
+```
+
+### Node.js Install Karo (Latest v23)
+```bash
+# Old Node remove karo
+sudo apt-get purge nodejs npm -y
+sudo apt-get autoremove -y
+
+# Latest Node install karo
+curl -fsSL https://deb.nodesource.com/setup_23.x | sudo -E bash -
+sudo apt-get install -y nodejs
+
+# Verify karo
+node --version    # v23.x.x hona chahiye
+npm --version     # v10.x.x hona chahiye
+
+# Jenkins user ke liye accessible banao
+sudo chmod +rx /usr/bin/node
+sudo chmod +rx /usr/bin/npm
+```
+
+### Trivy Install Karo (Security Scanning)
+```bash
+wget https://github.com/aquasecurity/trivy/releases/download/v0.48.0/trivy_0.48.0_Linux-64bit.deb
+sudo dpkg -i trivy_0.48.0_Linux-64bit.deb
+trivy --version
+```
+
+### Docker Setup Karo
+```bash
+# Jenkins user ko docker group me add karo
+sudo usermod -aG docker jenkins
+sudo systemctl restart jenkins
+
+# Verify karo
+sudo -u jenkins docker ps
+```
+
+---
+
+## Step 3: SonarQube Setup Karo
+
+```bash
+# SonarQube container run karo
+docker run -d \
+  --name sonarqube \
+  -p 9000:9000 \
+  -v sonarqube_data:/opt/sonarqube/data \
+  -v sonarqube_logs:/opt/sonarqube/logs \
+  -v sonarqube_extensions:/opt/sonarqube/extensions \
+  sonarqube:lts-community
+
+# Wait karo 2-3 minutes
+sleep 120
+
+# Check karo running hai ya nahi
+docker logs sonarqube --tail 50
+curl http://localhost:9000/api/system/status
+```
+
+**Browser me kholo**: `http://your-ec2-ip:9000`
+- Login: `admin` / `admin`
+- Password change karo
+- Token generate karo:
+  - My Account → Security → Generate Tokens
+  - Name: `jenkins`
+  - Type: `Global Analysis Token`
+  - Generate karo aur copy karo
+
+---
+
+## Step 4: AWS Security Groups Configure Karo
+
+AWS Console me jao:
+1. EC2 → Security Groups
+2. Inbound Rules add karo:
+   - Port 8080 (Jenkins)
+   - Port 9000 (SonarQube)
+   - Port 8000-8009 (Microservices)
+   - Port 8761-8762 (Eureka, Admin)
+   - Source: 0.0.0.0/0 (ya apna IP)
+
+---
+
+## Step 5: Jenkins Plugins Install Karo
+
+Jenkins Dashboard → Manage Jenkins → Plugins → Available Plugins
+
+Install karo:
+- Docker Pipeline
+- SonarQube Scanner
+- GitHub Integration
+- Pipeline
+- Credentials Binding
+- HTML Publisher
+
+Install karo aur Jenkins restart karo.
+
+---
+
+## Step 6: SonarQube Configure Karo Jenkins Me
+
+### A. SonarQube Server Add Karo
+Jenkins → Manage Jenkins → System → SonarQube servers
+- Name: `SonarQube`
+- Server URL: `http://localhost:9000`
+- Server authentication token: (naya credential banao)
+  - Kind: Secret text
+  - Secret: (SonarQube token paste karo)
+  - ID: `sonarqube-token`
+
+### B. SonarQube Scanner Install Karo
+Jenkins → Manage Jenkins → Tools → SonarQube Scanner
+- Name: `SonarQube Scanner`
+- Install automatically: Check karo
+- Version: Latest select karo
+
+Save karo.
+
+---
+
+## Step 7: Jenkins Credentials Add Karo
+
+Jenkins → Manage Jenkins → Credentials → System → Global credentials
+
+### Script Console Use Karo (Fast Method)
+Manage Jenkins → Script Console
+
+**Script paste karo aur Run karo**:
+
+```groovy
+import jenkins.model.Jenkins
+import com.cloudbees.plugins.credentials.domains.Domain
+import com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl
+import com.cloudbees.plugins.credentials.CredentialsScope
+import org.jenkinsci.plugins.plaincredentials.impl.StringCredentialsImpl
+import hudson.util.Secret
+
+def domain = Domain.global()
+def store = Jenkins.instance.getExtensionList('com.cloudbees.plugins.credentials.SystemCredentialsProvider')[0].getStore()
+
+// GitHub credentials (APNA TOKEN DALO)
+store.addCredentials(domain, new UsernamePasswordCredentialsImpl(
+    CredentialsScope.GLOBAL,
+    "github-credentials",
+    "GitHub Access Token",
+    "YOUR_GITHUB_USERNAME",
+    "YOUR_GITHUB_PERSONAL_ACCESS_TOKEN"
+))
+
+// DockerHub credentials
+store.addCredentials(domain, new StringCredentialsImpl(
+    CredentialsScope.GLOBAL,
+    "dockerhub-username",
+    "DockerHub Username",
+    Secret.fromString("asynchronouskrishna")
+))
+
+store.addCredentials(domain, new StringCredentialsImpl(
+    CredentialsScope.GLOBAL,
+    "dockerhub-token",
+    "DockerHub Token",
+    Secret.fromString("DOCKERHUB_TOKEN")
+))
+
+// SonarQube Token (APNA TOKEN DALO)
+store.addCredentials(domain, new StringCredentialsImpl(
+    CredentialsScope.GLOBAL,
+    "sonarqube-token",
+    "SonarQube Token",
+    Secret.fromString("YOUR_SONARQUBE_TOKEN")
+))
+
+// Database credentials
+store.addCredentials(domain, new StringCredentialsImpl(
+    CredentialsScope.GLOBAL,
+    "mysql-root-password",
+    "MySQL Root Password",
+    Secret.fromString("root")
+))
+
+store.addCredentials(domain, new StringCredentialsImpl(
+    CredentialsScope.GLOBAL,
+    "mysql-password",
+    "MySQL Password",
+    Secret.fromString("quickbite")
+))
+
+// JWT Secret
+store.addCredentials(domain, new StringCredentialsImpl(
+    CredentialsScope.GLOBAL,
+    "jwt-secret",
+    "JWT Secret Key",
+    Secret.fromString("SECRATE_KEY)
+))
+
+// Google OAuth
+store.addCredentials(domain, new StringCredentialsImpl(
+    CredentialsScope.GLOBAL,
+    "google-client-id",
+    "Google Client ID",
+    Secret.fromString("CLIENT_ID.apps.googleusercontent.com")
+))
+
+store.addCredentials(domain, new StringCredentialsImpl(
+    CredentialsScope.GLOBAL,
+    "google-client-secret",
+    "Google Client Secret",
+    Secret.fromString("GOOGLE_SECRATE")
+))
+
+// GitHub OAuth
+store.addCredentials(domain, new StringCredentialsImpl(
+    CredentialsScope.GLOBAL,
+    "github-client-id",
+    "GitHub OAuth Client ID",
+    Secret.fromString("GITHUB_OAUTH")
+))
+
+store.addCredentials(domain, new StringCredentialsImpl(
+    CredentialsScope.GLOBAL,
+    "github-client-secret",
+    "GitHub OAuth Client Secret",
+    Secret.fromString("GITHUB_CLASSIC_TOKEN")
+))
+
+// Razorpay
+store.addCredentials(domain, new StringCredentialsImpl(
+    CredentialsScope.GLOBAL,
+    "razorpay-key-id",
+    "Razorpay Key ID",
+    Secret.fromString("rzp_test_YOUR_ID")
+))
+
+store.addCredentials(domain, new StringCredentialsImpl(
+    CredentialsScope.GLOBAL,
+    "razorpay-key-secret",
+    "Razorpay Key Secret",
+    Secret.fromString("RAZORPAY_SECRATE")
+))
+
+// Email (Gmail)
+store.addCredentials(domain, new StringCredentialsImpl(
+    CredentialsScope.GLOBAL,
+    "mail-username",
+    "Email Username",
+    Secret.fromString("krishanraviandrajadhav@gmail.com")
+))
+
+store.addCredentials(domain, new StringCredentialsImpl(
+    CredentialsScope.GLOBAL,
+    "mail-password",
+    "Email App Password",
+    Secret.fromString("APP_PASSWORD")
+))
+
+// Twilio
+store.addCredentials(domain, new StringCredentialsImpl(
+    CredentialsScope.GLOBAL,
+    "twilio-account-sid",
+    "Twilio Account SID",
+    Secret.fromString("Twilio-SID")
+))
+
+store.addCredentials(domain, new StringCredentialsImpl(
+    CredentialsScope.GLOBAL,
+    "twilio-auth-token",
+    "Twilio Auth Token",
+    Secret.fromString("Twilio-TOKEN")
+))
+
+store.addCredentials(domain, new StringCredentialsImpl(
+    CredentialsScope.GLOBAL,
+    "twilio-from-phone",
+    "Twilio Phone Number",
+    Secret.fromString("+1549456616")
+))
+
+// LocationIQ
+store.addCredentials(domain, new StringCredentialsImpl(
+    CredentialsScope.GLOBAL,
+    "locationiq-api-key",
+    "LocationIQ API Key",
+    Secret.fromString("pK.LocationIQ_SECRATE")
+))
+
+// Cloudinary
+store.addCredentials(domain, new StringCredentialsImpl(
+    CredentialsScope.GLOBAL,
+    "cloudinary-cloud-name",
+    "Cloudinary Cloud Name",
+    Secret.fromString("CLOUD_NAME")
+))
+
+store.addCredentials(domain, new StringCredentialsImpl(
+    CredentialsScope.GLOBAL,
+    "cloudinary-api-key",
+    "Cloudinary API Key",
+    Secret.fromString("CLOUD_KEY")
+))
+
+store.addCredentials(domain, new StringCredentialsImpl(
+    CredentialsScope.GLOBAL,
+    "cloudinary-api-secret",
+    "Cloudinary API Secret",
+    Secret.fromString("CLOUD_SECRATE")
+))
+
+println "All credentials added successfully!"
+```
+
+**Important**: GitHub token aur SonarQube token apna dalna mat bhoolna!
+
+---
+
+## Step 8: Jenkins Pipeline Job Banao
+
+1. Jenkins Dashboard → New Item
+2. Name: `QuickBite-Pipeline`
+3. Type: **Pipeline** select karo
+4. OK click karo
+
+### Pipeline Configure Karo:
+- **General**:
+  - GitHub project
+  - Project URL: `https://github.com/Jadhav-Krishna/QuickBite`
+
+- **Build Triggers**:
+  - GitHub hook trigger for GITScm polling
+
+- **Pipeline**:
+  - Definition: `Pipeline script from SCM`
+  - SCM: `Git`
+  - Repository URL: `https://github.com/Jadhav-Krishna/QuickBite.git`
+  - Credentials: `github-credentials` select karo
+  - Branch: `*/dev`
+  - Script Path: `backend/Jenkinsfile`
+
+Save karo.
+
+---
+
+## Step 9: GitHub Webhook Setup Karo
+
+1. GitHub repository me jao: `https://github.com/Jadhav-Krishna/QuickBite`
+2. Settings → Webhooks → Add webhook
+3. Configure karo:
+   - **Payload URL**: `http://your-ec2-ip:8080/github-webhook/`
+   - **Content type**: `application/json`
+   - **Which events**: Just the push event
+   - Active
+4. Add webhook click karo
+
+**Test karo**:
+```bash
+# Local machine pe
+cd d:\QuickBite
+echo "# Test CI/CD" >> README.md
+git add README.md
+git commit -m "test: Trigger Jenkins build"
+git push origin dev
+```
+
+Jenkins me automatically build start hona chahiye!
+
+---
+
+## Step 10: Build Monitor Karo
+
+Jenkins Dashboard → QuickBite-Pipeline → Build Now (manual test)
+
+**Console Output dekho**:
+- Clone Repository
+- Build JAR Files
+- Run Tests
+- SonarQube Analysis
+- Docker Build & Push
+- Deploy Services
+- Health Checks
+
+---
+
+## Step 11: Application Access Karo
+
+Build successful hone ke baad:
+
+```bash
+# Services check karo
+docker ps
+
+# Health check karo
+curl http://localhost:8761  # Eureka
+curl http://localhost:8000/actuator/health  # Gateway
+curl http://localhost:9000  # SonarQube
+```
+
+**Browser me kholo**:
+- Jenkins: `http://your-ec2-ip:8080`  (jenkins ke andar wale path pr milega)
+- SonarQube: `http://your-ec2-ip:9000` (admin/admin)
+- Eureka: `http://your-ec2-ip:8761` (on port 8761)
+- Gateway: `http://your-ec2-ip:8000`    (on port 8000)
+- RabbitMQ: `http://your-ec2-ip:15672` (guest/guest)
+
+---
+
+## Troubleshooting (Agar Problem Aaye)
+
+### Jenkins Not Accessible
+```bash
+sudo systemctl status jenkins
+sudo systemctl restart jenkins
+sudo journalctl -u jenkins -n 100
+```
+
+### Maven Not Found
+```bash
+sudo apt install maven -y
+mvn -version
+sudo systemctl restart jenkins
+```
+
+### Node Not Found
+```bash
+which node
+sudo chmod +rx /usr/bin/node
+sudo -u jenkins node --version
+```
+
+### Docker Permission Denied
+```bash
+sudo usermod -aG docker jenkins
+sudo systemctl restart jenkins
+```
+
+### SonarQube Not Reachable
+```bash
+docker ps | grep sonarqube
+docker logs sonarqube
+docker restart sonarqube
+```
+
+### Disk Space Full
+```bash
+df -h
+docker system prune -af --volumes
+sudo apt-get clean
+```
+
+---
+
+## Important Commands
+
+### Jenkins
+```bash
+sudo systemctl start jenkins
+sudo systemctl stop jenkins
+sudo systemctl restart jenkins
+sudo systemctl status jenkins
+```
+
+### Docker
+```bash
+docker ps                          # Running containers
+docker ps -a                       # All containers
+docker logs container-name         # Logs dekho
+docker restart container-name      # Restart karo
+docker system prune -af            # Cleanup karo
+```
+
+### Application
+```bash
+# Backend services
+cd backend
+docker compose up -d               # Start all services
+docker compose down                # Stop all services
+docker compose ps                  # Status check
+docker compose logs -f service-name # Logs dekho
+```
+
+---
+
+## Success Checklist
+
+- [ ] Jenkins accessible hai (port 8080)
+- [ ] SonarQube accessible hai (port 9000)
+- [ ] GitHub webhook configured hai
+- [ ] All credentials added hai
+- [ ] Pipeline job created hai
+- [ ] First build successful hai
+- [ ] Docker containers running hai
+- [ ] Services healthy hai
+- [ ] Code coverage report generated hai
+
+---
+
+## Next Steps
+
+1. **Code Coverage Badhao**: 16% se 87% tak
+   - Backend: Service, Controller, Repository tests likho
+   - Frontend: Component, Hook, API tests likho
+   - Guide dekho: `COVERAGE_IMPROVEMENT_GUIDE.md`
+
+2. **Quality Gate Pass Karo**:
+   - SonarQube me issues fix karo
+   - Code smells reduce karo
+   - Security vulnerabilities fix karo
+
+3. **Production Deployment**:
+   - Environment variables secure karo
+   - SSL/TLS setup karo
+   - Monitoring add karo (Prometheus, Grafana)
+   - Backup strategy banao
+
+---
+
+## Support
+
+Agar koi problem aaye to:
+1. Console Output dekho Jenkins me
+2. Docker logs check karo
+3. SonarQube dashboard dekho
+4. GitHub webhook delivery check karo

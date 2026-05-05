@@ -79,22 +79,22 @@ services:
       - quickbite-network
     restart: unless-stopped
 
-  # sonarqube:
-  #   image: sonarqube:lts-community
-  #   container_name: quickbite-sonarqube
-  #   ports:
-  #     - "9000:9000"
-  #   volumes:
-  #     - sonarqube_data:/opt/sonarqube/data
-  #     - sonarqube_logs:/opt/sonarqube/logs
-  #     - sonarqube_extensions:/opt/sonarqube/extensions
-  #   networks:
-  #     - quickbite-network
-  #   healthcheck:
-  #     test: ["CMD", "curl", "-f", "http://localhost:9000/api/system/status"]
-  #     interval: 30s
-  #     timeout: 10s
-  #     retries: 3
+  sonarqube:
+    image: sonarqube:lts-community
+    container_name: quickbite-sonarqube
+    ports:
+      - "9000:9000"
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_logs:/opt/sonarqube/logs
+      - sonarqube_extensions:/opt/sonarqube/extensions
+    networks:
+      - quickbite-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/api/system/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   eureka-server:
     build: ./eureka-server
@@ -338,9 +338,9 @@ volumes:
   mysql_data:
   redis_data:
   rabbitmq_data:
-  # sonarqube_data:
-  # sonarqube_logs:
-  # sonarqube_extensions:
+  sonarqube_data:
+  sonarqube_logs:
+  sonarqube_extensions:
 
 networks:
   quickbite-network:

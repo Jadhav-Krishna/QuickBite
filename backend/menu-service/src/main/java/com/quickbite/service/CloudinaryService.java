@@ -2,6 +2,8 @@ package com.quickbite.service;
 
 import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
+import com.quickbite.exception.ImageUploadException;
+import com.quickbite.exception.InvalidRequestException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -18,15 +20,15 @@ public class CloudinaryService {
 
     private final Cloudinary cloudinary;
 
-    public String uploadImage(MultipartFile file, String folder) throws IOException {
+    public String uploadImage(MultipartFile file, String folder) {
         if (file == null || file.isEmpty()) {
-            throw new IllegalArgumentException("File cannot be empty");
+            throw new InvalidRequestException("File cannot be empty");
         }
 
         // Validate file type
         String contentType = file.getContentType();
         if (contentType == null || !contentType.startsWith("image/")) {
-            throw new IllegalArgumentException("Only image files are allowed");
+            throw new InvalidRequestException("Only image files are allowed");
         }
 
         // Check if Cloudinary is properly configured
@@ -61,7 +63,7 @@ public class CloudinaryService {
             return imageUrl;
         } catch (IOException e) {
             log.error("Failed to upload image to Cloudinary", e);
-            throw new IOException("Failed to upload image: " + e.getMessage());
+            throw new ImageUploadException("Failed to upload image: " + e.getMessage(), e);
         }
     }
 

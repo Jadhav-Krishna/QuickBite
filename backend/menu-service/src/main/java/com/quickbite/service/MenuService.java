@@ -2,6 +2,8 @@ package com.quickbite.service;
 
 import com.quickbite.entity.Category;
 import com.quickbite.entity.MenuItem;
+import com.quickbite.exception.InvalidRequestException;
+import com.quickbite.exception.ResourceNotFoundException;
 import com.quickbite.repository.CategoryRepository;
 import com.quickbite.repository.MenuItemRepository;
 import lombok.extern.slf4j.Slf4j;
@@ -39,7 +41,7 @@ public class MenuService {
     @Transactional
     public Category updateCategory(Long id, Category updateData) {
         Category category = categoryRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Category not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Category not found with id: " + id));
         
         if (updateData.getName() != null) category.setName(updateData.getName());
         if (updateData.getDescription() != null) category.setDescription(updateData.getDescription());
@@ -60,10 +62,10 @@ public class MenuService {
                                    Double price, Double discountedPrice, Integer preparationTime,
                                    Boolean isVegetarian, Boolean isSpicy) {
         if (categoryId == null) {
-            throw new RuntimeException("Category is required for menu item");
+            throw new InvalidRequestException("Category is required for menu item");
         }
         if (price == null || price <= 0) {
-            throw new RuntimeException("Price must be greater than 0");
+            throw new InvalidRequestException("Price must be greater than 0");
         }
 
         MenuItem item = new MenuItem();
@@ -87,7 +89,7 @@ public class MenuService {
     @Transactional(readOnly = true)
     public MenuItem getMenuItem(Long id) {
         return menuItemRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Menu item not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Menu item not found with id: " + id));
     }
 
     @Transactional(readOnly = true)
@@ -108,7 +110,7 @@ public class MenuService {
     @Transactional
     public MenuItem updateMenuItem(Long id, MenuItem updateData) {
         MenuItem item = menuItemRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Menu item not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Menu item not found with id: " + id));
 
         if (updateData.getName() != null) item.setName(updateData.getName());
         if (updateData.getDescription() != null) item.setDescription(updateData.getDescription());
@@ -129,7 +131,7 @@ public class MenuService {
     @Transactional
     public void updateItemAvailability(Long id, Boolean isAvailable) {
         MenuItem item = menuItemRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Menu item not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Menu item not found with id: " + id));
         item.setIsAvailable(isAvailable);
         menuItemRepository.save(item);
     }
@@ -137,7 +139,7 @@ public class MenuService {
     @Transactional
     public void incrementOrderCount(Long id) {
         MenuItem item = menuItemRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Menu item not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Menu item not found with id: " + id));
         item.setOrderCount(item.getOrderCount() + 1);
         menuItemRepository.save(item);
     }

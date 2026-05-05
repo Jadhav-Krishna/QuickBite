@@ -83,4 +83,41 @@ class CloudinaryServiceTest {
 
         verify(cloudinary, never()).uploader();
     }
+
+    @Test
+    void deleteImage_emptyUrl() {
+        service.deleteImage("");
+
+        verify(cloudinary, never()).uploader();
+    }
+
+    @Test
+    void deleteImage_invalidUrl() {
+        service.deleteImage("https://invalid-url.com/image.jpg");
+        // Should not throw exception, just log error
+    }
+
+    @Test
+    void deleteImage_exceptionHandled() throws Exception {
+        when(cloudinary.uploader()).thenReturn(uploader);
+        when(uploader.destroy(anyString(), any())).thenThrow(new RuntimeException("Delete failed"));
+
+        service.deleteImage("https://res.cloudinary.com/cloud/image/upload/v123/folder/image.jpg");
+        // Should not throw exception, just log error
+    }
+
+    @Test
+    void uploadImage_nullFile() {
+        assertThrows(IllegalArgumentException.class,
+                () -> service.uploadImage(null, "folder"));
+    }
+
+    @Test
+    void uploadImage_nullContentType() {
+        when(file.isEmpty()).thenReturn(false);
+        when(file.getContentType()).thenReturn(null);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> service.uploadImage(file, "folder"));
+    }
 }

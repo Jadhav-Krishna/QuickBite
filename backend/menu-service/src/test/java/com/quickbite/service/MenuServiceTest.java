@@ -2,6 +2,8 @@ package com.quickbite.service;
 
 import com.quickbite.entity.Category;
 import com.quickbite.entity.MenuItem;
+import com.quickbite.exception.InvalidRequestException;
+import com.quickbite.exception.ResourceNotFoundException;
 import com.quickbite.repository.CategoryRepository;
 import com.quickbite.repository.MenuItemRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -84,7 +86,7 @@ class MenuServiceTest {
     void updateCategory_notFound() {
         when(categoryRepository.findById(any())).thenReturn(Optional.empty());
 
-        assertThrows(RuntimeException.class,
+        assertThrows(ResourceNotFoundException.class,
                 () -> menuService.updateCategory(1L, new Category()));
     }
 
@@ -110,7 +112,7 @@ class MenuServiceTest {
 
     @Test
     void createMenuItem_invalidCategory() {
-        assertThrows(RuntimeException.class,
+        assertThrows(InvalidRequestException.class,
                 () -> menuService.createMenuItem(
                         1L, null, "Pizza", "desc",
                         100.0, null, 10, true, false
@@ -119,7 +121,7 @@ class MenuServiceTest {
 
     @Test
     void createMenuItem_invalidPrice() {
-        assertThrows(RuntimeException.class,
+        assertThrows(InvalidRequestException.class,
                 () -> menuService.createMenuItem(
                         1L, 1L, "Pizza", "desc",
                         0.0, null, 10, true, false
@@ -141,7 +143,7 @@ class MenuServiceTest {
     void getMenuItem_notFound() {
         when(menuItemRepository.findById(any())).thenReturn(Optional.empty());
 
-        assertThrows(RuntimeException.class,
+        assertThrows(ResourceNotFoundException.class,
                 () -> menuService.getMenuItem(1L));
     }
 
@@ -187,7 +189,7 @@ class MenuServiceTest {
     void updateMenuItem_notFound() {
         when(menuItemRepository.findById(any())).thenReturn(Optional.empty());
 
-        assertThrows(RuntimeException.class,
+        assertThrows(ResourceNotFoundException.class,
                 () -> menuService.updateMenuItem(1L, new MenuItem()));
     }
 
@@ -237,5 +239,99 @@ class MenuServiceTest {
                 .thenReturn(List.of(item));
 
         assertEquals(1, menuService.searchMenuItems("pizza").size());
+    }
+
+    @Test
+    void getRestaurantMenu_success() {
+        when(menuItemRepository.findByRestaurantId(1L)).thenReturn(List.of(item));
+
+        List<MenuItem> result = menuService.getRestaurantMenu(1L);
+
+        assertEquals(1, result.size());
+        verify(menuItemRepository).findByRestaurantId(1L);
+    }
+
+    @Test
+    void updateItemAvailability_notFound() {
+        when(menuItemRepository.findById(1L)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class,
+                () -> menuService.updateItemAvailability(1L, false));
+    }
+
+    @Test
+    void incrementOrderCount_notFound() {
+        when(menuItemRepository.findById(1L)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class,
+                () -> menuService.incrementOrderCount(1L));
+    }
+
+    @Test
+    void createMenuItem_withDiscountedPrice() {
+        when(menuItemRepository.save(any())).thenReturn(item);
+
+        MenuItem result = menuService.createMenuItem(
+                1L, 1L, "Pizza", "desc",
+                100.0, 80.0, 10, true, false
+        );
+
+        assertNotNull(result);
+        verify(menuItemRepository).save(any());
+    }
+
+    @Test
+    void createMenuItem_nullPrice() {
+        assertThrows(InvalidRequestException.class,
+                () -> menuService.createMenuItem(
+                        1L, 1L, "Pizza", "desc",
+                        null, null, 10, true, false
+                ));
+    }
+
+    @Test
+    void updateCategory_allFields() {
+        when(categoryRepository.findById(1L)).thenReturn(Optional.of(category));
+        when(categoryRepository.save(any())).thenReturn(category);
+
+        Category update = new Category();
+        update.setName("Updated");
+        update.setDescription("New desc");
+        update.setDisplayOrder(5);
+        update.setIsActive(false);
+        update.setImageUrl("image.jpg");
+
+        Category result = menuService.updateCategory(1L, update);
+
+        assertEquals("Updated", result.getName());
+        assertEquals("New desc", result.getDescription());
+        assertEquals(5, result.getDisplayOrder());
+        assertEquals(false, result.getIsActive());
+        assertEquals("image.jpg", result.getImageUrl());
+    }
+
+    @Test
+    void updateMenuItem_allFields() {
+        when(menuItemRepository.findById(1L)).thenReturn(Optional.of(item));
+        when(menuItemRepository.save(any())).thenReturn(item);
+
+        MenuItem update = new MenuItem();
+        update.setName("Updated");
+        update.setDescription("New desc");
+        update.setPrice(150.0);
+        update.setDiscountedPrice(130.0);
+        update.setPreparationTime(20);
+        update.setIsAvailable(false);
+        update.setImageUrl("image.jpg");
+
+        MenuItem result = menuService.updateMenuItem(1L, update);
+
+        assertEquals("Updated", result.getName());
+        assertEquals("New desc", result.getDescription());
+        assertEquals(150.0, result.getPrice());
+        assertEquals(130.0, result.getDiscountedPrice());
+        assertEquals(20, result.getPreparationTime());
+        assertEquals(false, result.getIsAvailable());
+        assertEquals("image.jpg", result.getImageUrl());
     }
 }

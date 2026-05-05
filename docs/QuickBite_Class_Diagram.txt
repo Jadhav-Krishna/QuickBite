@@ -1,0 +1,373 @@
+@startuml QuickBite_Class_Diagram
+
+' ==================== AUTH SERVICE ====================
+package "Auth Service" {
+    enum UserRole {
+        CUSTOMER
+        RESTAURANT_OWNER
+        DELIVERY_AGENT
+        ADMIN
+        APPLICATION_ADMIN
+    }
+    
+    class User {
+        - Long id
+        - String email
+        - String password
+        - String fullName
+        - String phone
+        - UserRole role
+        - Boolean isActive
+        - Boolean isEmailVerified
+        - String oauthProvider
+        - String oauthId
+        - String profilePictureUrl
+        - LocalDateTime createdAt
+        - LocalDateTime updatedAt
+        - LocalDateTime lastLogin
+        + getAuthorities()
+        + getUsername()
+        + isAccountNonExpired()
+        + isAccountNonLocked()
+        + isCredentialsNonExpired()
+        + isEnabled()
+    }
+    
+    class Address {
+        - Long id
+        - Long userId
+        - String label
+        - String addressLine1
+        - String addressLine2
+        - String city
+        - String state
+        - String pincode
+        - Double latitude
+        - Double longitude
+        - Boolean isDefault
+        - LocalDateTime createdAt
+        - LocalDateTime updatedAt
+    }
+    
+    User "1" -- "*" Address : has
+}
+
+' ==================== RESTAURANT SERVICE ====================
+package "Restaurant Service" {
+    class Restaurant {
+        - Long id
+        - Long ownerId
+        - String name
+        - String cuisineType
+        - String description
+        - String address
+        - String city
+        - String state
+        - String pincode
+        - Point location
+        - Double rating
+        - Integer reviewCount
+        - String phoneNumber
+        - String email
+        - Double deliveryFee
+        - Double deliveryRadius
+        - Double minOrderAmount
+        - Integer minDeliveryTime
+        - Integer maxDeliveryTime
+        - Integer estimatedDeliveryMin
+        - Boolean isActive
+        - Boolean isOpen
+        - Boolean isApproved
+        - String imageUrl
+        - String openingTime
+        - String closingTime
+        - Set<String> cuisines
+        - LocalDateTime createdAt
+        - LocalDateTime updatedAt
+    }
+}
+
+' ==================== MENU SERVICE ====================
+package "Menu Service" {
+    class Category {
+        - Long id
+        - Long restaurantId
+        - String name
+        - String description
+        - Integer displayOrder
+        - Boolean isActive
+        - String imageUrl
+        - LocalDateTime createdAt
+        - LocalDateTime updatedAt
+    }
+    
+    class MenuItem {
+        - Long id
+        - Long restaurantId
+        - Long categoryId
+        - String name
+        - String description
+        - Double price
+        - Double discountedPrice
+        - Boolean isAvailable
+        - Integer preparationTime
+        - Integer orderCount
+        - Double rating
+        - Boolean isVegetarian
+        - Boolean isSpicy
+        - String imageUrl
+        - LocalDateTime createdAt
+        - LocalDateTime updatedAt
+    }
+    
+    Category "1" -- "*" MenuItem : contains
+}
+
+' ==================== CART SERVICE ====================
+package "Cart Service" {
+    class ShoppingCart {
+        - Long id
+        - Long customerId
+        - Long restaurantId
+        - List<CartItem> items
+        - Double totalPrice
+        - Integer totalItems
+        - Boolean isActive
+        - LocalDateTime createdAt
+        - LocalDateTime updatedAt
+        + addItem(CartItem)
+        + removeItem(CartItem)
+        + updateTotals()
+        + clear()
+    }
+    
+    class CartItem {
+        - Long id
+        - ShoppingCart cart
+        - Long menuItemId
+        - String itemName
+        - Integer quantity
+        - Double price
+        - String specialInstructions
+        - LocalDateTime createdAt
+        - LocalDateTime updatedAt
+        + getItemTotal()
+    }
+    
+    ShoppingCart "1" *-- "*" CartItem : contains
+}
+
+' ==================== ORDER SERVICE ====================
+package "Order Service" {
+    enum OrderStatus {
+        PENDING
+        CONFIRMED
+        PREPARING
+        READY_FOR_PICKUP
+        OUT_FOR_DELIVERY
+        DELIVERED
+        CANCELLED
+    }
+    
+    enum PaymentMethod {
+        CASH_ON_DELIVERY
+        CREDIT_CARD
+        DEBIT_CARD
+        UPI
+        NET_BANKING
+        WALLET
+    }
+    
+    enum PaymentStatus {
+        PENDING
+        SUCCESS
+        FAILED
+        REFUNDED
+    }
+    
+    class Order {
+        - Long id
+        - String orderNumber
+        - Long customerId
+        - Long restaurantId
+        - OrderStatus status
+        - Double totalAmount
+        - Double deliveryCharge
+        - Double discountAmount
+        - Double finalAmount
+        - String deliveryAddress
+        - Double deliveryLatitude
+        - Double deliveryLongitude
+        - String customerPhone
+        - String specialInstructions
+        - Long deliveryAgentId
+        - Boolean restaurantPickupConfirmed
+        - LocalDateTime restaurantPickupConfirmedAt
+        - Boolean agentPickupConfirmed
+        - LocalDateTime agentPickupConfirmedAt
+        - LocalDateTime estimatedDeliveryTime
+        - LocalDateTime actualDeliveryTime
+        - PaymentMethod paymentMethod
+        - PaymentStatus paymentStatus
+        - Boolean paymentCompleted
+        - List<OrderItem> items
+        - LocalDateTime createdAt
+        - LocalDateTime updatedAt
+        + addItem(OrderItem)
+        + removeItem(OrderItem)
+    }
+    
+    class OrderItem {
+        - Long id
+        - Order order
+        - Long menuItemId
+        - String itemName
+        - Integer quantity
+        - Double price
+        - String specialInstructions
+        - LocalDateTime createdAt
+        + getItemTotal()
+    }
+    
+    Order "1" *-- "*" OrderItem : contains
+}
+
+' ==================== PAYMENT SERVICE ====================
+package "Payment Service" {
+    class Payment {
+        - Long id
+        - String transactionId
+        - Long orderId
+        - Long customerId
+        - Double amount
+        - PaymentStatus status
+        - PaymentMethod paymentMethod
+        - String razorpayPaymentId
+        - String razorpayOrderId
+        - String razorpaySignature
+        - String failureReason
+        - String currency
+        - LocalDateTime refundedAt
+        - LocalDateTime createdAt
+        - LocalDateTime updatedAt
+    }
+    
+    class Wallet {
+        - Long id
+        - Long customerId
+        - BigDecimal balance
+        - LocalDateTime createdAt
+        - LocalDateTime updatedAt
+    }
+    
+    class WalletStatement {
+        - Long id
+        - Long walletId
+        - TransactionType type
+        - BigDecimal amount
+        - String description
+        - LocalDateTime createdAt
+    }
+    
+    enum TransactionType {
+        DEPOSIT
+        DEBIT
+        REFUND
+    }
+    
+    Wallet "1" -- "*" WalletStatement : has
+}
+
+' ==================== DELIVERY SERVICE ====================
+package "Delivery Service" {
+    enum AgentStatus {
+        AVAILABLE
+        BUSY
+        OFFLINE
+    }
+    
+    class DeliveryAgent {
+        - Long id
+        - Long userId
+        - String fullName
+        - String email
+        - String phone
+        - String vehicleType
+        - String vehicleNumber
+        - String licenseNumber
+        - String aadharNumber
+        - Double currentLatitude
+        - Double currentLongitude
+        - String lastKnownAddress
+        - LocalDateTime lastLocationUpdateTime
+        - LocalDateTime lastStatusUpdateTime
+        - Double averageRating
+        - Long totalDeliveries
+        - Double totalEarnings
+        - Double todayEarnings
+        - Integer todayDeliveries
+        - Boolean isActive
+        - Boolean isVerified
+        - Boolean isOnline
+        - LocalDateTime createdAt
+        - LocalDateTime updatedAt
+    }
+}
+
+' ==================== REVIEW SERVICE ====================
+package "Review Service" {
+    class Review {
+        - Long id
+        - Long orderId
+        - Long customerId
+        - Long restaurantId
+        - Integer restaurantRating
+        - String restaurantReview
+        - Integer deliveryRating
+        - String deliveryReview
+        - Long deliveryAgentId
+        - Boolean isAnonymous
+        - LocalDateTime createdAt
+        - LocalDateTime updatedAt
+    }
+}
+
+' ==================== NOTIFICATION SERVICE ====================
+package "Notification Service" {
+    class Notification {
+        - Long id
+        - Long userId
+        - String title
+        - String message
+        - String type
+        - String eventType
+        - Long referenceId
+        - Boolean isRead
+        - LocalDateTime createdAt
+        - LocalDateTime readAt
+    }
+}
+
+' ==================== RELATIONSHIPS ACROSS SERVICES ====================
+User "1" -- "*" Restaurant : owns
+User "1" -- "*" ShoppingCart : has
+User "1" -- "*" Order : places
+User "1" -- "*" Payment : makes
+User "1" -- "0..1" Wallet : has
+User "1" -- "*" Review : writes
+User "1" -- "*" Notification : receives
+User "1" -- "0..1" DeliveryAgent : is
+
+Restaurant "1" -- "*" Category : has
+Restaurant "1" -- "*" MenuItem : offers
+Restaurant "1" -- "*" Order : receives
+Restaurant "1" -- "*" Review : receives
+
+MenuItem "1" -- "*" CartItem : referenced_by
+MenuItem "1" -- "*" OrderItem : referenced_by
+
+Order "1" -- "1" Payment : has
+Order "1" -- "0..1" Review : has
+Order "0..1" -- "1" DeliveryAgent : assigned_to
+
+@enduml

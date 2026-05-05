@@ -1,0 +1,675 @@
+@startuml QuickBite_User_Registration_Login
+title QuickBite - User Registration & Login Flow
+
+actor Customer
+participant "API Gateway" as Gateway
+participant "Auth Service" as Auth
+participant "Auth DB" as AuthDB
+participant "JWT Service" as JWT
+
+== User Registration ==
+Customer -> Gateway: POST /api/auth/signup\n{email, password, fullName, phone}
+Gateway -> Auth: Forward signup request
+Auth -> Auth: Validate request data
+Auth -> Auth: Hash password (BCrypt)
+Auth -> AuthDB: Save User entity\n(role=CUSTOMER, isActive=true)
+AuthDB --> Auth: User created
+Auth -> JWT: Generate access token
+JWT --> Auth: Access token
+Auth -> JWT: Generate refresh token
+JWT --> Auth: Refresh token
+Auth --> Gateway: AuthResponse\n{accessToken, refreshToken, userId, email, role}
+Gateway --> Customer: 201 Created + tokens
+
+== User Login ==
+Customer -> Gateway: POST /api/auth/login\n{email, password}
+Gateway -> Auth: Forward login request
+Auth -> AuthDB: Find user by email
+AuthDB --> Auth: User entity
+Auth -> Auth: Verify password (BCrypt)
+Auth -> JWT: Generate access token
+JWT --> Auth: Access token
+Auth -> JWT: Generate refresh token
+JWT --> Auth: Refresh token
+Auth --> Gateway: AuthResponse\n{accessToken, refreshToken, userId, email, role}
+Gateway --> Customer: 200 OK + tokens
+
+== OAuth2 Login (Google/GitHub) ==
+Customer -> Gateway: POST /api/auth/oauth2/login\n{provider, token}
+Gateway -> Auth: Forward OAuth2 request
+Auth -> Auth: Validate OAuth2 token with provider
+Auth -> AuthDB: Find or create user
+AuthDB --> Auth: User entity
+Auth -> JWT: Generate tokens
+JWT --> Auth: Tokens
+Auth --> Gateway: AuthResponse
+Gateway --> Customer: 200 OK + tokens
+
+@enduml
+
+@startuml QuickBite_Browse_Restaurants
+title QuickBite - Browse Restaurants & Menu Flow
+
+actor Customer
+participant "API Gateway" as Gateway
+participant "Restaurant Service" as Restaurant
+participant "Restaurant DB" as RestaurantDB
+participant "Menu Service" as Menu
+participant "Menu DB" as MenuDB
+
+== Browse Nearby Restaurants ==
+Customer -> Gateway: GET /api/v1/restaurants/nearby\n?latitude=23.2599&longitude=77.4126&radiusKm=10
+Gateway -> Restaurant: Forward request
+Restaurant -> RestaurantDB: Query restaurants using PostGIS\nST_DWithin(location, point, radius)
+RestaurantDB --> Restaurant: List of nearby restaurants
+Restaurant --> Gateway: List<RestaurantDTO>
+Gateway --> Customer: 200 OK + restaurant list
+
+== Search Restaurants ==
+Customer -> Gateway: GET /api/v1/restaurants/search?keyword=pizza
+Gateway -> Restaurant: Forward search request
+Restaurant -> RestaurantDB: Search by name, cuisine, description
+RestaurantDB --> Restaurant: Matching restaurants
+Restaurant --> Gateway: List<RestaurantDTO>
+Gateway --> Customer: 200 OK + search results
+
+== View Restaurant Menu ==
+Customer -> Gateway: GET /api/v1/menu/items/restaurant/{restaurantId}
+Gateway -> Menu: Forward request
+Menu -> MenuDB: Query menu items by restaurantId
+MenuDB --> Menu: List of menu items
+Menu --> Gateway: List<MenuItemDTO>
+Gateway --> Customer: 200 OK + menu items
+
+== View Menu by Category ==
+Customer -> Gateway: GET /api/v1/menu/categories/restaurant/{restaurantId}
+Gateway -> Menu: Get categories
+Menu -> MenuDB: Query categories
+MenuDB --> Menu: List of categories
+Menu --> Gateway: List<CategoryDTO>
+Gateway --> Customer: 200 OK + categories
+
+Customer -> Gateway: GET /api/v1/menu/items/category/{categoryId}
+Gateway -> Menu: Get items by category
+Menu -> MenuDB: Query items
+MenuDB --> Menu: Category items
+Menu --> Gateway: List<MenuItemDTO>
+Gateway --> Customer: 200 OK + category items
+
+@enduml
+
+@startuml QuickBite_Add_To_Cart
+title QuickBite - Add Items to Cart Flow
+
+actor Customer
+participant "API Gateway" as Gateway
+participant "Cart Service" as Cart
+participant "Cart DB" as CartDB
+participant "Menu Service" as Menu
+participant "Restaurant Service" as Restaurant
+
+== Add Item to Cart ==
+Customer -> Gateway: POST /api/v1/cart/items\n?customerId=1&restaurantId=5\n{menuItemId, quantity, price}
+Gateway -> Cart: Forward add item request
+Cart -> CartDB: Find cart by customerId
+CartDB --> Cart: Cart or null
+
+alt Cart doesn't exist
+    Cart -> CartDB: Create new cart\n(customerId, restaurantId)
+    CartDB --> Cart: New cart created
+end
+
+alt Cart exists but different restaurant
+    Cart -> Customer: Error: Clear cart or switch restaurant
+    Customer -> Gateway: POST /api/v1/cart/switch-restaurant\n?customerId=1&newRestaurantId=5
+    Gateway -> Cart: Switch restaurant
+    Cart -> CartDB: Clear existing items
+    Cart -> CartDB: Update restaurantId
+    CartDB --> Cart: Cart updated
+end
+
+Cart -> Menu: Validate menu item exists
+Menu --> Cart: MenuItem details
+
+Cart -> CartDB: Check if item already in cart
+CartDB --> Cart: CartItem or null
+
+alt Item exists in cart
+    Cart -> CartDB: Update quantity
+else Item doesn't exist
+    Cart -> CartDB: Add new CartItem
+end
+
+Cart -> Cart: Calculate cart totals\n(subtotal, tax, deliveryFee, total)
+Cart -> CartDB: Update cart totals
+CartDB --> Cart: Updated cart
+
+Cart --> Gateway: CartDTO with items
+Gateway --> Customer: 201 Created + cart details
+
+== Update Cart Item Quantity ==
+Customer -> Gateway: PUT /api/v1/cart/items/{itemId}\n?customerId=1&quantity=3
+Gateway -> Cart: Update quantity
+Cart -> CartDB: Update CartItem quantity
+Cart -> Cart: Recalculate totals
+Cart -> CartDB: Update cart
+CartDB --> Cart: Updated cart
+Cart --> Gateway: CartDTO
+Gateway --> Customer: 200 OK + updated cart
+
+== Remove Item from Cart ==
+Customer -> Gateway: DELETE /api/v1/cart/items/{itemId}\n?customerId=1
+Gateway -> Cart: Remove item
+Cart -> CartDB: Delete CartItem
+Cart -> Cart: Recalculate totals
+Cart -> CartDB: Update cart
+CartDB --> Cart: Updated cart
+Cart --> Gateway: CartDTO
+Gateway --> Customer: 200 OK + updated cart
+
+@enduml
+
+@startuml QuickBite_Place_Order
+title QuickBite - Place Order & Payment Flow
+
+actor Customer
+participant "API Gateway" as Gateway
+participant "Order Service" as Order
+participant "Order DB" as OrderDB
+participant "Cart Service" as Cart
+participant "Payment Service" as Payment
+participant "Payment DB" as PaymentDB
+participant "Razorpay API" as Razorpay
+participant "Notification Service" as Notification
+
+== Place Order ==
+Customer -> Gateway: POST /api/v1/orders\n{customerId, restaurantId, deliveryAddress, paymentMethod}
+Gateway -> Order: Forward order request
+
+Order -> Cart: GET /api/v1/cart?customerId={id}
+Cart --> Order: CartDTO with items
+
+Order -> Order: Validate cart (not empty, restaurant active)
+Order -> Order: Generate unique orderNumber
+Order -> Order: Calculate order totals
+
+Order -> OrderDB: Create Order entity\n(status=PENDING, orderNumber)
+OrderDB --> Order: Order created
+
+Order -> OrderDB: Create OrderItem entities\nfor each cart item
+OrderDB --> Order: Order items created
+
+alt Payment Method = ONLINE
+    Order -> Payment: POST /api/v1/payments/initiate\n{orderId, customerId, amount, method=RAZORPAY}
+    Payment -> Razorpay: Create Razorpay order
+    Razorpay --> Payment: Razorpay order ID
+    Payment -> PaymentDB: Create Payment entity\n(status=PENDING, razorpayOrderId)
+    PaymentDB --> Payment: Payment created
+    Payment --> Order: PaymentResponse with razorpayOrderId
+    Order --> Gateway: OrderDTO + razorpayOrderId
+    Gateway --> Customer: 201 Created + payment details
+    
+    Customer -> Customer: Open Razorpay checkout
+    Customer -> Razorpay: Complete payment
+    Razorpay --> Customer: Payment success + paymentId, signature
+    
+    Customer -> Gateway: POST /api/v1/payments/verify\n{paymentId, signature, orderId}
+    Gateway -> Payment: Verify payment
+    Payment -> Payment: Verify signature using Razorpay secret
+    Payment -> PaymentDB: Update payment status=SUCCESS
+    PaymentDB --> Payment: Payment updated
+    Payment -> Order: Update order status=CONFIRMED
+    Order -> OrderDB: Update order status
+    OrderDB --> Order: Order updated
+    Payment --> Gateway: PaymentResponse (SUCCESS)
+    Gateway --> Customer: 200 OK + payment verified
+    
+else Payment Method = WALLET
+    Order -> Payment: POST /api/v1/payments/wallet/pay\n{customerId, orderId}
+    Payment -> PaymentDB: Get wallet balance
+    PaymentDB --> Payment: Wallet entity
+    Payment -> Payment: Validate sufficient balance
+    Payment -> PaymentDB: Deduct amount from wallet
+    Payment -> PaymentDB: Create Payment entity (status=SUCCESS)
+    Payment -> PaymentDB: Create wallet transaction
+    PaymentDB --> Payment: Payment completed
+    Payment --> Order: PaymentResponse (SUCCESS)
+    Order -> OrderDB: Update order status=CONFIRMED
+    OrderDB --> Order: Order updated
+    Order --> Gateway: OrderDTO
+    Gateway --> Customer: 201 Created + order confirmed
+    
+else Payment Method = COD
+    Order -> Payment: POST /api/v1/payments/cod\n{orderId, customerId, amount}
+    Payment -> PaymentDB: Create Payment entity\n(status=PENDING, method=COD)
+    PaymentDB --> Payment: Payment created
+    Payment --> Order: PaymentResponse
+    Order -> OrderDB: Update order status=CONFIRMED
+    OrderDB --> Order: Order updated
+    Order --> Gateway: OrderDTO
+    Gateway --> Customer: 201 Created + order confirmed
+end
+
+Order -> Cart: DELETE /api/v1/cart?customerId={id}
+Cart -> Cart: Clear cart after order
+Cart --> Order: Cart cleared
+
+Order -> Notification: Send order confirmation\n{userId, orderId, message}
+Notification --> Order: Notification sent
+
+@enduml
+
+@startuml QuickBite_Order_Processing
+title QuickBite - Order Processing & Delivery Flow
+
+actor Restaurant
+actor DeliveryAgent
+participant "API Gateway" as Gateway
+participant "Order Service" as Order
+participant "Order DB" as OrderDB
+participant "Delivery Service" as Delivery
+participant "Delivery DB" as DeliveryDB
+participant "Notification Service" as Notification
+participant "Review Service" as Review
+
+== Restaurant Confirms Order ==
+Restaurant -> Gateway: PUT /api/v1/orders/{orderNumber}/confirm
+Gateway -> Order: Confirm order
+Order -> OrderDB: Update status=PREPARING
+OrderDB --> Order: Order updated
+Order -> Notification: Notify customer\n"Your order is being prepared"
+Notification --> Order: Notification sent
+Order --> Gateway: OrderDTO
+Gateway --> Restaurant: 200 OK
+
+== Restaurant Marks Ready for Pickup ==
+Restaurant -> Gateway: PUT /api/v1/orders/{orderNumber}/status?status=READY_FOR_PICKUP
+Gateway -> Order: Update status
+Order -> OrderDB: Update status=READY_FOR_PICKUP
+OrderDB --> Order: Order updated
+
+Order -> Delivery: Find available agents\nGET /api/v1/delivery/agents/nearby\n?latitude={lat}&longitude={lng}
+Delivery -> DeliveryDB: Query available agents\nusing PostGIS proximity
+DeliveryDB --> Delivery: List of nearby agents
+Delivery --> Order: Available agents
+
+Order -> Order: Auto-assign nearest agent
+Order -> OrderDB: Update deliveryAgentId
+OrderDB --> Order: Order updated
+
+Order -> Notification: Notify agent\n"New delivery assignment"
+Notification --> Order: Notification sent
+Order -> Notification: Notify customer\n"Delivery agent assigned"
+Notification --> Order: Notification sent
+
+Order --> Gateway: OrderDTO
+Gateway --> Restaurant: 200 OK
+
+== Delivery Agent Picks Up Order ==
+DeliveryAgent -> Gateway: PUT /api/v1/orders/{orderNumber}/pickup/agent-confirm\n?deliveryAgentId={id}
+Gateway -> Order: Confirm pickup
+Order -> OrderDB: Update status=PICKED_UP
+Order -> OrderDB: Update pickupTime
+OrderDB --> Order: Order updated
+
+Order -> Delivery: Mark order picked up
+Delivery -> DeliveryDB: Update agent status
+DeliveryDB --> Delivery: Agent updated
+
+Order -> Notification: Notify customer\n"Order picked up, on the way"
+Notification --> Order: Notification sent
+
+Order --> Gateway: OrderDTO
+Gateway --> DeliveryAgent: 200 OK
+
+== Delivery Agent Updates Location ==
+loop Real-time tracking
+    DeliveryAgent -> Gateway: PUT /api/v1/delivery/agents/{agentId}/location\n{latitude, longitude}
+    Gateway -> Delivery: Update location
+    Delivery -> DeliveryDB: Update agent location (PostGIS Point)
+    DeliveryDB --> Delivery: Location updated
+    Delivery --> Gateway: 200 OK
+    Gateway --> DeliveryAgent: Location updated
+end
+
+== Delivery Agent Delivers Order ==
+DeliveryAgent -> Gateway: PUT /api/v1/delivery/agents/{agentId}/orders/{orderId}/deliver\n?orderAmount={amount}
+Gateway -> Delivery: Mark delivered
+Delivery -> DeliveryDB: Update agent stats
+Delivery -> Order: Update order status
+Order -> OrderDB: Update status=DELIVERED
+Order -> OrderDB: Update deliveryTime
+OrderDB --> Order: Order updated
+
+Delivery -> Delivery: Calculate agent earnings
+Delivery -> DeliveryDB: Update agent earnings
+DeliveryDB --> Delivery: Earnings updated
+
+alt Payment Method = COD
+    Order -> Order: Mark COD payment collected
+    Order -> OrderDB: Update payment status
+end
+
+Order -> Notification: Notify customer\n"Order delivered successfully"
+Notification --> Order: Notification sent
+
+Delivery --> Gateway: 200 OK
+Gateway --> DeliveryAgent: Delivery confirmed
+
+== Customer Reviews Order ==
+Customer -> Gateway: POST /api/v1/reviews\n{orderId, customerId, restaurantId, deliveryAgentId, ratings, comment}
+Gateway -> Review: Create review
+Review -> Review: Validate order exists and delivered
+Review -> Review: Save review with ratings
+Review -> Review: Calculate new averages
+
+Review -> Restaurant: Update restaurant rating\nPUT /api/v1/restaurants/{id}/rating
+Restaurant -> Restaurant: Update avgRating, reviewCount
+Restaurant --> Review: Rating updated
+
+Review -> Delivery: Update agent rating
+Delivery -> Delivery: Update agent avgRating
+Delivery --> Review: Rating updated
+
+Review --> Gateway: ReviewDTO
+Gateway --> Customer: 201 Created
+
+@enduml
+
+@startuml QuickBite_Wallet_Management
+title QuickBite - Wallet Management Flow
+
+actor Customer
+participant "API Gateway" as Gateway
+participant "Payment Service" as Payment
+participant "Payment DB" as PaymentDB
+participant "Razorpay API" as Razorpay
+
+== Check Wallet Balance ==
+Customer -> Gateway: GET /api/v1/payments/wallet/balance/{customerId}
+Gateway -> Payment: Get balance
+Payment -> PaymentDB: Find wallet by customerId
+PaymentDB --> Payment: Wallet entity
+Payment --> Gateway: WalletResponse\n{customerId, balance, lastUpdated}
+Gateway --> Customer: 200 OK + balance
+
+== Add Money to Wallet ==
+Customer -> Gateway: POST /api/v1/payments/wallet/deposit\n?customerId={id}&amount=500
+Gateway -> Payment: Deposit to wallet
+Payment -> Razorpay: Create payment order
+Razorpay --> Payment: Razorpay order ID
+Payment --> Gateway: Payment details
+Gateway --> Customer: Razorpay checkout details
+
+Customer -> Razorpay: Complete payment
+Razorpay --> Customer: Payment success
+
+Customer -> Gateway: Verify payment
+Gateway -> Payment: Verify and add to wallet
+Payment -> Payment: Verify Razorpay signature
+Payment -> PaymentDB: Update wallet balance
+Payment -> PaymentDB: Create wallet transaction\n(type=CREDIT, amount, description)
+PaymentDB --> Payment: Wallet updated
+Payment --> Gateway: WalletResponse
+Gateway --> Customer: 200 OK + updated balance
+
+== View Wallet Statements ==
+Customer -> Gateway: GET /api/v1/payments/wallet/statements/{customerId}
+Gateway -> Payment: Get statements
+Payment -> PaymentDB: Query wallet transactions\nORDER BY createdAt DESC
+PaymentDB --> Payment: List of transactions
+Payment --> Gateway: List<WalletStatementDTO>
+Gateway --> Customer: 200 OK + transaction history
+
+== Pay from Wallet ==
+Customer -> Gateway: POST /api/v1/payments/wallet/pay\n?customerId={id}&orderId={orderId}
+Gateway -> Payment: Pay from wallet
+Payment -> PaymentDB: Get wallet balance
+PaymentDB --> Payment: Wallet entity
+Payment -> Payment: Validate sufficient balance
+Payment -> PaymentDB: Deduct amount
+Payment -> PaymentDB: Create debit transaction
+Payment -> PaymentDB: Create payment record
+PaymentDB --> Payment: Payment completed
+Payment --> Gateway: PaymentResponse
+Gateway --> Customer: 200 OK + payment success
+
+@enduml
+
+@startuml QuickBite_Admin_Operations
+title QuickBite - Admin & Restaurant Owner Operations
+
+actor Admin
+actor RestaurantOwner
+participant "API Gateway" as Gateway
+participant "Auth Service" as Auth
+participant "Restaurant Service" as Restaurant
+participant "Menu Service" as Menu
+participant "Order Service" as Order
+
+== Admin: Approve Restaurant ==
+Admin -> Gateway: PUT /api/v1/restaurants/{id}/approve\nAuthorization: Bearer {adminToken}
+Gateway -> Auth: Validate admin token
+Auth --> Gateway: User (role=ADMIN)
+Gateway -> Restaurant: Approve restaurant
+Restaurant -> Restaurant: Update isApproved=true
+Restaurant --> Gateway: RestaurantDTO
+Gateway --> Admin: 200 OK + approved restaurant
+
+== Admin: Suspend User ==
+Admin -> Gateway: PUT /api/auth/users/{userId}/suspend\nAuthorization: Bearer {adminToken}
+Gateway -> Auth: Validate admin token
+Auth --> Gateway: User (role=ADMIN)
+Gateway -> Auth: Suspend user
+Auth -> Auth: Update isActive=false
+Auth --> Gateway: Success message
+Gateway --> Admin: 200 OK
+
+== Restaurant Owner: Add Menu Item ==
+RestaurantOwner -> Gateway: POST /api/v1/menu/items\n{restaurantId, categoryId, name, price, ...}
+Gateway -> Menu: Create menu item
+Menu -> Menu: Validate restaurant ownership
+Menu -> Menu: Create MenuItem entity
+Menu --> Gateway: MenuItemDTO
+Gateway --> RestaurantOwner: 201 Created
+
+== Restaurant Owner: Upload Menu Image ==
+RestaurantOwner -> Gateway: POST /api/v1/menu/items/{id}/upload-image\n{image: MultipartFile}
+Gateway -> Menu: Upload image
+Menu -> Menu: Delete old image from Cloudinary
+Menu -> Menu: Upload new image to Cloudinary
+Menu -> Menu: Update imageUrl in database
+Menu --> Gateway: Image URL
+Gateway --> RestaurantOwner: 200 OK + imageUrl
+
+== Restaurant Owner: Toggle Restaurant Open/Close ==
+RestaurantOwner -> Gateway: PUT /api/v1/restaurants/{id}/toggle-open
+Gateway -> Restaurant: Toggle open status
+Restaurant -> Restaurant: Update isOpen = !isOpen
+Restaurant --> Gateway: RestaurantDTO
+Gateway --> RestaurantOwner: 200 OK
+
+== Restaurant Owner: View Orders ==
+RestaurantOwner -> Gateway: GET /api/v1/orders/restaurant/{restaurantId}
+Gateway -> Order: Get restaurant orders
+Order -> Order: Query active orders\n(status IN [PENDING, PREPARING, READY_FOR_PICKUP])
+Order --> Gateway: List<OrderDTO>
+Gateway --> RestaurantOwner: 200 OK + orders
+
+== Restaurant Owner: Update Order Status ==
+RestaurantOwner -> Gateway: PUT /api/v1/orders/{orderNumber}/status?status=PREPARING
+Gateway -> Order: Update status
+Order -> Order: Validate status transition
+Order -> Order: Update order status
+Order --> Gateway: OrderDTO
+Gateway --> RestaurantOwner: 200 OK
+
+@enduml
+
+@startuml QuickBite_Microservices_Communication
+title QuickBite - Inter-Service Communication Overview
+
+participant "Auth Service\n:8081" as Auth
+participant "Restaurant Service\n:8082" as Restaurant
+participant "Menu Service\n:8083" as Menu
+participant "Cart Service\n:8084" as Cart
+participant "Order Service\n:8085" as Order
+participant "Payment Service\n:8086" as Payment
+participant "Delivery Service\n:8087" as Delivery
+participant "Review Service\n:8088" as Review
+participant "Notification Service\n:8089" as Notification
+
+== Service Dependencies ==
+
+note over Auth
+  Provides: User authentication,
+  JWT token generation/validation,
+  User profile management
+end note
+
+note over Restaurant
+  Depends on: Auth (user validation)
+  Provides: Restaurant data,
+  Location-based search (PostGIS)
+end note
+
+note over Menu
+  Depends on: Restaurant (validation)
+  Provides: Menu items, categories,
+  Image upload (Cloudinary)
+end note
+
+note over Cart
+  Depends on: Menu (item validation),
+  Restaurant (validation)
+  Provides: Shopping cart management
+end note
+
+note over Order
+  Depends on: Cart (checkout),
+  Restaurant (validation),
+  Payment (payment status),
+  Delivery (agent assignment),
+  Notification (alerts)
+  Provides: Order management,
+  Order lifecycle tracking
+end note
+
+note over Payment
+  Depends on: Order (order details)
+  Provides: Payment processing,
+  Razorpay integration,
+  Wallet management
+end note
+
+note over Delivery
+  Depends on: Order (delivery assignments)
+  Provides: Agent management,
+  Location tracking (PostGIS),
+  Route optimization (OSRM)
+end note
+
+note over Review
+  Depends on: Order (validation),
+  Restaurant (rating update),
+  Delivery (agent rating)
+  Provides: Review management,
+  Rating calculations
+end note
+
+note over Notification
+  Depends on: All services
+  Provides: Real-time notifications,
+  Email/SMS alerts
+end note
+
+== Typical Order Flow Communication ==
+
+Order -> Cart: Get cart items
+Cart --> Order: Cart data
+
+Order -> Payment: Initiate payment
+Payment --> Order: Payment status
+
+Order -> Delivery: Assign agent
+Delivery --> Order: Agent assigned
+
+Order -> Notification: Send alerts
+Notification --> Order: Notifications sent
+
+Order -> Review: Enable review
+Review -> Restaurant: Update rating
+Review -> Delivery: Update agent rating
+
+@enduml
+
+@startuml QuickBite_Error_Handling
+title QuickBite - Error Handling & Exception Flow
+
+actor Client
+participant "API Gateway" as Gateway
+participant "Service" as Service
+participant "GlobalExceptionHandler" as Handler
+participant "Database" as DB
+
+== Resource Not Found ==
+Client -> Gateway: GET /api/v1/menu/items/99999
+Gateway -> Service: Get menu item
+Service -> DB: Find by ID
+DB --> Service: null
+Service -> Service: throw ResourceNotFoundException
+Service -> Handler: Handle exception
+Handler -> Handler: Create error response\n{timestamp, status: 404, error, message, path}
+Handler --> Gateway: 404 NOT_FOUND + error details
+Gateway --> Client: 404 NOT_FOUND
+
+== Invalid Request ==
+Client -> Gateway: POST /api/v1/menu/items\n{invalid data}
+Gateway -> Service: Create menu item
+Service -> Service: Validate request
+Service -> Service: throw InvalidRequestException
+Service -> Handler: Handle exception
+Handler -> Handler: Create error response\n{status: 400, message, validationErrors}
+Handler --> Gateway: 400 BAD_REQUEST + error details
+Gateway --> Client: 400 BAD_REQUEST
+
+== Unauthorized Access ==
+Client -> Gateway: GET /api/auth/users\n(no token)
+Gateway -> Service: Get all users
+Service -> Service: Validate authorization header
+Service -> Service: throw ResponseStatusException(401)
+Service -> Handler: Handle exception
+Handler --> Gateway: 401 UNAUTHORIZED
+Gateway --> Client: 401 UNAUTHORIZED
+
+== Payment Failure ==
+Client -> Gateway: POST /api/v1/payments/verify\n{invalid signature}
+Gateway -> Service: Verify payment
+Service -> Service: Verify Razorpay signature
+Service -> Service: Signature mismatch
+Service -> Service: throw PaymentVerificationException
+Service -> Handler: Handle exception
+Handler --> Gateway: 400 BAD_REQUEST + error
+Gateway --> Client: Payment verification failed
+
+== Database Constraint Violation ==
+Client -> Gateway: POST /api/auth/signup\n{existing email}
+Gateway -> Service: Create user
+Service -> DB: Save user
+DB --> Service: DataIntegrityViolationException
+Service -> Handler: Handle exception
+Handler -> Handler: Parse constraint violation
+Handler --> Gateway: 409 CONFLICT\n"Email already exists"
+Gateway --> Client: 409 CONFLICT
+
+== Service Unavailable ==
+Client -> Gateway: POST /api/v1/orders
+Gateway -> Service: Place order
+Service -> Payment: Initiate payment (HTTP call)
+Payment --> Service: Connection timeout
+Service -> Service: throw ServiceUnavailableException
+Service -> Handler: Handle exception
+Handler --> Gateway: 503 SERVICE_UNAVAILABLE
+Gateway --> Client: 503 SERVICE_UNAVAILABLE
+
+@enduml

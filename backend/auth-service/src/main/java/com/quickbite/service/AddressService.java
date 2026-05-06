@@ -4,29 +4,30 @@ import com.quickbite.dto.AddressDTO;
 import com.quickbite.dto.CreateAddressRequest;
 import com.quickbite.dto.UpdateAddressRequest;
 import com.quickbite.entity.Address;
+import com.quickbite.exception.AddressNotFoundException;
 import com.quickbite.repository.AddressRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class AddressService {
+    private static final String ADDRESS_NOT_FOUND = "Address not found";
     private final AddressRepository addressRepository;
 
     public List<AddressDTO> getAllAddresses(Long userId) {
         return addressRepository.findByUserIdOrderByIsDefaultDescCreatedAtDesc(userId)
                 .stream()
                 .map(this::toDTO)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     public AddressDTO getAddressById(Long id, Long userId) {
         Address address = addressRepository.findByIdAndUserId(id, userId)
-                .orElseThrow(() -> new RuntimeException("Address not found"));
+                .orElseThrow(() -> new AddressNotFoundException(ADDRESS_NOT_FOUND));
         return toDTO(address);
     }
 
@@ -46,7 +47,7 @@ public class AddressService {
                 .pincode(request.getPincode())
                 .latitude(request.getLatitude())
                 .longitude(request.getLongitude())
-                .isDefault(request.getIsDefault() != null ? request.getIsDefault() : false)
+                .isDefault(request.getIsDefault() != null && request.getIsDefault())
                 .build();
 
         return toDTO(addressRepository.save(address));
@@ -55,7 +56,7 @@ public class AddressService {
     @Transactional
     public AddressDTO updateAddress(Long id, UpdateAddressRequest request, Long userId) {
         Address address = addressRepository.findByIdAndUserId(id, userId)
-                .orElseThrow(() -> new RuntimeException("Address not found"));
+                .orElseThrow(() -> new AddressNotFoundException(ADDRESS_NOT_FOUND));
 
         if (request.getLabel() != null) address.setLabel(request.getLabel());
         if (request.getAddressLine1() != null) address.setAddressLine1(request.getAddressLine1());
@@ -77,14 +78,14 @@ public class AddressService {
     @Transactional
     public void deleteAddress(Long id, Long userId) {
         Address address = addressRepository.findByIdAndUserId(id, userId)
-                .orElseThrow(() -> new RuntimeException("Address not found"));
+                .orElseThrow(() -> new AddressNotFoundException(ADDRESS_NOT_FOUND));
         addressRepository.delete(address);
     }
 
     @Transactional
     public AddressDTO setDefaultAddress(Long id, Long userId) {
         Address address = addressRepository.findByIdAndUserId(id, userId)
-                .orElseThrow(() -> new RuntimeException("Address not found"));
+                .orElseThrow(() -> new AddressNotFoundException(ADDRESS_NOT_FOUND));
 
         unsetDefaultAddress(userId);
         address.setIsDefault(true);

@@ -1,6 +1,5 @@
 package com.quickbite.config;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -14,13 +13,15 @@ import org.springframework.web.cors.CorsConfigurationSource;
 @EnableWebSecurity
 public class SecurityConfig {
 
-    @Autowired
-    private CorsConfigurationSource corsConfigurationSource;
-
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, CorsConfigurationSource corsConfigurationSource) throws Exception {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
+                // CSRF protection is disabled because:
+                // 1. This is a stateless REST API using JWT tokens (no session cookies)
+                // 2. JWT tokens are sent in Authorization headers, not cookies
+                // 3. SessionCreationPolicy is STATELESS - no server-side sessions
+                // 4. CSRF attacks target cookie-based authentication, which we don't use
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
@@ -34,7 +35,7 @@ public class SecurityConfig {
                                 "/api/auth/validate",
                                 "/actuator/**"
                         ).permitAll()
-                        .anyRequest().permitAll() // TODO: change to .authenticated() once JWT filter is added
+                        .anyRequest().authenticated()
                 );
 
         return http.build();

@@ -25,12 +25,28 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
 @Slf4j
 public class AuthService {
+
+    private static final String BEARER = "Bearer";
+    private static final String USER_NOT_FOUND = "User not found";
+    private static final String EMAIL_KEY = "email";
+    private static final String ERROR_KEY = "error";
+    private static final String ERROR_DESCRIPTION_KEY = "error_description";
+    private static final String ACCESS_TOKEN_KEY = "access_token";
+    private static final String USER_NOT_FOUND_WITH_ID = "User not found with id: ";
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+    private static final String GOOGLE_TOKEN_INFO_URL = "https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=";
+    private static final String GITHUB_USER_API = "https://api.github.com/user";
+    private static final String NOTIFICATION_EXCHANGE = "notification.exchange";
+    private static final String NOTIFICATION_ROUTING_KEY_LOGIN = "notification.login";
+    private static final String NOTIFICATION_ROUTING_KEY_SIGNUP = "notification.signup";
+    private static final String USER_SESSION_PREFIX = "user:session:";
+    private static final String USER_PROFILE_PREFIX = "user:profile:";
+    private static final long SESSION_TTL = 3600;
 
     @Autowired
     private UserRepository userRepository;
@@ -61,16 +77,6 @@ public class AuthService {
 
     @Value("${oauth2.github.clientSecret:}")
     private String githubClientSecret;
-
-    private static final ObjectMapper objectMapper = new ObjectMapper();
-    private static final String GOOGLE_TOKEN_INFO_URL = "https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=";
-    private static final String GITHUB_USER_API = "https://api.github.com/user";
-    private static final String NOTIFICATION_EXCHANGE = "notification.exchange";
-    private static final String NOTIFICATION_ROUTING_KEY_LOGIN = "notification.login";
-    private static final String NOTIFICATION_ROUTING_KEY_SIGNUP = "notification.signup";
-    private static final String USER_SESSION_PREFIX = "user:session:";
-    private static final String USER_PROFILE_PREFIX = "user:profile:";
-    private static final long SESSION_TTL = 3600;
 
     // ==================== Registration & Login ====================
 
@@ -115,7 +121,7 @@ public class AuthService {
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .expiresIn(jwtTokenProvider.getTokenExpirationTime())
-                .tokenType("Bearer")
+                .tokenType(BEARER)
                 .build();
     }
 
@@ -150,7 +156,7 @@ public class AuthService {
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .expiresIn(jwtTokenProvider.getTokenExpirationTime())
-                .tokenType("Bearer")
+                .tokenType(BEARER)
                 .build();
 
         cacheUserSession(user.getId(), accessToken);
@@ -166,7 +172,7 @@ public class AuthService {
 
         String email = jwtTokenProvider.getEmailFromToken(refreshToken);
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new AuthenticationException("User not found"));
+                .orElseThrow(() -> new AuthenticationException(USER_NOT_FOUND));
 
         String newAccessToken = jwtTokenProvider.generateAccessToken(user);
 
@@ -178,7 +184,7 @@ public class AuthService {
                 .accessToken(newAccessToken)
                 .refreshToken(refreshToken)
                 .expiresIn(jwtTokenProvider.getTokenExpirationTime())
-                .tokenType("Bearer")
+                .tokenType(BEARER)
                 .build();
     }
 
@@ -189,7 +195,7 @@ public class AuthService {
 
         String email = jwtTokenProvider.getEmailFromToken(token);
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new AuthenticationException("User not found"));
+                .orElseThrow(() -> new AuthenticationException(USER_NOT_FOUND));
     }
 
     // ==================== OAuth2 ====================
@@ -222,13 +228,13 @@ public class AuthService {
             String response = restTemplate.getForObject(GOOGLE_TOKEN_INFO_URL + accessToken, String.class);
             JsonNode node = objectMapper.readTree(response);
 
-            if (!node.has("email")) {
+            if (!node.has(EMAIL_KEY)) {
                 throw new AuthenticationException("Email not found in Google token response");
             }
 
-            String email = node.get("email").asText();
-            String name = node.has("name") && !node.get("name").isNull() ? node.get("name").asText() : email.split("@")[0];
-            String googleId = node.has("sub") ? node.get("sub").asText() : node.get("user_id").asText();
+            String email = node.get(EMAIL_KEY).asText();
+            String name = extractNodeText(node, "name", email.split("@")[0]);
+            String googleId = extractNodeText(node, "sub", node.has("user_id") ? node.get("user_id").asText() : null);
 
             log.info("Google OAuth successful for email: {}", email);
 
@@ -264,40 +270,16 @@ public class AuthService {
             String response = restTemplate.exchange(GITHUB_USER_API, org.springframework.http.HttpMethod.GET, entity, String.class).getBody();
             JsonNode node = objectMapper.readTree(response);
 
-            String email = node.has("email") && !node.get("email").isNull() ? node.get("email").asText() : null;
-            
-            if (email == null || email.isEmpty()) {
-                String emailsResponse = restTemplate.exchange(
-                    "https://api.github.com/user/emails",
-                    org.springframework.http.HttpMethod.GET,
-                    entity,
-                    String.class
-                ).getBody();
-                JsonNode emailsNode = objectMapper.readTree(emailsResponse);
-                if (emailsNode.isArray() && emailsNode.size() > 0) {
-                    for (JsonNode emailNode : emailsNode) {
-                        if (emailNode.get("primary").asBoolean()) {
-                            email = emailNode.get("email").asText();
-                            break;
-                        }
-                    }
-                    if (email == null) {
-                        email = emailsNode.get(0).get("email").asText();
-                    }
-                }
-            }
-
+            String email = resolveGitHubEmail(node, entity);
             if (email == null || email.isEmpty()) {
                 throw new AuthenticationException("Unable to retrieve email from GitHub");
             }
 
-            String name = node.has("name") && !node.get("name").isNull() ? node.get("name").asText() : email.split("@")[0];
-            final String finalEmail = email;
-            final String finalName = name;
+            String name = extractNodeText(node, "name", email.split("@")[0]);
             final String githubId = node.get("id").asText();
 
-            User user = userRepository.findByEmail(finalEmail)
-                    .orElseGet(() -> createOAuthUser(finalEmail, finalName, "GITHUB", githubId));
+            User user = userRepository.findByEmail(email)
+                    .orElseGet(() -> createOAuthUser(email, name, "GITHUB", githubId));
 
             user.setLastLogin(LocalDateTime.now());
             user = userRepository.save(user);
@@ -308,10 +290,54 @@ public class AuthService {
             cacheUserProfile(user);
 
             return authResponse;
+        } catch (AuthenticationException e) {
+            throw e;
         } catch (Exception e) {
             log.error("GitHub OAuth error", e);
             throw new AuthenticationException("GitHub OAuth validation failed: " + e.getMessage());
         }
+    }
+
+    private String resolveGitHubEmail(JsonNode userNode, org.springframework.http.HttpEntity<?> entity) {
+        String email = extractNodeText(userNode, EMAIL_KEY, null);
+        if (email != null && !email.isEmpty()) {
+            return email;
+        }
+
+        try {
+            String emailsResponse = restTemplate.exchange(
+                    "https://api.github.com/user/emails",
+                    org.springframework.http.HttpMethod.GET,
+                    entity,
+                    String.class
+            ).getBody();
+            JsonNode emailsNode = objectMapper.readTree(emailsResponse);
+
+            if (emailsNode == null || !emailsNode.isArray() || emailsNode.isEmpty()) {
+                return null;
+            }
+
+            return findPrimaryEmail(emailsNode);
+        } catch (Exception e) {
+            log.error("Failed to resolve GitHub email from /user/emails endpoint", e);
+            throw new AuthenticationException("Failed to retrieve email from GitHub: " + e.getMessage());
+        }
+    }
+
+    private String findPrimaryEmail(JsonNode emailsNode) {
+        for (JsonNode emailNode : emailsNode) {
+            if (emailNode.get("primary").asBoolean()) {
+                return emailNode.get(EMAIL_KEY).asText();
+            }
+        }
+        return emailsNode.get(0).get(EMAIL_KEY).asText();
+    }
+
+    private String extractNodeText(JsonNode node, String field, String defaultValue) {
+        if (node.has(field) && !node.get(field).isNull()) {
+            return node.get(field).asText();
+        }
+        return defaultValue;
     }
 
     private String exchangeGitHubCode(String code) {
@@ -340,15 +366,15 @@ public class AuthService {
             String response = restTemplate.postForObject(tokenUrl, entity, String.class);
             JsonNode node = objectMapper.readTree(response);
 
-            if (node.has("error")) {
-                String error = node.get("error").asText();
-                String errorDesc = node.has("error_description") ? node.get("error_description").asText() : "Unknown error";
+            if (node.has(ERROR_KEY)) {
+                String error = node.get(ERROR_KEY).asText();
+                String errorDesc = node.has(ERROR_DESCRIPTION_KEY) ? node.get(ERROR_DESCRIPTION_KEY).asText() : "Unknown error";
                 throw new AuthenticationException("GitHub token exchange error: " + error + " - " + errorDesc);
             }
 
-            if (node.has("access_token")) {
+            if (node.has(ACCESS_TOKEN_KEY)) {
                 log.info("Successfully exchanged GitHub code for access token");
-                return node.get("access_token").asText();
+                return node.get(ACCESS_TOKEN_KEY).asText();
             }
 
             throw new AuthenticationException("Failed to exchange GitHub code for token - no access_token in response");
@@ -387,15 +413,15 @@ public class AuthService {
             String response = restTemplate.postForObject(tokenUrl, entity, String.class);
             JsonNode node = objectMapper.readTree(response);
 
-            if (node.has("error")) {
-                String error = node.get("error").asText();
-                String errorDesc = node.has("error_description") ? node.get("error_description").asText() : "Unknown error";
+            if (node.has(ERROR_KEY)) {
+                String error = node.get(ERROR_KEY).asText();
+                String errorDesc = node.has(ERROR_DESCRIPTION_KEY) ? node.get(ERROR_DESCRIPTION_KEY).asText() : "Unknown error";
                 throw new AuthenticationException("Google token exchange error: " + error + " - " + errorDesc);
             }
 
-            if (node.has("access_token")) {
+            if (node.has(ACCESS_TOKEN_KEY)) {
                 log.info("Successfully exchanged Google code for access token");
-                return node.get("access_token").asText();
+                return node.get(ACCESS_TOKEN_KEY).asText();
             }
 
             throw new AuthenticationException("Failed to exchange Google code for token - no access_token in response");
@@ -436,7 +462,7 @@ public class AuthService {
         }
 
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new AuthenticationException("User not found"));
+                .orElseThrow(() -> new AuthenticationException(USER_NOT_FOUND));
         UserDTO userDTO = mapToUserDTO(user);
         
         cacheUserProfileByEmail(email, userDTO);
@@ -451,7 +477,7 @@ public class AuthService {
         }
 
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new AuthenticationException("User not found with id: " + userId));
+                .orElseThrow(() -> new AuthenticationException(USER_NOT_FOUND_WITH_ID + userId));
         UserDTO userDTO = mapToUserDTO(user);
         
         cacheUserProfile(user);
@@ -460,7 +486,7 @@ public class AuthService {
 
     public UserDTO updateProfile(String email, UpdateProfileRequest request) {
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new AuthenticationException("User not found"));
+                .orElseThrow(() -> new AuthenticationException(USER_NOT_FOUND));
 
         if (request.getFullName() != null && !request.getFullName().isBlank()) {
             user.setFullName(request.getFullName());
@@ -488,7 +514,7 @@ public class AuthService {
 
     public void changePassword(String email, ChangePasswordRequest request) {
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new AuthenticationException("User not found"));
+                .orElseThrow(() -> new AuthenticationException(USER_NOT_FOUND));
 
         if (user.getOauthProvider() != null && !user.getOauthProvider().isEmpty()) {
             throw new InvalidCredentialsException("Cannot change password for OAuth accounts");
@@ -513,7 +539,7 @@ public class AuthService {
 
     public void deactivateAccount(String email) {
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new AuthenticationException("User not found"));
+                .orElseThrow(() -> new AuthenticationException(USER_NOT_FOUND));
 
         user.setIsActive(false);
         userRepository.save(user);
@@ -527,19 +553,19 @@ public class AuthService {
         UserRole userRole = UserRole.valueOf(role.toUpperCase());
         return userRepository.findByRole(userRole).stream()
                 .map(this::mapToUserDTO)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Transactional(readOnly = true)
     public List<UserDTO> getAllUsers() {
         return userRepository.findAll().stream()
                 .map(this::mapToUserDTO)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     public void suspendUser(Long userId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new AuthenticationException("User not found with id: " + userId));
+                .orElseThrow(() -> new AuthenticationException(USER_NOT_FOUND_WITH_ID + userId));
         user.setIsActive(false);
         userRepository.save(user);
         log.info("User suspended: {}", userId);
@@ -547,7 +573,7 @@ public class AuthService {
 
     public void reactivateUser(Long userId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new AuthenticationException("User not found with id: " + userId));
+                .orElseThrow(() -> new AuthenticationException(USER_NOT_FOUND_WITH_ID + userId));
         user.setIsActive(true);
         userRepository.save(user);
         log.info("User reactivated: {}", userId);
@@ -555,7 +581,7 @@ public class AuthService {
 
     public void deleteUser(Long userId) {
         if (!userRepository.existsById(userId)) {
-            throw new AuthenticationException("User not found with id: " + userId);
+            throw new AuthenticationException(USER_NOT_FOUND_WITH_ID + userId);
         }
         userRepository.deleteById(userId);
         log.info("User deleted: {}", userId);
@@ -575,7 +601,7 @@ public class AuthService {
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .expiresIn(jwtTokenProvider.getTokenExpirationTime())
-                .tokenType("Bearer")
+                .tokenType(BEARER)
                 .build();
     }
 
@@ -684,9 +710,9 @@ public class AuthService {
         try {
             String key = USER_PROFILE_PREFIX + "email:" + email;
             Object cached = redisTemplate.opsForValue().get(key);
-            if (cached instanceof UserDTO) {
+            if (cached instanceof UserDTO userdto) {
                 log.debug("User profile retrieved from cache for email: {}", email);
-                return (UserDTO) cached;
+                return userdto;
             }
         } catch (Exception e) {
             log.warn("Failed to retrieve cached user profile: {}", e.getMessage());
@@ -699,9 +725,9 @@ public class AuthService {
         try {
             String key = USER_PROFILE_PREFIX + userId;
             Object cached = redisTemplate.opsForValue().get(key);
-            if (cached instanceof UserDTO) {
+            if (cached instanceof UserDTO userdto) {
                 log.debug("User profile retrieved from cache for userId: {}", userId);
-                return (UserDTO) cached;
+                return userdto;
             }
         } catch (Exception e) {
             log.warn("Failed to retrieve cached user profile: {}", e.getMessage());

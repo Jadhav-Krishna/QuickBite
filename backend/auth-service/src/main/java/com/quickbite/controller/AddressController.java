@@ -3,6 +3,7 @@ package com.quickbite.controller;
 import com.quickbite.dto.AddressDTO;
 import com.quickbite.dto.CreateAddressRequest;
 import com.quickbite.dto.UpdateAddressRequest;
+import com.quickbite.exception.InvalidTokenException;
 import com.quickbite.service.AddressService;
 import com.quickbite.service.GeocodingService;
 import com.quickbite.util.JwtTokenProvider;
@@ -32,12 +33,12 @@ public class AddressController {
     private Long getUserIdFromToken(String authHeader) {
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             log.error("No valid authorization token provided");
-            throw new RuntimeException("No valid authorization token");
+            throw new InvalidTokenException("No valid authorization token");
         }
         String token = authHeader.substring(7);
         if (!jwtTokenProvider.validateToken(token)) {
             log.error("Invalid token provided");
-            throw new RuntimeException("Invalid token");
+            throw new InvalidTokenException("Invalid token");
         }
         return jwtTokenProvider.getUserIdFromToken(token);
     }

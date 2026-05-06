@@ -179,6 +179,59 @@ class PaymentServiceTest {
         paymentService.handleWebhookEvent(event);
     }
 
+    @Test
+    void webhook_authorizedEvent() {
+        com.quickbite.dto.RazorpayWebhookEvent event = mock(com.quickbite.dto.RazorpayWebhookEvent.class);
+        com.quickbite.dto.RazorpayWebhookEvent.PaymentPayload payload = mock(com.quickbite.dto.RazorpayWebhookEvent.PaymentPayload.class);
+        com.quickbite.dto.RazorpayWebhookEvent.PaymentPayload.PaymentEntity paymentEntity = mock(com.quickbite.dto.RazorpayWebhookEvent.PaymentPayload.PaymentEntity.class);
+        com.quickbite.dto.RazorpayWebhookEvent.PaymentPayload.PaymentEntity.PaymentData entity = mock(com.quickbite.dto.RazorpayWebhookEvent.PaymentPayload.PaymentEntity.PaymentData.class);
+        
+        when(event.getEvent()).thenReturn("payment.authorized");
+        when(event.getPayload()).thenReturn(payload);
+        when(payload.getPayment()).thenReturn(paymentEntity);
+        when(paymentEntity.getEntity()).thenReturn(entity);
+        when(entity.getId()).thenReturn("pay_123");
+
+        paymentService.handleWebhookEvent(event);
+    }
+
+    @Test
+    void webhook_failedEvent() {
+        com.quickbite.dto.RazorpayWebhookEvent event = mock(com.quickbite.dto.RazorpayWebhookEvent.class);
+        com.quickbite.dto.RazorpayWebhookEvent.PaymentPayload payload = mock(com.quickbite.dto.RazorpayWebhookEvent.PaymentPayload.class);
+        com.quickbite.dto.RazorpayWebhookEvent.PaymentPayload.PaymentEntity paymentEntity = mock(com.quickbite.dto.RazorpayWebhookEvent.PaymentPayload.PaymentEntity.class);
+        com.quickbite.dto.RazorpayWebhookEvent.PaymentPayload.PaymentEntity.PaymentData entity = mock(com.quickbite.dto.RazorpayWebhookEvent.PaymentPayload.PaymentEntity.PaymentData.class);
+        
+        when(event.getEvent()).thenReturn("payment.failed");
+        when(event.getPayload()).thenReturn(payload);
+        when(payload.getPayment()).thenReturn(paymentEntity);
+        when(paymentEntity.getEntity()).thenReturn(entity);
+        when(entity.getId()).thenReturn("pay_123");
+        when(paymentRepository.findByTransactionId(any())).thenReturn(Optional.of(payment));
+        when(paymentRepository.save(any())).thenReturn(payment);
+
+        paymentService.handleWebhookEvent(event);
+        
+        verify(paymentRepository).save(any());
+    }
+
+    @Test
+    void webhook_failedEvent_paymentNotFound() {
+        com.quickbite.dto.RazorpayWebhookEvent event = mock(com.quickbite.dto.RazorpayWebhookEvent.class);
+        com.quickbite.dto.RazorpayWebhookEvent.PaymentPayload payload = mock(com.quickbite.dto.RazorpayWebhookEvent.PaymentPayload.class);
+        com.quickbite.dto.RazorpayWebhookEvent.PaymentPayload.PaymentEntity paymentEntity = mock(com.quickbite.dto.RazorpayWebhookEvent.PaymentPayload.PaymentEntity.class);
+        com.quickbite.dto.RazorpayWebhookEvent.PaymentPayload.PaymentEntity.PaymentData entity = mock(com.quickbite.dto.RazorpayWebhookEvent.PaymentPayload.PaymentEntity.PaymentData.class);
+        
+        when(event.getEvent()).thenReturn("payment.failed");
+        when(event.getPayload()).thenReturn(payload);
+        when(payload.getPayment()).thenReturn(paymentEntity);
+        when(paymentEntity.getEntity()).thenReturn(entity);
+        when(entity.getId()).thenReturn("pay_123");
+        when(paymentRepository.findByTransactionId(any())).thenReturn(Optional.empty());
+
+        paymentService.handleWebhookEvent(event);
+    }
+
     // ================= COD =================
 
     @Test

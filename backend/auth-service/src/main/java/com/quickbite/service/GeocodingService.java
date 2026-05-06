@@ -44,7 +44,7 @@ public class GeocodingService {
         } catch (Exception e) {
             log.error("Geocoding failed for address: {}", address, e);
         }
-        return null;
+        return Map.of();
     }
     
     /**
@@ -52,56 +52,85 @@ public class GeocodingService {
      */
     public Map<String, String> reverseGeocode(double latitude, double longitude) {
         try {
-            String url = UriComponentsBuilder.fromHttpUrl(LOCATIONIQ_REVERSE_URL)
-                    .queryParam("key", apiKey)
-                    .queryParam("lat", latitude)
-                    .queryParam("lon", longitude)
-                    .queryParam("format", "json")
-                    .toUriString();
-
+            String url = buildReverseGeocodeUrl(latitude, longitude);
             Map<String, Object> response = restTemplate.getForObject(url, Map.class);
             
-            if (response != null && response.containsKey("address")) {
-                @SuppressWarnings("unchecked")
-                Map<String, Object> address = (Map<String, Object>) response.get("address");
-                
-                // Build address components
-                String houseNumber = (String) address.get("house_number");
-                String road = (String) address.get("road");
-                String suburb = (String) address.get("suburb");
-                String quarter = (String) address.get("quarter");
-                String city = (String) address.get("city");
-                String town = (String) address.get("town");
-                String village = (String) address.get("village");
-                String state = (String) address.get("state");
-                String postcode = (String) address.get("postcode");
-                String country = (String) address.get("country");
-                
-                // Build address line 1
-                StringBuilder addressLine1 = new StringBuilder();
-                if (houseNumber != null) addressLine1.append(houseNumber).append(", ");
-                if (road != null) addressLine1.append(road);
-                if (addressLine1.length() == 0 && suburb != null) addressLine1.append(suburb);
-                if (addressLine1.length() == 0 && quarter != null) addressLine1.append(quarter);
-                
-                // Get city name
-                String cityName = city != null ? city : (town != null ? town : village);
-                
-                log.info("Reverse geocoded coordinates ({}, {}) to address: {}", 
-                        latitude, longitude, addressLine1.toString());
-                
-                return Map.of(
-                    "addressLine1", addressLine1.toString(),
-                    "city", cityName != null ? cityName : "",
-                    "state", state != null ? state : "",
-                    "pincode", postcode != null ? postcode : "",
-                    "country", country != null ? country : "",
-                    "displayName", (String) response.getOrDefault("display_name", "")
-                );
+            if (response == null || !response.containsKey("address")) {
+                return Map.of();
             }
+
+            @SuppressWarnings("unchecked")
+            Map<String, Object> address = (Map<String, Object>) response.get("address");
+            String displayName = (String) response.getOrDefault("display_name", "");
+
+            return buildAddressResult(address, displayName, latitude, longitude);
         } catch (Exception e) {
             log.error("Reverse geocoding failed for coordinates: {}, {}", latitude, longitude, e);
         }
-        return null;
+        return Map.of();
+    }
+
+    private String buildReverseGeocodeUrl(double latitude, double longitude) {
+        return UriComponentsBuilder.fromHttpUrl(LOCATIONIQ_REVERSE_URL)
+                .queryParam("key", apiKey)
+                .queryParam("lat", latitude)
+                .queryParam("lon", longitude)
+                .queryParam("format", "json")
+                .toUriString();
+    }
+
+    private Map<String, String> buildAddressResult(Map<String, Object> address, String displayName,
+                                                    double latitude, double longitude) {
+        String addressLine1 = buildAddressLine1(address);
+        String cityName = resolveCityName(address);
+
+        log.info("Reverse geocoded coordinates ({}, {}) to address: {}", latitude, longitude, addressLine1);
+
+        return Map.of(
+                "addressLine1", addressLine1,
+                "city", nullToEmpty(cityName),
+                "state", nullToEmpty((String) address.get("state")),
+                "pincode", nullToEmpty((String) address.get("postcode")),
+                "country", nullToEmpty((String) address.get("country")),
+                "displayName", displayName
+        );
+    }
+
+    private String buildAddressLine1(Map<String, Object> address) {
+        String houseNumber = (String) address.get("house_number");
+        String road = (String) address.get("road");
+        String suburb = (String) address.get("suburb");
+        String quarter = (String) address.get("quarter");
+
+        StringBuilder line = new StringBuilder();
+        if (houseNumber != null) {
+            line.append(houseNumber).append(", ");
+        }
+        if (road != null) {
+            line.append(road);
+        }
+        if (line.length() == 0 && suburb != null) {
+            line.append(suburb);
+        }
+        if (line.length() == 0 && quarter != null) {
+            line.append(quarter);
+        }
+        return line.toString();
+    }
+
+    private String resolveCityName(Map<String, Object> address) {
+        String city = (String) address.get("city");
+        if (city != null) {
+            return city;
+        }
+        String town = (String) address.get("town");
+        if (town != null) {
+            return town;
+        }
+        return (String) address.get("village");
+    }
+
+    private String nullToEmpty(String value) {
+        return value != null ? value : "";
     }
 }

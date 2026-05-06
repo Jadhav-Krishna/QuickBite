@@ -55,7 +55,7 @@ public class JwtTokenProvider {
                 .subject(subject)
                 .issuedAt(now)
                 .expiration(expiryDate)
-                .signWith(key, SignatureAlgorithm.HS512)
+                .signWith(key)
                 .compact();
     }
 
@@ -70,7 +70,7 @@ public class JwtTokenProvider {
                 .claims(claims)
                 .issuedAt(now)
                 .expiration(expiryDate)
-                .signWith(key, SignatureAlgorithm.HS512)
+                .signWith(key)
                 .compact();
     }
 
@@ -139,10 +139,10 @@ public class JwtTokenProvider {
                     .parseSignedClaims(token)
                     .getPayload()
                     .get("userId");
-            if (userIdObj instanceof Integer) {
-                return ((Integer) userIdObj).longValue();
-            } else if (userIdObj instanceof Long) {
-                return (Long) userIdObj;
+            if (userIdObj instanceof Integer integer) {
+                return integer.longValue();
+            } else if (userIdObj instanceof Long longValue) {
+                return longValue;
             }
             return null;
         } catch (JwtException e) {

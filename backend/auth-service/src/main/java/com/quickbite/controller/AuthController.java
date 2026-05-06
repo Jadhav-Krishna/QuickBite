@@ -21,6 +21,9 @@ import java.util.Map;
 @Slf4j
 public class AuthController {
 
+    private static final String LOCATION_HEADER = "Location";
+    private static final String MESSAGE_KEY = "message";
+
     @Autowired
     private AuthService authService;
 
@@ -75,12 +78,12 @@ public class AuthController {
                 response.getFullName()
             );
             return ResponseEntity.status(HttpStatus.FOUND)
-                    .header("Location", redirectUrl)
+                    .header(LOCATION_HEADER, redirectUrl)
                     .build();
         } catch (Exception e) {
             log.error("Google OAuth failed: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.FOUND)
-                    .header("Location", "http://localhost:5173/login?error=" + e.getMessage())
+                    .header(LOCATION_HEADER, "http://localhost:5173/login?error=" + e.getMessage())
                     .build();
         }
     }
@@ -105,12 +108,12 @@ public class AuthController {
                 response.getFullName()
             );
             return ResponseEntity.status(HttpStatus.FOUND)
-                    .header("Location", redirectUrl)
+                    .header(LOCATION_HEADER, redirectUrl)
                     .build();
         } catch (Exception e) {
             log.error("GitHub OAuth failed: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.FOUND)
-                    .header("Location", "http://localhost:5173/login?error=" + e.getMessage())
+                    .header(LOCATION_HEADER, "http://localhost:5173/login?error=" + e.getMessage())
                     .build();
         }
     }
@@ -134,7 +137,7 @@ public class AuthController {
         // In a production system, you'd add the token to a blacklist (Redis).
         log.info("Logout request received");
         Map<String, String> response = new HashMap<>();
-        response.put("message", "Logged out successfully");
+        response.put(MESSAGE_KEY, "Logged out successfully");
         return ResponseEntity.ok(response);
     }
 
@@ -165,7 +168,7 @@ public class AuthController {
         log.info("Password change request for: {}", email);
         authService.changePassword(email, request);
         Map<String, String> response = new HashMap<>();
-        response.put("message", "Password changed successfully");
+        response.put(MESSAGE_KEY, "Password changed successfully");
         return ResponseEntity.ok(response);
     }
 
@@ -176,7 +179,7 @@ public class AuthController {
         log.info("Account deactivation request for: {}", email);
         authService.deactivateAccount(email);
         Map<String, String> response = new HashMap<>();
-        response.put("message", "Account deactivated successfully");
+        response.put(MESSAGE_KEY, "Account deactivated successfully");
         return ResponseEntity.ok(response);
     }
 
@@ -211,7 +214,7 @@ public class AuthController {
         log.info("Suspend user request for userId: {}", userId);
         authService.suspendUser(userId);
         Map<String, String> response = new HashMap<>();
-        response.put("message", "User suspended successfully");
+        response.put(MESSAGE_KEY, "User suspended successfully");
         return ResponseEntity.ok(response);
     }
 
@@ -223,7 +226,7 @@ public class AuthController {
         log.info("Reactivate user request for userId: {}", userId);
         authService.reactivateUser(userId);
         Map<String, String> response = new HashMap<>();
-        response.put("message", "User reactivated successfully");
+        response.put(MESSAGE_KEY, "User reactivated successfully");
         return ResponseEntity.ok(response);
     }
 

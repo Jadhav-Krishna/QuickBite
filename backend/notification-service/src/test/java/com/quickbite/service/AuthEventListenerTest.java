@@ -85,4 +85,71 @@ class AuthEventListenerTest {
 
         verify(emailService, times(2)).sendHtmlEmail(any(), any(), any());
     }
+
+    @Test
+    void handleSignupEvent_emailFailure() {
+        doThrow(new RuntimeException("Email failed"))
+            .when(emailService).sendHtmlEmail(any(), any(), any());
+
+        listener.handleSignupEvent(event);
+
+        verify(emailService).sendHtmlEmail(any(), any(), any());
+    }
+
+    @Test
+    void extractUserName_invalidMessage() {
+        when(templateService.generateLoginEmail(any(), any(), any()))
+                .thenReturn("html");
+        when(templateService.generateAdminNotificationEmail(any(), any(), any(), any(), any()))
+                .thenReturn("adminHtml");
+
+        AuthEvent invalidEvent = AuthEvent.builder()
+                .recipientEmail("user@mail.com")
+                .recipientRole("CUSTOMER")
+                .message("Invalid message format")
+                .createdAt("2026-01-01T10:00:00")
+                .build();
+
+        listener.handleLoginEvent(invalidEvent);
+
+        verify(emailService, times(2)).sendHtmlEmail(any(), any(), any());
+    }
+
+    @Test
+    void formatTimestamp_invalidFormat() {
+        when(templateService.generateLoginEmail(any(), any(), any()))
+                .thenReturn("html");
+        when(templateService.generateAdminNotificationEmail(any(), any(), any(), any(), any()))
+                .thenReturn("adminHtml");
+
+        AuthEvent invalidTimestampEvent = AuthEvent.builder()
+                .recipientEmail("user@mail.com")
+                .recipientRole("CUSTOMER")
+                .message("Welcome back, Krishna. You are signed in.")
+                .createdAt("invalid-timestamp")
+                .build();
+
+        listener.handleLoginEvent(invalidTimestampEvent);
+
+        verify(emailService, times(2)).sendHtmlEmail(any(), any(), any());
+    }
+
+    @Test
+    void extractUserName_withDotInMessage() {
+        when(templateService.generateSignupEmail(any(), any()))
+                .thenReturn("signupHtml");
+        when(templateService.generateAdminNotificationEmail(any(), any(), any(), any(), any()))
+                .thenReturn("adminHtml");
+
+        AuthEvent dotEvent = AuthEvent.builder()
+                .recipientEmail("user@mail.com")
+                .recipientRole("CUSTOMER")
+                .message("Welcome John Doe.")
+                .createdAt("2026-01-01T10:00:00")
+                .build();
+
+        listener.handleSignupEvent(dotEvent);
+
+        verify(emailService, times(2)).sendHtmlEmail(any(), any(), any());
+    }
 }

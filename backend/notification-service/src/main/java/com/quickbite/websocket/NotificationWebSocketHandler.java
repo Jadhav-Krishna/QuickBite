@@ -23,7 +23,17 @@ public class NotificationWebSocketHandler extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
-        String query = session.getUri() != null ? session.getUri().getQuery() : "";
+        if (session == null) {
+            return;
+        }
+        
+        java.net.URI uri = session.getUri();
+        if (uri == null) {
+            session.close(CloseStatus.BAD_DATA);
+            return;
+        }
+        
+        String query = uri.getQuery();
         Long userId = extractUserId(query);
 
         if (userId != null) {
@@ -40,7 +50,16 @@ public class NotificationWebSocketHandler extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
-        String query = session.getUri() != null ? session.getUri().getQuery() : "";
+        if (session == null) {
+            return;
+        }
+        
+        java.net.URI uri = session.getUri();
+        if (uri == null) {
+            return;
+        }
+        
+        String query = uri.getQuery();
         Long userId = extractUserId(query);
 
         if (userId != null && userSessions.containsKey(userId)) {
@@ -99,15 +118,19 @@ public class NotificationWebSocketHandler extends TextWebSocketHandler {
             
             for (WebSocketSession session : sessions) {
                 if (session.isOpen()) {
-                    try {
-                        session.sendMessage(textMessage);
-                    } catch (IOException e) {
-                        log.error("Failed to send message to session: {}", e.getMessage());
-                    }
+                    sendMessageToSession(session, textMessage);
                 }
             }
         } catch (Exception e) {
             log.error("Failed to serialize notification payload: {}", e.getMessage());
+        }
+    }
+
+    private void sendMessageToSession(WebSocketSession session, TextMessage textMessage) {
+        try {
+            session.sendMessage(textMessage);
+        } catch (IOException e) {
+            log.error("Failed to send message to session: {}", e.getMessage());
         }
     }
 

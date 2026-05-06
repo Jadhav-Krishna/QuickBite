@@ -48,6 +48,11 @@ cd ..\delivery-service
 call mvn clean verify sonar:sonar -Dsonar.projectKey=QuickBite-Delivery-Service -Dsonar.projectName="QuickBite - Delivery Service" -Dsonar.host.url=%SONAR_HOST% -Dsonar.login=%SONAR_TOKEN%
 
 echo.
+echo ========== Analyzing Cart Service ==========
+cd ..\cart-service
+call mvn clean verify sonar:sonar -Dsonar.projectKey=QuickBite-Cart-Service -Dsonar.projectName="QuickBite - Cart Service" -Dsonar.host.url=%SONAR_HOST% -Dsonar.login=%SONAR_TOKEN%
+
+echo.
 echo ========== Analysis Complete ==========
 echo Check results at: http://localhost:9000
 echo.

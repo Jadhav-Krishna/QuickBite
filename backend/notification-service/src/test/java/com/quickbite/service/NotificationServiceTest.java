@@ -11,6 +11,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 
+import static org.mockito.Mockito.doThrow;
+
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -146,5 +148,96 @@ class NotificationServiceTest {
 
         verify(notificationRepository).save(any(Notification.class));
         verify(mailSender).send(any(SimpleMailMessage.class));
+    }
+
+    @Test
+    void processNotification_WithIntegerUserId() {
+        Map<String, Object> event = new HashMap<>();
+        event.put("userId", 1); // Integer instead of Long
+        event.put("title", "Test");
+        event.put("message", "Message");
+
+        when(notificationRepository.save(any(Notification.class))).thenReturn(testNotification);
+
+        notificationService.processNotification(event);
+
+        verify(notificationRepository).save(any(Notification.class));
+    }
+
+    @Test
+    void processNotification_WithStringBoolean() {
+        Map<String, Object> event = new HashMap<>();
+        event.put("userId", 1L);
+        event.put("title", "Test");
+        event.put("message", "Message");
+        event.put("sendEmail", "true"); // String instead of Boolean
+        event.put("email", "test@mail.com");
+
+        when(notificationRepository.save(any(Notification.class))).thenReturn(testNotification);
+
+        notificationService.processNotification(event);
+
+        verify(notificationRepository).save(any(Notification.class));
+        verify(mailSender).send(any(SimpleMailMessage.class));
+    }
+
+    @Test
+    void processNotification_WithNullValues() {
+        Map<String, Object> event = new HashMap<>();
+        event.put("userId", null);
+        event.put("title", null);
+        event.put("message", null);
+
+        when(notificationRepository.save(any(Notification.class))).thenReturn(testNotification);
+
+        notificationService.processNotification(event);
+
+        verify(notificationRepository).save(any(Notification.class));
+    }
+
+    @Test
+    void processNotification_WithInvalidNumber() {
+        Map<String, Object> event = new HashMap<>();
+        event.put("userId", "invalid");
+        event.put("title", "Test");
+        event.put("message", "Message");
+
+        when(notificationRepository.save(any(Notification.class))).thenReturn(testNotification);
+
+        notificationService.processNotification(event);
+
+        verify(notificationRepository).save(any(Notification.class));
+    }
+
+    @Test
+    void processNotification_EmailFailure() {
+        Map<String, Object> event = new HashMap<>();
+        event.put("userId", 1L);
+        event.put("title", "Test");
+        event.put("message", "Message");
+        event.put("sendEmail", true);
+        event.put("email", "test@mail.com");
+
+        when(notificationRepository.save(any(Notification.class))).thenReturn(testNotification);
+        doThrow(new RuntimeException("Email error")).when(mailSender).send(any(SimpleMailMessage.class));
+
+        notificationService.processNotification(event);
+
+        verify(notificationRepository).save(any(Notification.class));
+        verify(mailSender).send(any(SimpleMailMessage.class));
+    }
+
+    @Test
+    void processNotification_ExceptionHandling() {
+        Map<String, Object> event = new HashMap<>();
+        event.put("userId", 1L);
+        event.put("title", "Test");
+        event.put("message", "Message");
+
+        when(notificationRepository.save(any(Notification.class))).thenThrow(new RuntimeException("DB error"));
+
+        notificationService.processNotification(event);
+
+        verify(notificationRepository).save(any(Notification.class));
     }
 }

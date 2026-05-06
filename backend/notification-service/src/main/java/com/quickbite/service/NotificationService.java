@@ -119,7 +119,7 @@ public class NotificationService {
     
     private Long getLong(Object value) {
         if (value == null) return null;
-        if (value instanceof Number) return ((Number) value).longValue();
+        if (value instanceof Number number) return number.longValue();
         try {
             return Long.parseLong(value.toString());
         } catch (Exception e) {
@@ -133,7 +133,7 @@ public class NotificationService {
     
     private Boolean getBoolean(Object value) {
         if (value == null) return false;
-        if (value instanceof Boolean) return (Boolean) value;
+        if (value instanceof Boolean bool) return bool;
         return Boolean.parseBoolean(value.toString());
     }
 }

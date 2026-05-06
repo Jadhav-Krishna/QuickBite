@@ -38,6 +38,9 @@ class EmailServiceTest {
     void sendEmail_mailSenderNull() {
         emailService = new EmailService();
         emailService.sendEmail("a@mail.com", "sub", "text");
+        
+        // Should not throw exception when mailSender is null
+        verify(mailSender, never()).send(any(SimpleMailMessage.class));
     }
 
     @Test
@@ -53,6 +56,9 @@ class EmailServiceTest {
     void sendHtmlEmail_mailSenderNull() {
         emailService = new EmailService();
         emailService.sendHtmlEmail("a@mail.com", "sub", "<h1>Test</h1>");
+        
+        // Should not throw exception when mailSender is null
+        verify(mailSender, never()).send(any(MimeMessage.class));
     }
 
     @Test
@@ -72,5 +78,8 @@ class EmailServiceTest {
         emailService.sendHtmlEmailWithAttachment(
             "a@mail.com", "sub", "<h1>Test</h1>", "invoice.pdf", new byte[]{1, 2, 3}
         );
+        
+        // Should not throw exception when mailSender is null
+        verify(mailSender, never()).send(any(MimeMessage.class));
     }
 }

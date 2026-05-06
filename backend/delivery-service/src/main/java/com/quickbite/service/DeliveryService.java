@@ -4,6 +4,9 @@ import com.quickbite.dto.DeliveryAgentDTO;
 import com.quickbite.dto.LocationUpdateDTO;
 import com.quickbite.entity.DeliveryAgent;
 import com.quickbite.event.LocationUpdateEvent;
+import com.quickbite.exception.DeliveryAgentNotFoundException;
+import com.quickbite.exception.EarningsUpdateException;
+import com.quickbite.exception.LocationUpdateException;
 import com.quickbite.repository.DeliveryAgentRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,7 +18,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 import static com.quickbite.config.KafkaConfig.LOCATION_UPDATE_TOPIC;
 
@@ -23,6 +25,8 @@ import static com.quickbite.config.KafkaConfig.LOCATION_UPDATE_TOPIC;
 @Transactional
 @Slf4j
 public class DeliveryService {
+
+    private static final String DELIVERY_AGENT_NOT_FOUND = "Delivery agent not found";
 
     @Autowired
     private DeliveryAgentRepository agentRepository;
@@ -66,7 +70,7 @@ public class DeliveryService {
 
     public DeliveryAgentDTO getDeliveryAgent(Long agentId) {
         DeliveryAgent agent = agentRepository.findById(agentId)
-                .orElseThrow(() -> new RuntimeException("Delivery agent not found"));
+                .orElseThrow(() -> new DeliveryAgentNotFoundException(DELIVERY_AGENT_NOT_FOUND));
         return mapToDTO(agent);
     }
 
@@ -80,7 +84,7 @@ public class DeliveryService {
                     agentId, locationUpdate.getLatitude(), locationUpdate.getLongitude());
 
             DeliveryAgent agent = agentRepository.findById(agentId)
-                    .orElseThrow(() -> new RuntimeException("Delivery agent not found"));
+                    .orElseThrow(() -> new DeliveryAgentNotFoundException(DELIVERY_AGENT_NOT_FOUND));
 
             // Update agent location
             agent.setCurrentLatitude(locationUpdate.getLatitude());
@@ -108,7 +112,7 @@ public class DeliveryService {
 
         } catch (Exception e) {
             log.error("Error updating location for agent: {}", agentId, e);
-            throw new RuntimeException("Failed to update location: " + e.getMessage());
+            throw new LocationUpdateException("Failed to update location: " + e.getMessage(), e);
         }
     }
 
@@ -116,7 +120,7 @@ public class DeliveryService {
         log.info("Toggling agent availability - Agent: {}, Online: {}", agentId, isOnline);
 
         DeliveryAgent agent = agentRepository.findById(agentId)
-                .orElseThrow(() -> new RuntimeException("Delivery agent not found"));
+                .orElseThrow(() -> new DeliveryAgentNotFoundException(DELIVERY_AGENT_NOT_FOUND));
 
         agent.setIsOnline(isOnline);
         agent.setLastStatusUpdateTime(LocalDateTime.now());
@@ -135,7 +139,7 @@ public class DeliveryService {
         
         try {
             DeliveryAgent agent = agentRepository.findById(agentId)
-                    .orElseThrow(() -> new RuntimeException("Delivery agent not found with ID: " + agentId));
+                    .orElseThrow(() -> new DeliveryAgentNotFoundException(DELIVERY_AGENT_NOT_FOUND + " with ID: " + agentId));
             
             if (orderAmount == null || orderAmount <= 0) {
                 log.warn("Invalid order amount for agent earnings update: {}", orderAmount);
@@ -155,9 +159,11 @@ public class DeliveryService {
             agentRepository.save(agent);
             log.info("Agent earnings updated successfully - Agent: {}, Commission: {}, Total: {}, Today: {}", 
                     agentId, commission, agent.getTotalEarnings(), agent.getTodayEarnings());
+        } catch (DeliveryAgentNotFoundException e) {
+            throw e;
         } catch (Exception e) {
             log.error("Failed to update agent earnings - Agent: {}, Amount: {}", agentId, orderAmount, e);
-            throw new RuntimeException("Failed to update agent earnings: " + e.getMessage());
+            throw new EarningsUpdateException("Failed to update agent earnings: " + e.getMessage(), e);
         }
     }
 
@@ -166,7 +172,7 @@ public class DeliveryService {
         
         try {
             DeliveryAgent agent = agentRepository.findById(agentId)
-                    .orElseThrow(() -> new RuntimeException("Delivery agent not found with ID: " + agentId));
+                    .orElseThrow(() -> new DeliveryAgentNotFoundException(DELIVERY_AGENT_NOT_FOUND + " with ID: " + agentId));
             
             // Update delivery count with null safety
             Long currentTotalDeliveries = agent.getTotalDeliveries() != null ? agent.getTotalDeliveries() : 0L;
@@ -178,22 +184,24 @@ public class DeliveryService {
             agentRepository.save(agent);
             log.info("Agent delivery count updated successfully - Agent: {}, Total: {}, Today: {}", 
                     agentId, agent.getTotalDeliveries(), agent.getTodayDeliveries());
+        } catch (DeliveryAgentNotFoundException e) {
+            throw e;
         } catch (Exception e) {
             log.error("Failed to mark order delivered - Order: {}, Agent: {}", orderId, agentId, e);
-            throw new RuntimeException("Failed to mark order delivered: " + e.getMessage());
+            throw new EarningsUpdateException("Failed to mark order delivered: " + e.getMessage(), e);
         }
     }
 
     public DeliveryAgentDTO getAgentEarnings(Long agentId) {
         DeliveryAgent agent = agentRepository.findById(agentId)
-                .orElseThrow(() -> new RuntimeException("Delivery agent not found"));
+                .orElseThrow(() -> new DeliveryAgentNotFoundException(DELIVERY_AGENT_NOT_FOUND));
         return mapToDTO(agent);
     }
 
     public List<DeliveryAgentDTO> getAllAgents() {
         return agentRepository.findAll().stream()
                 .map(this::mapToDTO)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     public List<DeliveryAgentDTO> getAvailableAgents(Double latitude, Double longitude, Double radiusKm) {
@@ -205,14 +213,14 @@ public class DeliveryService {
         return agents.stream()
                 .filter(a -> a.getIsVerified() && a.getIsOnline())
                 .map(this::mapToDTO)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     public DeliveryAgentDTO updateAgentProfile(Long agentId, DeliveryAgentDTO request) {
         log.info("Updating agent profile: {}", agentId);
         
         DeliveryAgent agent = agentRepository.findById(agentId)
-                .orElseThrow(() -> new RuntimeException("Delivery agent not found"));
+                .orElseThrow(() -> new DeliveryAgentNotFoundException(DELIVERY_AGENT_NOT_FOUND));
         
         if (request.getFullName() != null) agent.setFullName(request.getFullName());
         if (request.getPhone() != null) agent.setPhone(request.getPhone());

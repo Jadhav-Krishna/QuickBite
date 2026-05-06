@@ -17,11 +17,10 @@ public class RoutingService {
             String url = String.format("%s%f,%f;%f,%f?overview=full&geometries=geojson", 
                 OSRM_URL, startLon, startLat, endLon, endLat);
             
-            Map<String, Object> response = restTemplate.getForObject(url, Map.class);
-            return response;
+            return restTemplate.getForObject(url, Map.class);
         } catch (Exception e) {
             log.error("Routing failed", e);
-            return null;
+            return Map.of();
         }
     }
 }

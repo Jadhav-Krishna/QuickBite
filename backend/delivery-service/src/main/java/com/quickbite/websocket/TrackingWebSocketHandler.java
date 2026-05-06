@@ -21,7 +21,17 @@ public class TrackingWebSocketHandler extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
-        String query = session.getUri() != null ? session.getUri().getQuery() : "";
+        if (session == null) {
+            return;
+        }
+        
+        java.net.URI uri = session.getUri();
+        if (uri == null) {
+            session.close(CloseStatus.BAD_DATA);
+            return;
+        }
+        
+        String query = uri.getQuery();
         String orderId = extractOrderId(query);
 
         if (orderId != null && !orderId.isEmpty()) {
@@ -35,7 +45,16 @@ public class TrackingWebSocketHandler extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
-        String query = session.getUri() != null ? session.getUri().getQuery() : "";
+        if (session == null) {
+            return;
+        }
+        
+        java.net.URI uri = session.getUri();
+        if (uri == null) {
+            return;
+        }
+        
+        String query = uri.getQuery();
         String orderId = extractOrderId(query);
 
         if (orderId != null && sessionsMap.containsKey(orderId)) {

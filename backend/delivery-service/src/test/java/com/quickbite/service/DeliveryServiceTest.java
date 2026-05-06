@@ -3,6 +3,9 @@ package com.quickbite.service;
 import com.quickbite.dto.DeliveryAgentDTO;
 import com.quickbite.dto.LocationUpdateDTO;
 import com.quickbite.entity.DeliveryAgent;
+import com.quickbite.exception.DeliveryAgentNotFoundException;
+import com.quickbite.exception.EarningsUpdateException;
+import com.quickbite.exception.LocationUpdateException;
 import com.quickbite.repository.DeliveryAgentRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -76,7 +79,7 @@ class DeliveryServiceTest {
     void getAgent_notFound() {
         when(agentRepository.findById(any())).thenReturn(Optional.empty());
 
-        assertThrows(RuntimeException.class,
+        assertThrows(DeliveryAgentNotFoundException.class,
                 () -> deliveryService.getDeliveryAgent(1L));
     }
 
@@ -115,7 +118,21 @@ class DeliveryServiceTest {
 
         LocationUpdateDTO dto = new LocationUpdateDTO();
 
-        assertThrows(RuntimeException.class,
+        assertThrows(LocationUpdateException.class,
+                () -> deliveryService.updateLiveLocation(1L, dto));
+    }
+
+    @Test
+    void updateLiveLocation_kafkaFailure() {
+        when(agentRepository.findById(any())).thenReturn(Optional.of(agent));
+        when(agentRepository.save(any())).thenReturn(agent);
+        doThrow(new RuntimeException("Kafka error")).when(kafkaTemplate).send(anyString(), anyString(), any());
+
+        LocationUpdateDTO dto = new LocationUpdateDTO();
+        dto.setLatitude(22.7);
+        dto.setLongitude(75.8);
+
+        assertThrows(LocationUpdateException.class,
                 () -> deliveryService.updateLiveLocation(1L, dto));
     }
 
@@ -128,6 +145,14 @@ class DeliveryServiceTest {
         deliveryService.toggleAgentAvailability(1L, false);
 
         verify(agentRepository).save(argThat(a -> !a.getIsOnline()));
+    }
+
+    @Test
+    void toggleAvailability_notFound() {
+        when(agentRepository.findById(any())).thenReturn(Optional.empty());
+
+        assertThrows(DeliveryAgentNotFoundException.class,
+                () -> deliveryService.toggleAgentAvailability(1L, true));
     }
 
     // ================= EARNINGS =================
@@ -155,8 +180,43 @@ class DeliveryServiceTest {
     void updateEarnings_agentNotFound() {
         when(agentRepository.findById(any())).thenReturn(Optional.empty());
 
-        assertThrows(RuntimeException.class,
+        assertThrows(DeliveryAgentNotFoundException.class,
                 () -> deliveryService.updateAgentEarnings(1L, 100.0));
+    }
+
+    @Test
+    void updateEarnings_nullAmount() {
+        when(agentRepository.findById(any())).thenReturn(Optional.of(agent));
+
+        deliveryService.updateAgentEarnings(1L, null);
+
+        verify(agentRepository, never()).save(any());
+    }
+
+    @Test
+    void updateEarnings_saveFails() {
+        when(agentRepository.findById(any())).thenReturn(Optional.of(agent));
+        when(agentRepository.save(any())).thenThrow(new RuntimeException("DB error"));
+
+        assertThrows(EarningsUpdateException.class,
+                () -> deliveryService.updateAgentEarnings(1L, 100.0));
+    }
+
+    @Test
+    void getAgentEarnings_success() {
+        when(agentRepository.findById(any())).thenReturn(Optional.of(agent));
+
+        DeliveryAgentDTO result = deliveryService.getAgentEarnings(1L);
+
+        assertNotNull(result);
+    }
+
+    @Test
+    void getAgentEarnings_notFound() {
+        when(agentRepository.findById(any())).thenReturn(Optional.empty());
+
+        assertThrows(DeliveryAgentNotFoundException.class,
+                () -> deliveryService.getAgentEarnings(1L));
     }
 
     // ================= DELIVERY =================
@@ -175,8 +235,26 @@ class DeliveryServiceTest {
     void markDelivered_notFound() {
         when(agentRepository.findById(any())).thenReturn(Optional.empty());
 
-        assertThrows(RuntimeException.class,
+        assertThrows(DeliveryAgentNotFoundException.class,
                 () -> deliveryService.markOrderDelivered(1L, 10L));
+    }
+
+    @Test
+    void markDelivered_saveFails() {
+        when(agentRepository.findById(any())).thenReturn(Optional.of(agent));
+        when(agentRepository.save(any())).thenThrow(new RuntimeException("DB error"));
+
+        assertThrows(EarningsUpdateException.class,
+                () -> deliveryService.markOrderDelivered(1L, 10L));
+    }
+
+    @Test
+    void getAllAgents_success() {
+        when(agentRepository.findAll()).thenReturn(Arrays.asList(agent));
+
+        List<DeliveryAgentDTO> result = deliveryService.getAllAgents();
+
+        assertEquals(1, result.size());
     }
 
     // ================= PROFILE =================
@@ -193,6 +271,16 @@ class DeliveryServiceTest {
                 deliveryService.updateAgentProfile(1L, dto);
 
         assertEquals("Updated Name", result.getFullName());
+    }
+
+    @Test
+    void updateProfile_notFound() {
+        when(agentRepository.findById(any())).thenReturn(Optional.empty());
+
+        DeliveryAgentDTO dto = new DeliveryAgentDTO();
+
+        assertThrows(DeliveryAgentNotFoundException.class,
+                () -> deliveryService.updateAgentProfile(1L, dto));
     }
 
     // ================= FILTER =================

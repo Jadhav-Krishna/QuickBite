@@ -79,9 +79,17 @@ public class ReviewService {
     }
 
     public List<ReviewDTO> getAllReviews() {
-        return reviewRepository.findAll().stream()
-                .map(this::mapToDTO)
-                .collect(Collectors.toList());
+        try {
+            log.info("Fetching all reviews from database");
+            List<Review> reviews = reviewRepository.findAll();
+            log.info("Found {} reviews in database", reviews.size());
+            return reviews.stream()
+                    .map(this::mapToDTO)
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            log.error("Error in getAllReviews: {}", e.getMessage(), e);
+            throw e;
+        }
     }
 
     private ReviewDTO mapToDTO(Review review) {

@@ -61,6 +61,14 @@ public class ReviewController {
 
     @GetMapping
     public ResponseEntity<List<ReviewDTO>> getAllReviews() {
-        return ResponseEntity.ok(reviewService.getAllReviews());
+        try {
+            log.info("Fetching all reviews");
+            List<ReviewDTO> reviews = reviewService.getAllReviews();
+            log.info("Found {} reviews", reviews.size());
+            return ResponseEntity.ok(reviews);
+        } catch (Exception e) {
+            log.error("Error fetching all reviews: {}", e.getMessage(), e);
+            throw e;
+        }
     }
 }

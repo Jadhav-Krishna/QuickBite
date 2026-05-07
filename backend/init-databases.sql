@@ -85,11 +85,17 @@ CREATE TABLE IF NOT EXISTS restaurants (
     review_count INT DEFAULT 0,
     phone_number VARCHAR(20) NOT NULL,
     email VARCHAR(255) NOT NULL,
+    gst_number VARCHAR(15) NOT NULL UNIQUE,
+    fssai_license_number VARCHAR(14) NOT NULL UNIQUE,
     delivery_fee DOUBLE DEFAULT 0,
+    delivery_radius DOUBLE DEFAULT 10.0,
+    min_order_amount DOUBLE DEFAULT 0.0,
     min_delivery_time INT DEFAULT 30,
     max_delivery_time INT DEFAULT 60,
+    estimated_delivery_min INT DEFAULT 45,
     is_active BOOLEAN DEFAULT true,
-    is_verified BOOLEAN DEFAULT false,
+    is_open BOOLEAN DEFAULT false,
+    is_approved BOOLEAN DEFAULT false,
     image_url VARCHAR(500),
     opening_time TIME,
     closing_time TIME,
@@ -98,7 +104,11 @@ CREATE TABLE IF NOT EXISTS restaurants (
     SPATIAL INDEX idx_location (location),
     INDEX idx_owner_id (owner_id),
     INDEX idx_city (city),
-    INDEX idx_cuisine_type (cuisine_type)
+    INDEX idx_cuisine_type (cuisine_type),
+    INDEX idx_is_active (is_active),
+    INDEX idx_is_approved (is_approved),
+    UNIQUE INDEX idx_gst_number (gst_number),
+    UNIQUE INDEX idx_fssai_license (fssai_license_number)
 );
 
 CREATE TABLE IF NOT EXISTS restaurant_cuisines (
@@ -115,13 +125,14 @@ CREATE TABLE IF NOT EXISTS menu_categories (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     restaurant_id BIGINT NOT NULL,
     name VARCHAR(255) NOT NULL,
-    description TEXT,
+    description VARCHAR(500),
     display_order INT NOT NULL,
-    is_active BOOLEAN DEFAULT true,
+    is_active BOOLEAN NOT NULL DEFAULT true,
     image_url VARCHAR(500),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_restaurant_id (restaurant_id)
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_restaurant_id (restaurant_id),
+    INDEX idx_restaurant_active (restaurant_id, is_active)
 );
 
 CREATE TABLE IF NOT EXISTS menu_items (
@@ -129,21 +140,24 @@ CREATE TABLE IF NOT EXISTS menu_items (
     restaurant_id BIGINT NOT NULL,
     category_id BIGINT NOT NULL,
     name VARCHAR(255) NOT NULL,
-    description TEXT,
+    description VARCHAR(500),
     price DOUBLE NOT NULL,
     discounted_price DOUBLE NOT NULL,
-    is_available BOOLEAN DEFAULT true,
+    is_available BOOLEAN NOT NULL DEFAULT true,
     preparation_time INT NOT NULL,
-    order_count INT DEFAULT 0,
-    rating DOUBLE DEFAULT 0,
+    order_count INT NOT NULL DEFAULT 0,
+    rating DOUBLE NOT NULL DEFAULT 0.0,
     is_vegetarian BOOLEAN NOT NULL,
     is_spicy BOOLEAN NOT NULL,
     image_url VARCHAR(500),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (category_id) REFERENCES menu_categories(id) ON DELETE CASCADE,
     INDEX idx_restaurant_id (restaurant_id),
-    INDEX idx_category_id (category_id)
+    INDEX idx_category_id (category_id),
+    INDEX idx_restaurant_available (restaurant_id, is_available),
+    INDEX idx_vegetarian (is_vegetarian),
+    INDEX idx_name (name)
 );
 
 -- Use cart database

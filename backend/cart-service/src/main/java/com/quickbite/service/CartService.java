@@ -51,14 +51,28 @@ public class CartService {
                 .findByCustomerIdAndRestaurantIdAndIsActiveTrue(customerId, restaurantId)
                 .orElseGet(() -> createNewCart(customerId, restaurantId));
 
-        CartItem cartItem = new CartItem();
-        cartItem.setMenuItemId(itemDTO.getMenuItemId());
-        cartItem.setItemName(itemDTO.getItemName());
-        cartItem.setQuantity(itemDTO.getQuantity());
-        cartItem.setPrice(itemDTO.getPrice());
-        cartItem.setSpecialInstructions(itemDTO.getSpecialInstructions());
+        // Check if item already exists in cart
+        CartItem existingItem = cart.getItems().stream()
+                .filter(item -> item.getMenuItemId().equals(itemDTO.getMenuItemId()))
+                .findFirst()
+                .orElse(null);
 
-        cart.addItem(cartItem);
+        if (existingItem != null) {
+            // Update quantity if item already exists
+            existingItem.setQuantity(existingItem.getQuantity() + itemDTO.getQuantity());
+            existingItem.setUpdatedAt(java.time.LocalDateTime.now());
+            cart.updateTotals();
+        } else {
+            // Add new item if it doesn't exist
+            CartItem cartItem = new CartItem();
+            cartItem.setMenuItemId(itemDTO.getMenuItemId());
+            cartItem.setItemName(itemDTO.getItemName());
+            cartItem.setQuantity(itemDTO.getQuantity());
+            cartItem.setPrice(itemDTO.getPrice());
+            cartItem.setSpecialInstructions(itemDTO.getSpecialInstructions());
+            cart.addItem(cartItem);
+        }
+
         cart = cartRepository.save(cart);
         
         cacheCart(cart);
@@ -141,9 +155,20 @@ public class CartService {
             return cachedCart;
         }
 
-        // Get from database
+        // Get from database or return empty cart
         ShoppingCart cart = cartRepository.findByCustomerIdAndIsActiveTrue(customerId)
-                .orElseThrow(() -> new RuntimeException("Cart not found"));
+                .orElse(null);
+
+        if (cart == null) {
+            // Return empty cart DTO instead of throwing exception
+            return CartDTO.builder()
+                    .customerId(customerId)
+                    .items(List.of())
+                    .totalPrice(0.0)
+                    .totalItems(0)
+                    .isActive(false)
+                    .build();
+        }
 
         cacheCart(cart);
         return convertToDTO(cart);

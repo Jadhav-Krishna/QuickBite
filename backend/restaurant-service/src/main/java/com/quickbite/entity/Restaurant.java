@@ -59,6 +59,12 @@ public class Restaurant {
     @Column(nullable = false)
     private String email;
 
+    @Column(nullable = false, unique = true, length = 15)
+    private String gstNumber;
+
+    @Column(nullable = false, unique = true, length = 14)
+    private String fssaiLicenseNumber;
+
     @Column(nullable = false)
     private Double deliveryFee = 0.0;
 

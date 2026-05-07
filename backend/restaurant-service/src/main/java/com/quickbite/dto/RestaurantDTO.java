@@ -27,6 +27,8 @@ public class RestaurantDTO {
     private Integer reviewCount;
     private String phoneNumber;
     private String email;
+    private String gstNumber;
+    private String fssaiLicenseNumber;
     private Double deliveryFee;
     private Double deliveryRadius;
     private Double minOrderAmount;

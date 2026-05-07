@@ -49,9 +49,12 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
             restaurantId: cartData.restaurantId,
           }));
           setItems(cartItems);
+        } else {
+          setItems([]);
         }
       } catch (error) {
         console.log('No existing cart found or error loading cart');
+        setItems([]);
       } finally {
         setIsLoading(false);
       }
@@ -65,6 +68,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('User not logged in');
       return;
     }
+
+    console.log('Adding to cart:', { userId: user.userId, item });
 
     const existingRestaurantId = items[0]?.restaurantId;
     if (existingRestaurantId && existingRestaurantId !== item.restaurantId) {
@@ -84,16 +89,22 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         price: item.price,
       });
 
-      const cartItems: CartItem[] = cartData.items.map(i => ({
-        id: i.menuItemId,
-        name: i.itemName,
-        price: i.price,
-        quantity: i.quantity,
-        restaurantId: cartData.restaurantId,
-      }));
-      setItems(cartItems);
+      console.log('Cart data received:', cartData);
+
+      if (cartData && cartData.items) {
+        const cartItems: CartItem[] = cartData.items.map(i => ({
+          id: i.menuItemId,
+          name: i.itemName,
+          price: i.price,
+          quantity: i.quantity,
+          restaurantId: cartData.restaurantId,
+        }));
+        console.log('Setting cart items:', cartItems);
+        setItems(cartItems);
+      }
     } catch (error) {
       console.error('Failed to add item to cart:', error);
+      throw error;
     }
   };
 

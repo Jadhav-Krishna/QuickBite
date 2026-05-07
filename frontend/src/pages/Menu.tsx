@@ -113,6 +113,7 @@ export default function Menu() {
 
   const handleAddToCart = (e: React.MouseEvent, item: MenuItem) => {
     e.preventDefault();
+    console.log('Adding item to cart:', item);
     addToCart({
       id: item.id,
       name: item.name,
@@ -120,19 +121,24 @@ export default function Menu() {
       quantity: 1,
       restaurantId: Number(restaurantId),
       img: item.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80',
-    });
-    setAddedIds((prev) => {
-      const next = new Set(prev);
-      next.add(item.id);
-      return next;
-    });
-    setTimeout(() => {
+    }).then(() => {
+      console.log('Item added successfully');
       setAddedIds((prev) => {
         const next = new Set(prev);
-        next.delete(item.id);
+        next.add(item.id);
         return next;
       });
-    }, 1400);
+      setTimeout(() => {
+        setAddedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(item.id);
+          return next;
+        });
+      }, 1400);
+    }).catch((error) => {
+      console.error('Error adding item to cart:', error);
+      alert('Failed to add item to cart. Please try again.');
+    });
   };
 
   const scrollToCategory = (catId: number) => {
@@ -166,12 +172,12 @@ export default function Menu() {
             )}
           </div>
           <Link to="/cart" className="relative flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-surface-container)] text-[var(--color-on-surface-variant)] transition hover:text-[var(--color-primary)]">
-            {/* <ShoppingCart size={18} />
+            <ShoppingCart size={18} />
             {totalItems > 0 && (
               <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--color-primary)] text-[10px] font-bold text-white">
                 {totalItems}
               </span>
-            )} */}
+            )}
           </Link>
         </div>
       </header>

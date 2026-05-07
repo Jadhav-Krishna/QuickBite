@@ -15,6 +15,8 @@ type RestaurantForm = {
   pincode: string;
   phoneNumber: string;
   email: string;
+  gstNumber: string;
+  fssaiLicenseNumber: string;
   imageUrl: string;
   openingTime: string;
   closingTime: string;
@@ -34,6 +36,8 @@ const EMPTY_FORM: RestaurantForm = {
   pincode: '',
   phoneNumber: '',
   email: '',
+  gstNumber: '',
+  fssaiLicenseNumber: '',
   imageUrl: '',
   openingTime: '10:00',
   closingTime: '23:00',
@@ -53,6 +57,8 @@ const toForm = (restaurant: Restaurant): RestaurantForm => ({
   pincode: restaurant.pincode || '',
   phoneNumber: restaurant.phoneNumber || '',
   email: restaurant.email || '',
+  gstNumber: restaurant.gstNumber || '',
+  fssaiLicenseNumber: restaurant.fssaiLicenseNumber || '',
   imageUrl: restaurant.imageUrl || '',
   openingTime: restaurant.openingTime || '10:00',
   closingTime: restaurant.closingTime || '23:00',
@@ -156,6 +162,8 @@ export default function PartnerDashboard() {
       restaurantForm.pincode,
       restaurantForm.phoneNumber,
       restaurantForm.email,
+      restaurantForm.gstNumber,
+      restaurantForm.fssaiLicenseNumber,
       restaurantForm.imageUrl,
     ];
     return required.every((v) => v.trim().length > 0);
@@ -181,6 +189,8 @@ export default function PartnerDashboard() {
       pincode: restaurantForm.pincode.trim(),
       phoneNumber: restaurantForm.phoneNumber.trim(),
       email: restaurantForm.email.trim(),
+      gstNumber: restaurantForm.gstNumber.trim(),
+      fssaiLicenseNumber: restaurantForm.fssaiLicenseNumber.trim(),
       imageUrl: restaurantForm.imageUrl.trim(),
       openingTime: restaurantForm.openingTime,
       closingTime: restaurantForm.closingTime,
@@ -360,12 +370,14 @@ export default function PartnerDashboard() {
               {[
                 { key: 'name', label: 'Restaurant Name*' },
                 { key: 'cuisineType', label: 'Primary Cuisine*' },
+                { key: 'phoneNumber', label: 'Phone Number*' },
+                { key: 'email', label: 'Email*', type: 'email' },
+                { key: 'gstNumber', label: 'GST Number* (15 digits)', maxLength: 15 },
+                { key: 'fssaiLicenseNumber', label: 'FSSAI License* (14 digits)', maxLength: 14 },
                 { key: 'address', label: 'Address*' },
                 { key: 'city', label: 'City*' },
                 { key: 'state', label: 'State*' },
                 { key: 'pincode', label: 'Pincode*' },
-                { key: 'phoneNumber', label: 'Phone Number*' },
-                { key: 'email', label: 'Email*', type: 'email' },
                 { key: 'imageUrl', label: 'Image URL*' },
                 { key: 'openingTime', label: 'Opening Time', type: 'time' },
                 { key: 'closingTime', label: 'Closing Time', type: 'time' },
@@ -380,6 +392,7 @@ export default function PartnerDashboard() {
                     type={field.type || 'text'}
                     value={restaurantForm[field.key as keyof RestaurantForm]}
                     onChange={(e) => setRestaurantForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                    maxLength={field.maxLength}
                     className="w-full rounded-xl border border-[var(--color-outline-variant)]/40 px-4 py-3 text-sm"
                     required={field.label.includes('*')}
                   />

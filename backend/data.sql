@@ -630,3 +630,139 @@ INSERT INTO menu_items (restaurant_id, category_id, name, description, price, di
 (30, (SELECT id FROM menu_categories WHERE restaurant_id=30 AND name='Main Course' LIMIT 1), 'Grilled Salmon', 'Pan-seared salmon with vegetables', 680, 650, 1, 35, 120, 4.9, 0, 0, 'https://images.unsplash.com/photo-1467003909585-2f8a72700288'),
 (30, (SELECT id FROM menu_categories WHERE restaurant_id=30 AND name='Main Course' LIMIT 1), 'Lamb Chops', 'Grilled lamb chops', 780, 750, 1, 40, 100, 4.9, 0, 0, 'https://images.unsplash.com/photo-1599487488170-d11ec9c172f0'),
 (30, (SELECT id FROM menu_categories WHERE restaurant_id=30 AND name='Desserts' LIMIT 1), 'Chocolate Fondant', 'Molten chocolate cake', 280, 260, 1, 20, 150, 4.8, 1, 0, 'https://images.unsplash.com/photo-1571877227200-a0d98ea607e9');
+
+
+-- Sample data for Menu Service
+
+-- Clear existing data (optional - use with caution in production)
+-- DELETE FROM menu_items;
+-- DELETE FROM menu_categories;
+
+-- ==================== CATEGORIES ====================
+
+-- Restaurant 1 Categories (Italian Restaurant)
+INSERT INTO menu_categories (restaurant_id, name, description, display_order, is_active, image_url, created_at, updated_at) VALUES
+(1, 'Appetizers', 'Start your meal with our delicious appetizers', 1, true, 'https://images.unsplash.com/photo-1541529086526-db283c563270?w=400&h=300&fit=crop', NOW(), NOW()),
+(1, 'Pizza', 'Authentic Italian pizzas with fresh ingredients', 2, true, 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=400&h=300&fit=crop', NOW(), NOW()),
+(1, 'Pasta', 'Homemade pasta dishes with traditional sauces', 3, true, 'https://images.unsplash.com/photo-1621996346565-e3dbc646d9a9?w=400&h=300&fit=crop', NOW(), NOW()),
+(1, 'Desserts', 'Sweet endings to your perfect meal', 4, true, 'https://images.unsplash.com/photo-1551024506-0bccd828d307?w=400&h=300&fit=crop', NOW(), NOW()),
+(1, 'Beverages', 'Refreshing drinks and beverages', 5, true, 'https://images.unsplash.com/photo-1544145945-f90425340c7e?w=400&h=300&fit=crop', NOW(), NOW());
+
+-- Restaurant 2 Categories (Indian Restaurant)
+INSERT INTO menu_categories (restaurant_id, name, description, display_order, is_active, image_url, created_at, updated_at) VALUES
+(2, 'Starters', 'Spicy and flavorful Indian starters', 1, true, 'https://images.unsplash.com/photo-1601050690597-df0568f70950?w=400&h=300&fit=crop', NOW(), NOW()),
+(2, 'Main Course', 'Traditional Indian curries and dishes', 2, true, 'https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400&h=300&fit=crop', NOW(), NOW()),
+(2, 'Breads', 'Freshly baked Indian breads', 3, true, 'https://images.unsplash.com/photo-1628840042765-356cda07504e?w=400&h=300&fit=crop', NOW(), NOW()),
+(2, 'Rice & Biryani', 'Aromatic rice dishes and biryanis', 4, true, 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=400&h=300&fit=crop', NOW(), NOW()),
+(2, 'Desserts', 'Traditional Indian sweets', 5, true, 'https://images.unsplash.com/photo-1618897996318-5a901fa6ca71?w=400&h=300&fit=crop', NOW(), NOW());
+
+-- Restaurant 3 Categories (Chinese Restaurant)
+INSERT INTO menu_categories (restaurant_id, name, description, display_order, is_active, image_url, created_at, updated_at) VALUES
+(3, 'Dim Sum', 'Steamed and fried dumplings', 1, true, 'https://images.unsplash.com/photo-1496116218417-1a781b1c416c?w=400&h=300&fit=crop', NOW(), NOW()),
+(3, 'Noodles', 'Stir-fried and soup noodles', 2, true, 'https://images.unsplash.com/photo-1612929633738-8fe44f7ec841?w=400&h=300&fit=crop', NOW(), NOW()),
+(3, 'Main Course', 'Authentic Chinese main dishes', 3, true, 'https://images.unsplash.com/photo-1525755662778-989d0524087e?w=400&h=300&fit=crop', NOW(), NOW()),
+(3, 'Soups', 'Hot and flavorful soups', 4, true, 'https://images.unsplash.com/photo-1547592166-23ac45744acd?w=400&h=300&fit=crop', NOW(), NOW());
+
+-- ==================== MENU ITEMS ====================
+
+-- Restaurant 1 - Italian Restaurant Items
+
+-- Appetizers (Category 1)
+INSERT INTO menu_items (restaurant_id, category_id, name, description, price, discounted_price, is_available, preparation_time, order_count, rating, is_vegetarian, is_spicy, image_url, created_at, updated_at) VALUES
+(1, 1, 'Bruschetta', 'Grilled bread topped with fresh tomatoes, garlic, and basil', 8.99, 8.99, true, 10, 45, 4.5, true, false, 'https://images.unsplash.com/photo-1572695157366-5e585ab2b69f?w=400&h=300&fit=crop', NOW(), NOW()),
+(1, 1, 'Garlic Bread', 'Toasted bread with garlic butter and herbs', 5.99, 4.99, true, 8, 120, 4.7, true, false, 'https://images.unsplash.com/photo-1573140401552-388e3c0b1f6e?w=400&h=300&fit=crop', NOW(), NOW()),
+(1, 1, 'Caprese Salad', 'Fresh mozzarella, tomatoes, and basil with balsamic glaze', 9.99, 9.99, true, 12, 67, 4.6, true, false, 'https://images.unsplash.com/photo-1592417817098-8fd3d9eb14a5?w=400&h=300&fit=crop', NOW(), NOW());
+
+-- Pizza (Category 2)
+INSERT INTO menu_items (restaurant_id, category_id, name, description, price, discounted_price, is_available, preparation_time, order_count, rating, is_vegetarian, is_spicy, image_url, created_at, updated_at) VALUES
+(1, 2, 'Margherita Pizza', 'Classic pizza with tomato sauce, mozzarella, and fresh basil', 12.99, 11.99, true, 20, 250, 4.8, true, false, 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=400&h=300&fit=crop', NOW(), NOW()),
+(1, 2, 'Pepperoni Pizza', 'Loaded with pepperoni and mozzarella cheese', 14.99, 14.99, true, 20, 180, 4.7, false, false, 'https://images.unsplash.com/photo-1628840042765-356cda07504e?w=400&h=300&fit=crop', NOW(), NOW()),
+(1, 2, 'Vegetarian Supreme', 'Bell peppers, mushrooms, olives, onions, and tomatoes', 13.99, 12.99, true, 22, 95, 4.5, true, false, 'https://images.unsplash.com/photo-1571997478779-2adcbbe9ab2f?w=400&h=300&fit=crop', NOW(), NOW()),
+(1, 2, 'BBQ Chicken Pizza', 'Grilled chicken with BBQ sauce and red onions', 15.99, 15.99, true, 25, 110, 4.6, false, false, 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=400&h=300&fit=crop', NOW(), NOW());
+
+-- Pasta (Category 3)
+INSERT INTO menu_items (restaurant_id, category_id, name, description, price, discounted_price, is_available, preparation_time, order_count, rating, is_vegetarian, is_spicy, image_url, created_at, updated_at) VALUES
+(1, 3, 'Spaghetti Carbonara', 'Creamy pasta with bacon, eggs, and parmesan', 13.99, 13.99, true, 18, 145, 4.7, false, false, 'https://images.unsplash.com/photo-1612874742237-6526221588e3?w=400&h=300&fit=crop', NOW(), NOW()),
+(1, 3, 'Penne Arrabbiata', 'Spicy tomato sauce with garlic and red chili', 11.99, 10.99, true, 15, 88, 4.4, true, true, 'https://images.unsplash.com/photo-1621996346565-e3dbc646d9a9?w=400&h=300&fit=crop', NOW(), NOW()),
+(1, 3, 'Fettuccine Alfredo', 'Rich and creamy white sauce with parmesan', 12.99, 12.99, true, 16, 102, 4.6, true, false, 'https://images.unsplash.com/photo-1645112411341-6c4fd023714a?w=400&h=300&fit=crop', NOW(), NOW()),
+(1, 3, 'Lasagna', 'Layered pasta with meat sauce and cheese', 14.99, 13.99, true, 30, 76, 4.8, false, false, 'https://images.unsplash.com/photo-1574894709920-11b28e7367e3?w=400&h=300&fit=crop', NOW(), NOW());
+
+-- Desserts (Category 4)
+INSERT INTO menu_items (restaurant_id, category_id, name, description, price, discounted_price, is_available, preparation_time, order_count, rating, is_vegetarian, is_spicy, image_url, created_at, updated_at) VALUES
+(1, 4, 'Tiramisu', 'Classic Italian dessert with coffee and mascarpone', 6.99, 6.99, true, 10, 134, 4.9, true, false, 'https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?w=400&h=300&fit=crop', NOW(), NOW()),
+(1, 4, 'Panna Cotta', 'Creamy vanilla dessert with berry compote', 5.99, 5.99, true, 8, 89, 4.5, true, false, 'https://images.unsplash.com/photo-1488477181946-6428a0291777?w=400&h=300&fit=crop', NOW(), NOW()),
+(1, 4, 'Gelato', 'Italian ice cream - various flavors', 4.99, 4.99, true, 5, 156, 4.7, true, false, 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?w=400&h=300&fit=crop', NOW(), NOW());
+
+-- Beverages (Category 5)
+INSERT INTO menu_items (restaurant_id, category_id, name, description, price, discounted_price, is_available, preparation_time, order_count, rating, is_vegetarian, is_spicy, image_url, created_at, updated_at) VALUES
+(1, 5, 'Italian Soda', 'Sparkling water with fruit syrup', 3.99, 3.99, true, 5, 98, 4.3, true, false, 'https://images.unsplash.com/photo-1546173159-315724a31696?w=400&h=300&fit=crop', NOW(), NOW()),
+(1, 5, 'Espresso', 'Strong Italian coffee', 2.99, 2.99, true, 3, 210, 4.6, true, false, 'https://images.unsplash.com/photo-1510591509098-f4fdc6d0ff04?w=400&h=300&fit=crop', NOW(), NOW()),
+(1, 5, 'Fresh Lemonade', 'Homemade lemonade with mint', 3.49, 3.49, true, 5, 145, 4.4, true, false, 'https://images.unsplash.com/photo-1523677011781-c91d1bbe2f9d?w=400&h=300&fit=crop', NOW(), NOW());
+
+-- Restaurant 2 - Indian Restaurant Items
+
+-- Starters (Category 6)
+INSERT INTO menu_items (restaurant_id, category_id, name, description, price, discounted_price, is_available, preparation_time, order_count, rating, is_vegetarian, is_spicy, image_url, created_at, updated_at) VALUES
+(2, 6, 'Samosa', 'Crispy pastry filled with spiced potatoes and peas', 4.99, 4.99, true, 12, 189, 4.6, true, true, 'https://images.unsplash.com/photo-1601050690597-df0568f70950?w=400&h=300&fit=crop', NOW(), NOW()),
+(2, 6, 'Paneer Tikka', 'Grilled cottage cheese marinated in spices', 8.99, 7.99, true, 18, 156, 4.7, true, true, 'https://images.unsplash.com/photo-1567188040759-fb8a883dc6d8?w=400&h=300&fit=crop', NOW(), NOW()),
+(2, 6, 'Chicken 65', 'Spicy fried chicken with curry leaves', 9.99, 9.99, true, 20, 134, 4.8, false, true, 'https://images.unsplash.com/photo-1610057099443-fde8c4d50f91?w=400&h=300&fit=crop', NOW(), NOW()),
+(2, 6, 'Vegetable Pakora', 'Mixed vegetable fritters with mint chutney', 5.99, 5.99, true, 15, 112, 4.4, true, true, 'https://images.unsplash.com/photo-1606491956689-2ea866880c84?w=400&h=300&fit=crop', NOW(), NOW());
+
+-- Main Course (Category 7)
+INSERT INTO menu_items (restaurant_id, category_id, name, description, price, discounted_price, is_available, preparation_time, order_count, rating, is_vegetarian, is_spicy, image_url, created_at, updated_at) VALUES
+(2, 7, 'Butter Chicken', 'Tender chicken in creamy tomato sauce', 13.99, 13.99, true, 25, 298, 4.9, false, true, 'https://images.unsplash.com/photo-1603894584373-5ac82b2ae398?w=400&h=300&fit=crop', NOW(), NOW()),
+(2, 7, 'Palak Paneer', 'Cottage cheese in spinach gravy', 11.99, 11.99, true, 22, 167, 4.6, true, true, 'https://images.unsplash.com/photo-1631452180519-c014fe946bc7?w=400&h=300&fit=crop', NOW(), NOW()),
+(2, 7, 'Dal Makhani', 'Black lentils cooked with butter and cream', 10.99, 9.99, true, 20, 145, 4.7, true, false, 'https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=400&h=300&fit=crop', NOW(), NOW()),
+(2, 7, 'Chicken Tikka Masala', 'Grilled chicken in spiced curry sauce', 14.99, 14.99, true, 28, 223, 4.8, false, true, 'https://images.unsplash.com/photo-1565557623262-b51c2513a641?w=400&h=300&fit=crop', NOW(), NOW()),
+(2, 7, 'Paneer Butter Masala', 'Cottage cheese in rich tomato gravy', 12.99, 12.99, true, 23, 189, 4.7, true, true, 'https://images.unsplash.com/photo-1631452180519-c014fe946bc7?w=400&h=300&fit=crop', NOW(), NOW());
+
+-- Breads (Category 8)
+INSERT INTO menu_items (restaurant_id, category_id, name, description, price, discounted_price, is_available, preparation_time, order_count, rating, is_vegetarian, is_spicy, image_url, created_at, updated_at) VALUES
+(2, 8, 'Butter Naan', 'Soft leavened bread with butter', 2.99, 2.99, true, 8, 345, 4.8, true, false, 'https://images.unsplash.com/photo-1628840042765-356cda07504e?w=400&h=300&fit=crop', NOW(), NOW()),
+(2, 8, 'Garlic Naan', 'Naan topped with garlic and cilantro', 3.49, 3.49, true, 8, 289, 4.7, true, false, 'https://images.unsplash.com/photo-1619888312680-8e0b9e1e8e3f?w=400&h=300&fit=crop', NOW(), NOW()),
+(2, 8, 'Tandoori Roti', 'Whole wheat flatbread from tandoor', 2.49, 2.49, true, 7, 234, 4.5, true, false, 'https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400&h=300&fit=crop', NOW(), NOW()),
+(2, 8, 'Cheese Naan', 'Naan stuffed with cheese', 4.49, 4.49, true, 10, 178, 4.6, true, false, 'https://images.unsplash.com/photo-1601050690597-df0568f70950?w=400&h=300&fit=crop', NOW(), NOW());
+
+-- Rice & Biryani (Category 9)
+INSERT INTO menu_items (restaurant_id, category_id, name, description, price, discounted_price, is_available, preparation_time, order_count, rating, is_vegetarian, is_spicy, image_url, created_at, updated_at) VALUES
+(2, 9, 'Chicken Biryani', 'Aromatic basmati rice with spiced chicken', 14.99, 13.99, true, 35, 267, 4.9, false, true, 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=400&h=300&fit=crop', NOW(), NOW()),
+(2, 9, 'Vegetable Biryani', 'Fragrant rice with mixed vegetables', 11.99, 11.99, true, 30, 198, 4.6, true, true, 'https://images.unsplash.com/photo-1642821373181-696a54913e93?w=400&h=300&fit=crop', NOW(), NOW()),
+(2, 9, 'Jeera Rice', 'Basmati rice tempered with cumin', 5.99, 5.99, true, 15, 156, 4.4, true, false, 'https://images.unsplash.com/photo-1596797038530-2c107229654b?w=400&h=300&fit=crop', NOW(), NOW()),
+(2, 9, 'Mutton Biryani', 'Tender mutton with aromatic rice', 16.99, 16.99, true, 40, 145, 4.8, false, true, 'https://images.unsplash.com/photo-1633945274309-2c8c2b0e3b6f?w=400&h=300&fit=crop', NOW(), NOW());
+
+-- Desserts (Category 10)
+INSERT INTO menu_items (restaurant_id, category_id, name, description, price, discounted_price, is_available, preparation_time, order_count, rating, is_vegetarian, is_spicy, image_url, created_at, updated_at) VALUES
+(2, 10, 'Gulab Jamun', 'Sweet milk dumplings in sugar syrup', 4.99, 4.99, true, 5, 234, 4.7, true, false, 'https://images.unsplash.com/photo-1618897996318-5a901fa6ca71?w=400&h=300&fit=crop', NOW(), NOW()),
+(2, 10, 'Rasmalai', 'Soft cheese patties in sweet milk', 5.99, 5.99, true, 8, 189, 4.8, true, false, 'https://images.unsplash.com/photo-1589119908995-c6c8f7a96a01?w=400&h=300&fit=crop', NOW(), NOW()),
+(2, 10, 'Kulfi', 'Traditional Indian ice cream', 4.49, 4.49, true, 5, 167, 4.5, true, false, 'https://images.unsplash.com/photo-1582716401301-b2407dc7563d?w=400&h=300&fit=crop', NOW(), NOW());
+
+-- Restaurant 3 - Chinese Restaurant Items
+
+-- Dim Sum (Category 11)
+INSERT INTO menu_items (restaurant_id, category_id, name, description, price, discounted_price, is_available, preparation_time, order_count, rating, is_vegetarian, is_spicy, image_url, created_at, updated_at) VALUES
+(3, 11, 'Vegetable Dumplings', 'Steamed dumplings with mixed vegetables', 7.99, 7.99, true, 15, 145, 4.5, true, false, 'https://images.unsplash.com/photo-1496116218417-1a781b1c416c?w=400&h=300&fit=crop', NOW(), NOW()),
+(3, 11, 'Chicken Dumplings', 'Steamed dumplings with chicken filling', 8.99, 8.99, true, 15, 178, 4.6, false, false, 'https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?w=400&h=300&fit=crop', NOW(), NOW()),
+(3, 11, 'Pork Buns', 'Steamed buns with BBQ pork filling', 9.99, 9.99, true, 18, 134, 4.7, false, false, 'https://images.unsplash.com/photo-1517433670267-08bbd4be890f?w=400&h=300&fit=crop', NOW(), NOW()),
+(3, 11, 'Spring Rolls', 'Crispy rolls with vegetable filling', 6.99, 6.99, true, 12, 189, 4.4, true, false, 'https://images.unsplash.com/photo-1529006557810-274b9b2fc783?w=400&h=300&fit=crop', NOW(), NOW());
+
+-- Noodles (Category 12)
+INSERT INTO menu_items (restaurant_id, category_id, name, description, price, discounted_price, is_available, preparation_time, order_count, rating, is_vegetarian, is_spicy, image_url, created_at, updated_at) VALUES
+(3, 12, 'Hakka Noodles', 'Stir-fried noodles with vegetables', 10.99, 10.99, true, 18, 223, 4.6, true, false, 'https://images.unsplash.com/photo-1612929633738-8fe44f7ec841?w=400&h=300&fit=crop', NOW(), NOW()),
+(3, 12, 'Chicken Chow Mein', 'Noodles with chicken and vegetables', 12.99, 12.99, true, 20, 198, 4.7, false, false, 'https://images.unsplash.com/photo-1585032226651-759b368d7246?w=400&h=300&fit=crop', NOW(), NOW()),
+(3, 12, 'Singapore Noodles', 'Spicy curry noodles with shrimp', 13.99, 13.99, true, 22, 167, 4.5, false, true, 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=400&h=300&fit=crop', NOW(), NOW()),
+(3, 12, 'Dan Dan Noodles', 'Spicy Sichuan noodles with pork', 11.99, 11.99, true, 18, 145, 4.8, false, true, 'https://images.unsplash.com/photo-1582878826629-29b7ad1cdc43?w=400&h=300&fit=crop', NOW(), NOW());
+
+-- Main Course (Category 13)
+INSERT INTO menu_items (restaurant_id, category_id, name, description, price, discounted_price, is_available, preparation_time, order_count, rating, is_vegetarian, is_spicy, image_url, created_at, updated_at) VALUES
+(3, 13, 'Kung Pao Chicken', 'Spicy stir-fried chicken with peanuts', 13.99, 13.99, true, 22, 234, 4.7, false, true, 'https://images.unsplash.com/photo-1525755662778-989d0524087e?w=400&h=300&fit=crop', NOW(), NOW()),
+(3, 13, 'Sweet and Sour Pork', 'Crispy pork in tangy sauce', 14.99, 14.99, true, 25, 189, 4.6, false, false, 'https://images.unsplash.com/photo-1559847844-5315695dadae?w=400&h=300&fit=crop', NOW(), NOW()),
+(3, 13, 'Mapo Tofu', 'Spicy tofu with minced pork', 11.99, 11.99, true, 20, 156, 4.5, false, true, 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300&fit=crop', NOW(), NOW()),
+(3, 13, 'General Tso Chicken', 'Crispy chicken in sweet spicy sauce', 14.99, 13.99, true, 23, 212, 4.8, false, true, 'https://images.unsplash.com/photo-1603133872878-684f208fb84b?w=400&h=300&fit=crop', NOW(), NOW()),
+(3, 13, 'Vegetable Manchurian', 'Fried vegetable balls in spicy sauce', 10.99, 10.99, true, 20, 178, 4.4, true, true, 'https://images.unsplash.com/photo-1626804475297-41608ea09aeb?w=400&h=300&fit=crop', NOW(), NOW());
+
+-- Soups (Category 14)
+INSERT INTO menu_items (restaurant_id, category_id, name, description, price, discounted_price, is_available, preparation_time, order_count, rating, is_vegetarian, is_spicy, image_url, created_at, updated_at) VALUES
+(3, 14, 'Hot and Sour Soup', 'Spicy and tangy soup with vegetables', 5.99, 5.99, true, 12, 198, 4.6, true, true, 'https://images.unsplash.com/photo-1547592166-23ac45744acd?w=400&h=300&fit=crop', NOW(), NOW()),
+(3, 14, 'Wonton Soup', 'Clear soup with pork wontons', 6.99, 6.99, true, 15, 167, 4.5, false, false, 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=400&h=300&fit=crop', NOW(), NOW()),
+(3, 14, 'Corn Soup', 'Creamy sweet corn soup', 4.99, 4.99, true, 10, 145, 4.4, true, false, 'https://images.unsplash.com/photo-1476718406336-bb5a9690ee2a?w=400&h=300&fit=crop', NOW(), NOW()),
+(3, 14, 'Tom Yum Soup', 'Spicy Thai soup with shrimp', 7.99, 7.99, true, 15, 134, 4.7, false, true, 'https://images.unsplash.com/photo-1547592180-85f173990554?w=400&h=300&fit=crop', NOW(), NOW());

@@ -13,6 +13,8 @@ export interface Restaurant {
   pincode?: string;
   phoneNumber?: string;
   email?: string;
+  gstNumber?: string;
+  fssaiLicenseNumber?: string;
   rating: number;
   reviewCount?: number;
   isActive: boolean;
@@ -41,6 +43,8 @@ export interface UpsertRestaurantRequest {
   pincode?: string;
   phoneNumber?: string;
   email?: string;
+  gstNumber?: string;
+  fssaiLicenseNumber?: string;
   cuisineType: string;
   cuisines?: string[] | string;
   openingTime?: string;

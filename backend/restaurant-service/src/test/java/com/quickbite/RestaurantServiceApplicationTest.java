@@ -1,9 +1,11 @@
 package com.quickbite;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
 import org.springframework.boot.SpringApplication;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mockStatic;
 
 class RestaurantServiceApplicationTest {
 
@@ -17,10 +19,13 @@ class RestaurantServiceApplicationTest {
     }
 
     @Test
-    void mainMethodExists() {
-        assertDoesNotThrow(() -> {
-            // Verify main method exists
-            RestaurantServiceApplication.class.getMethod("main", String[].class);
-        });
+    void mainStartsSpringApplication() {
+        try (MockedStatic<SpringApplication> springApplication = mockStatic(SpringApplication.class)) {
+            String[] args = {"--server.port=0"};
+
+            RestaurantServiceApplication.main(args);
+
+            springApplication.verify(() -> SpringApplication.run(RestaurantServiceApplication.class, args));
+        }
     }
 }

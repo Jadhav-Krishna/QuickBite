@@ -152,6 +152,26 @@ class RestaurantServiceTest {
         assertNotNull(result.getImageUrl());
     }
 
+    @Test
+    void createRestaurant_defaultImageUrlWhenBlank() {
+        restaurant.setImageUrl(" ");
+        when(restaurantRepository.save(any())).thenReturn(restaurant);
+
+        Restaurant result = restaurantService.createRestaurant(restaurant);
+
+        assertTrue(result.getImageUrl().startsWith("https://images.unsplash.com/"));
+    }
+
+    @Test
+    void createRestaurant_keepsExistingImageUrl() {
+        restaurant.setImageUrl("existing-url");
+        when(restaurantRepository.save(any())).thenReturn(restaurant);
+
+        Restaurant result = restaurantService.createRestaurant(restaurant);
+
+        assertEquals("existing-url", result.getImageUrl());
+    }
+
     // ================= GET =================
 
     @Test
@@ -277,6 +297,19 @@ class RestaurantServiceTest {
         assertEquals(newLocation, result.getLocation());
     }
 
+    @Test
+    void updateRestaurant_noFieldsLeavesExistingValues() {
+        when(restaurantRepository.findById(any()))
+                .thenReturn(Optional.of(restaurant));
+        when(restaurantRepository.save(any())).thenReturn(restaurant);
+
+        Restaurant result = restaurantService.updateRestaurant(1L, new Restaurant());
+
+        assertEquals("Test", result.getName());
+        assertEquals("Indian", result.getCuisineType());
+        assertEquals("Bhopal", result.getCity());
+    }
+
     // ================= APPROVAL =================
 
     @Test
@@ -316,6 +349,20 @@ class RestaurantServiceTest {
     }
 
     @Test
+    void toggleOpen_closesOpenRestaurant() {
+        restaurant.setIsApproved(true);
+        restaurant.setIsOpen(true);
+
+        when(restaurantRepository.findById(any()))
+                .thenReturn(Optional.of(restaurant));
+        when(restaurantRepository.save(any())).thenReturn(restaurant);
+
+        Restaurant result = restaurantService.toggleOpen(1L);
+
+        assertFalse(result.getIsOpen());
+    }
+
+    @Test
     void toggleOpen_notApproved() {
         restaurant.setIsApproved(false);
 
@@ -348,6 +395,19 @@ class RestaurantServiceTest {
         Restaurant result = restaurantService.toggleActive(1L);
 
         assertFalse(result.getIsActive());
+    }
+
+    @Test
+    void toggleActive_activatesInactiveRestaurant() {
+        restaurant.setIsActive(false);
+
+        when(restaurantRepository.findById(any()))
+                .thenReturn(Optional.of(restaurant));
+        when(restaurantRepository.save(any())).thenReturn(restaurant);
+
+        Restaurant result = restaurantService.toggleActive(1L);
+
+        assertTrue(result.getIsActive());
     }
 
     @Test

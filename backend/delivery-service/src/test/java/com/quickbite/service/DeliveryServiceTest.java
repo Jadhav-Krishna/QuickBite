@@ -53,11 +53,23 @@ class DeliveryServiceTest {
 
         DeliveryAgentDTO dto = new DeliveryAgentDTO();
         dto.setUserId(1L);
+        dto.setFullName("Krishna");
+        dto.setPhone("9999999999");
+        dto.setEmail("agent@quickbite.com");
+        dto.setVehicleType("BIKE");
+        dto.setVehicleNumber("MP09AB1234");
+        dto.setLicenseNumber("DL12345");
+        dto.setAadharNumber("111122223333");
 
         DeliveryAgentDTO result = deliveryService.registerDeliveryAgent(dto);
 
         assertNotNull(result);
-        verify(agentRepository).save(any());
+        verify(agentRepository).save(argThat(saved ->
+                Boolean.FALSE.equals(saved.getIsVerified())
+                        && Boolean.FALSE.equals(saved.getIsActive())
+                        && Double.valueOf(0.0).equals(saved.getCurrentLatitude())
+                        && Double.valueOf(0.0).equals(saved.getCurrentLongitude())
+                        && Long.valueOf(0L).equals(saved.getTotalDeliveries())));
     }
 
     @Test
@@ -81,6 +93,16 @@ class DeliveryServiceTest {
 
         assertThrows(DeliveryAgentNotFoundException.class,
                 () -> deliveryService.getDeliveryAgent(1L));
+    }
+
+    @Test
+    void getAgent_success() {
+        when(agentRepository.findById(1L)).thenReturn(Optional.of(agent));
+
+        DeliveryAgentDTO result = deliveryService.getDeliveryAgent(1L);
+
+        assertEquals(agent.getUserId(), result.getUserId());
+        assertEquals(agent.getFullName(), result.getFullName());
     }
 
     @Test
@@ -203,6 +225,19 @@ class DeliveryServiceTest {
     }
 
     @Test
+    void updateEarnings_nullCurrentValues_areInitializedSafely() {
+        agent.setTotalEarnings(null);
+        agent.setTodayEarnings(null);
+        when(agentRepository.findById(1L)).thenReturn(Optional.of(agent));
+
+        deliveryService.updateAgentEarnings(1L, 100.0);
+
+        assertEquals(12.0, agent.getTotalEarnings());
+        assertEquals(12.0, agent.getTodayEarnings());
+        verify(agentRepository).save(agent);
+    }
+
+    @Test
     void getAgentEarnings_success() {
         when(agentRepository.findById(any())).thenReturn(Optional.of(agent));
 
@@ -249,6 +284,19 @@ class DeliveryServiceTest {
     }
 
     @Test
+    void markDelivered_nullCounters_areInitializedSafely() {
+        agent.setTotalDeliveries(null);
+        agent.setTodayDeliveries(null);
+        when(agentRepository.findById(1L)).thenReturn(Optional.of(agent));
+
+        deliveryService.markOrderDelivered(1L, 10L);
+
+        assertEquals(1L, agent.getTotalDeliveries());
+        assertEquals(1, agent.getTodayDeliveries());
+        verify(agentRepository).save(agent);
+    }
+
+    @Test
     void getAllAgents_success() {
         when(agentRepository.findAll()).thenReturn(Arrays.asList(agent));
 
@@ -271,6 +319,31 @@ class DeliveryServiceTest {
                 deliveryService.updateAgentProfile(1L, dto);
 
         assertEquals("Updated Name", result.getFullName());
+    }
+
+    @Test
+    void updateProfile_updatesAllMutableFields() {
+        when(agentRepository.findById(1L)).thenReturn(Optional.of(agent));
+        when(agentRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        DeliveryAgentDTO dto = new DeliveryAgentDTO();
+        dto.setFullName("Updated Name");
+        dto.setPhone("8888888888");
+        dto.setEmail("updated@quickbite.com");
+        dto.setVehicleType("SCOOTER");
+        dto.setVehicleNumber("MP09XY9999");
+        dto.setLicenseNumber("DL54321");
+        dto.setAadharNumber("444433332222");
+
+        DeliveryAgentDTO result = deliveryService.updateAgentProfile(1L, dto);
+
+        assertEquals("Updated Name", result.getFullName());
+        assertEquals("8888888888", result.getPhone());
+        assertEquals("updated@quickbite.com", result.getEmail());
+        assertEquals("SCOOTER", result.getVehicleType());
+        assertEquals("MP09XY9999", result.getVehicleNumber());
+        assertEquals("DL54321", result.getLicenseNumber());
+        assertEquals("444433332222", result.getAadharNumber());
     }
 
     @Test

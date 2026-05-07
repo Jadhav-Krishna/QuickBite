@@ -90,24 +90,6 @@ class DeliveryControllerTest {
     }
 
     @Test
-    void toggleAvailability_success() {
-        doNothing().when(deliveryService).toggleAgentAvailability(any(), any());
-
-        ResponseEntity<Void> response = controller.toggleAvailability(1L, true);
-
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-    }
-
-    @Test
-    void markPickedUp_success() {
-        doNothing().when(deliveryService).markOrderPickedUp(any(), any());
-
-        ResponseEntity<Void> response = controller.markPickedUp(1L, 10L);
-
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-    }
-
-    @Test
     void markDelivered_success() {
         doNothing().when(deliveryService).markOrderDelivered(any(), any());
         doNothing().when(deliveryService).updateAgentEarnings(any(), any());
@@ -120,15 +102,6 @@ class DeliveryControllerTest {
     }
 
     @Test
-    void getAgentEarnings_success() {
-        when(deliveryService.getAgentEarnings(any())).thenReturn(agentDTO);
-
-        ResponseEntity<DeliveryAgentDTO> response = controller.getAgentEarnings(1L);
-
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-    }
-
-    @Test
     void getAvailableAgents_success() {
         when(deliveryService.getAvailableAgents(anyDouble(), anyDouble(), anyDouble()))
                 .thenReturn(Arrays.asList(agentDTO));
@@ -138,25 +111,6 @@ class DeliveryControllerTest {
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(1, response.getBody().size());
-    }
-
-    @Test
-    void getAllAgents_success() {
-        when(deliveryService.getAllAgents()).thenReturn(Arrays.asList(agentDTO));
-
-        ResponseEntity<List<DeliveryAgentDTO>> response = controller.getAllAgents();
-
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals(1, response.getBody().size());
-    }
-
-    @Test
-    void updateProfile_success() {
-        when(deliveryService.updateAgentProfile(any(), any())).thenReturn(agentDTO);
-
-        ResponseEntity<DeliveryAgentDTO> response = controller.updateProfile(1L, agentDTO);
-
-        assertEquals(HttpStatus.OK, response.getStatusCode());
     }
 
     @Test

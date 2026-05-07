@@ -106,6 +106,53 @@ class AuthControllerTest {
     }
 
     @Test
+    void googleCallback_success_redirectsToFrontendCallback() {
+        when(authService.loginWithOAuth2(any())).thenReturn(authResponse);
+
+        ResponseEntity<String> response = authController.googleCallback("google-code");
+
+        assertEquals(HttpStatus.FOUND, response.getStatusCode());
+        assertNotNull(response.getHeaders().getFirst("Location"));
+        assertTrue(response.getHeaders().getFirst("Location").contains("auth/callback"));
+        assertTrue(response.getHeaders().getFirst("Location").contains("token=access"));
+        assertTrue(response.getHeaders().getFirst("Location").contains("refreshToken=refresh"));
+    }
+
+    @Test
+    void googleCallback_failure_redirectsToLoginWithError() {
+        when(authService.loginWithOAuth2(any())).thenThrow(new RuntimeException("oauth failed"));
+
+        ResponseEntity<String> response = authController.googleCallback("google-code");
+
+        assertEquals(HttpStatus.FOUND, response.getStatusCode());
+        assertEquals("http://localhost:5173/login?error=oauth failed",
+                response.getHeaders().getFirst("Location"));
+    }
+
+    @Test
+    void githubCallback_success_redirectsToFrontendCallback() {
+        when(authService.loginWithOAuth2(any())).thenReturn(authResponse);
+
+        ResponseEntity<String> response = authController.githubCallback("github-code");
+
+        assertEquals(HttpStatus.FOUND, response.getStatusCode());
+        assertNotNull(response.getHeaders().getFirst("Location"));
+        assertTrue(response.getHeaders().getFirst("Location").contains("auth/callback"));
+        assertTrue(response.getHeaders().getFirst("Location").contains("role=CUSTOMER"));
+    }
+
+    @Test
+    void githubCallback_failure_redirectsToLoginWithError() {
+        when(authService.loginWithOAuth2(any())).thenThrow(new RuntimeException("github oauth failed"));
+
+        ResponseEntity<String> response = authController.githubCallback("github-code");
+
+        assertEquals(HttpStatus.FOUND, response.getStatusCode());
+        assertEquals("http://localhost:5173/login?error=github oauth failed",
+                response.getHeaders().getFirst("Location"));
+    }
+
+    @Test
     void validateToken_success() {
         when(authService.validateToken(any())).thenReturn(user);
 
@@ -211,6 +258,17 @@ class AuthControllerTest {
     }
 
     @Test
+    void getAllUsers_applicationAdminAllowed() {
+        User admin = User.builder().id(1L).email("admin@mail.com").role(UserRole.APPLICATION_ADMIN).build();
+        when(authService.validateToken(any())).thenReturn(admin);
+        when(authService.getAllUsers()).thenReturn(List.of(userDTO));
+
+        ResponseEntity<List<UserDTO>> response = authController.getAllUsers("Bearer token");
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+    }
+
+    @Test
     void getAllUsers_forbidden() {
         when(authService.validateToken(any())).thenReturn(user);
 
@@ -229,6 +287,13 @@ class AuthControllerTest {
     }
 
     @Test
+    void suspendUser_forbiddenForNonAdmin() {
+        when(authService.validateToken(any())).thenReturn(user);
+
+        assertThrows(ResponseStatusException.class, () -> authController.suspendUser("Bearer token", 2L));
+    }
+
+    @Test
     void reactivateUser_success() {
         User admin = User.builder().id(1L).email("admin@mail.com").role(UserRole.APPLICATION_ADMIN).build();
         when(authService.validateToken(any())).thenReturn(admin);
@@ -240,6 +305,13 @@ class AuthControllerTest {
     }
 
     @Test
+    void reactivateUser_forbiddenForNonAdmin() {
+        when(authService.validateToken(any())).thenReturn(user);
+
+        assertThrows(ResponseStatusException.class, () -> authController.reactivateUser("Bearer token", 2L));
+    }
+
+    @Test
     void deleteUser_success() {
         User admin = User.builder().id(1L).email("admin@mail.com").role(UserRole.ADMIN).build();
         when(authService.validateToken(any())).thenReturn(admin);
@@ -247,6 +319,13 @@ class AuthControllerTest {
         ResponseEntity<Void> response = authController.deleteUser("Bearer token", 2L);
 
         assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
+    }
+
+    @Test
+    void deleteUser_forbiddenForNonAdmin() {
+        when(authService.validateToken(any())).thenReturn(user);
+
+        assertThrows(ResponseStatusException.class, () -> authController.deleteUser("Bearer token", 2L));
     }
 
     @Test

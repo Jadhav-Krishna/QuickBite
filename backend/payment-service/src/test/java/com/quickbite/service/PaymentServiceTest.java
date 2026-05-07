@@ -11,8 +11,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+import java.util.HexFormat;
 import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -23,6 +29,8 @@ class PaymentServiceTest {
 
     @Mock private PaymentRepository paymentRepository;
     @Mock private RazorpayClient razorpayClient;
+    @Mock private OrderClient orderClient;
+    @Mock private PaymentClient paymentClient;
     @Mock private WalletRepository walletRepository;
     @Mock private WalletStatementRepository walletStatementRepository;
 
@@ -42,6 +50,8 @@ class PaymentServiceTest {
                 .transactionId("TXN-1")
                 .razorpayOrderId("razor-1")
                 .paymentMethod(PaymentMethod.UPI)
+                .currency("INR")
+                .createdAt(LocalDateTime.now())
                 .build();
 
         wallet = Wallet.builder()
@@ -49,6 +59,10 @@ class PaymentServiceTest {
                 .customerId(1L)
                 .balance(new BigDecimal("200"))
                 .build();
+
+        ReflectionTestUtils.setField(paymentService, "razorpayKeySecret", "secret");
+        ReflectionTestUtils.setField(razorpayClient, "orders", orderClient);
+        ReflectionTestUtils.setField(razorpayClient, "payments", paymentClient);
     }
 
     // ================= INITIATE =================
@@ -65,6 +79,31 @@ class PaymentServiceTest {
                 () -> paymentService.initiatePayment(req));
     }
 
+    @Test
+    void initiatePayment_success() throws Exception {
+        PaymentRequest req = PaymentRequest.builder()
+                .orderId(22L)
+                .customerId(33L)
+                .amount(new BigDecimal("125.50"))
+                .currency(" inr ")
+                .paymentMethod("card")
+                .build();
+        Order razorpayOrder = new Order(new JSONObject().put("id", "order_123"));
+        when(orderClient.create(any(JSONObject.class))).thenReturn(razorpayOrder);
+        when(paymentRepository.save(any())).thenAnswer(invocation -> {
+            com.quickbite.entity.Payment saved = invocation.getArgument(0);
+            saved.setId(9L);
+            return saved;
+        });
+
+        PaymentResponse response = paymentService.initiatePayment(req);
+
+        assertEquals(9L, response.getPaymentId());
+        assertEquals("order_123", response.getRazorpayOrderId());
+        assertEquals("CREDIT_CARD", response.getPaymentMethod());
+        assertEquals("PENDING", response.getStatus());
+    }
+
     // ================= VERIFY =================
 
     @Test
@@ -74,6 +113,36 @@ class PaymentServiceTest {
 
         assertThrows(RuntimeException.class,
                 () -> paymentService.verifyPayment("p", "sig", "o"));
+    }
+
+    @Test
+    void verifyPayment_successEvenWhenRazorpayFetchFails() throws Exception {
+        payment.setStatus(PaymentStatus.PENDING);
+        when(paymentRepository.findByRazorpayOrderId("razor-1"))
+                .thenReturn(Optional.of(payment));
+        when(paymentClient.fetch("pay_123")).thenThrow(new RuntimeException("Razorpay timeout"));
+        when(paymentRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        String signature = signature("razor-1", "pay_123");
+
+        PaymentResponse response = paymentService.verifyPayment("pay_123", signature, "razor-1");
+
+        assertEquals("SUCCESS", response.getStatus());
+        assertEquals("pay_123", response.getTransactionId());
+        assertEquals("pay_123", payment.getRazorpayPaymentId());
+    }
+
+    @Test
+    void verifyPayment_badSignatureMarksFailed() {
+        payment.setStatus(PaymentStatus.PENDING);
+        when(paymentRepository.findByRazorpayOrderId("razor-1"))
+                .thenReturn(Optional.of(payment));
+        when(paymentRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        RuntimeException exception = assertThrows(RuntimeException.class,
+                () -> paymentService.verifyPayment("pay_123", "bad-signature", "razor-1"));
+
+        assertTrue(exception.getMessage().contains("Payment signature verification failed"));
+        assertEquals(PaymentStatus.FAILED, payment.getStatus());
     }
 
     // ================= FAIL =================
@@ -90,6 +159,17 @@ class PaymentServiceTest {
         assertEquals("FAILED", res.getStatus());
     }
 
+    @Test
+    void markPaymentFailed_usesDefaultReasonWhenBlank() {
+        when(paymentRepository.findByRazorpayOrderId(any()))
+                .thenReturn(Optional.of(payment));
+        when(paymentRepository.save(any())).thenReturn(payment);
+
+        paymentService.markPaymentFailed("razor-1", " ");
+
+        assertEquals("Payment failed", payment.getFailureReason());
+    }
+
     // ================= REFUND =================
 
     @Test
@@ -101,6 +181,19 @@ class PaymentServiceTest {
 
         assertThrows(RuntimeException.class,
                 () -> paymentService.refundPayment(1L, "test"));
+    }
+
+    @Test
+    void refund_success() throws Exception {
+        payment.setStatus(PaymentStatus.SUCCESS);
+        when(paymentRepository.findById(any()))
+                .thenReturn(Optional.of(payment));
+        when(paymentRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        PaymentResponse response = paymentService.refundPayment(1L, "Customer requested");
+
+        assertEquals("REFUNDED", response.getStatus());
+        verify(paymentClient).refund(eq("TXN-1"), any(JSONObject.class));
     }
 
     // ================= WALLET =================
@@ -276,12 +369,24 @@ class PaymentServiceTest {
 
     @Test
     void getAllPayments_success() {
+        com.quickbite.entity.Payment olderPayment = com.quickbite.entity.Payment.builder()
+                .id(2L)
+                .orderId(2L)
+                .customerId(1L)
+                .amount(50.0)
+                .status(PaymentStatus.PENDING)
+                .paymentMethod(PaymentMethod.CASH_ON_DELIVERY)
+                .transactionId("TXN-2")
+                .createdAt(LocalDateTime.now().minusDays(1))
+                .build();
+        payment.setCreatedAt(LocalDateTime.now());
         when(paymentRepository.findAll())
-                .thenReturn(List.of(payment));
+                .thenReturn(List.of(olderPayment, payment));
 
         var res = paymentService.getAllPayments();
 
-        assertEquals(1, res.size());
+        assertEquals(2, res.size());
+        assertEquals(1L, res.get(0).getPaymentId());
     }
 
     @Test
@@ -309,14 +414,23 @@ class PaymentServiceTest {
 
     @Test
     void getWalletStatements_success() {
+        WalletStatement statement = WalletStatement.builder()
+                .id(1L)
+                .walletId(1L)
+                .type(WalletStatement.TransactionType.DEPOSIT)
+                .amount(new BigDecimal("25"))
+                .description("Deposit")
+                .createdAt(LocalDateTime.now())
+                .build();
         when(walletRepository.findByCustomerId(any()))
                 .thenReturn(Optional.of(wallet));
         when(walletStatementRepository.findByWalletIdOrderByCreatedAtDesc(any()))
-                .thenReturn(List.of());
+                .thenReturn(List.of(statement));
 
         var res = paymentService.getWalletStatements(1L);
 
-        assertNotNull(res);
+        assertEquals(1, res.size());
+        assertEquals("DEPOSIT", res.get(0).getType());
     }
 
     @Test
@@ -341,6 +455,20 @@ class PaymentServiceTest {
 
         assertNotNull(res);
         verify(walletStatementRepository).save(any());
+    }
+
+    @Test
+    void payAmountFromWallet_usesDefaultDescriptionWhenBlank() {
+        when(walletRepository.findByCustomerId(any()))
+                .thenReturn(Optional.of(wallet));
+        when(walletRepository.save(any())).thenReturn(wallet);
+        when(paymentRepository.save(any())).thenReturn(payment);
+
+        paymentService.payAmountFromWallet(1L, new BigDecimal("50"), " ");
+
+        ArgumentCaptor<WalletStatement> statementCaptor = ArgumentCaptor.forClass(WalletStatement.class);
+        verify(walletStatementRepository).save(statementCaptor.capture());
+        assertEquals("Wallet debit", statementCaptor.getValue().getDescription());
     }
 
     @Test
@@ -415,5 +543,12 @@ class PaymentServiceTest {
 
         assertNotNull(res);
         verify(walletRepository, times(2)).save(any());
+    }
+
+    private String signature(String orderId, String paymentId) throws Exception {
+        String payload = orderId + "|" + paymentId;
+        Mac mac = Mac.getInstance("HmacSHA256");
+        mac.init(new SecretKeySpec("secret".getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+        return HexFormat.of().formatHex(mac.doFinal(payload.getBytes(StandardCharsets.UTF_8)));
     }
 }

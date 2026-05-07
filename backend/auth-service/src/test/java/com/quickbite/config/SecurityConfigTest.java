@@ -10,7 +10,8 @@ import static org.mockito.Mockito.mock;
 
 class SecurityConfigTest {
 
-    private final SecurityConfig config = new SecurityConfig();
+    private final JwtAuthenticationFilter jwtAuthenticationFilter = mock(JwtAuthenticationFilter.class);
+    private final SecurityConfig config = new SecurityConfig(jwtAuthenticationFilter);
 
     @Test
     void securityFilterChain_created() throws Exception {

@@ -485,6 +485,22 @@ VALUES (122, true, true, true, true, true),
        (134, true, true, true, true, false),
        (135, true, true, true, true, false);
 
+-- Promo Codes
+USE quickbite_cart;
+
+INSERT INTO promo_codes (code, description, discount_type, discount_value, min_order_amount, max_discount_amount, usage_limit, is_active, valid_from, valid_until, created_by)
+VALUES 
+('WELCOME10', 'Welcome offer - 10% off on first order', 'PERCENTAGE', 10, 100, 100, 1000, true, '2026-01-01 00:00:00', '2026-12-31 23:59:59', 1),
+('SAVE20', 'Save 20% on orders above ₹500', 'PERCENTAGE', 20, 500, 200, 500, true, '2026-01-01 00:00:00', '2026-12-31 23:59:59', 1),
+('FLAT50', 'Flat ₹50 off on orders above ₹300', 'FIXED', 50, 300, NULL, 1000, true, '2026-01-01 00:00:00', '2026-12-31 23:59:59', 1),
+('FLAT100', 'Flat ₹100 off on orders above ₹600', 'FIXED', 100, 600, NULL, 500, true, '2026-01-01 00:00:00', '2026-12-31 23:59:59', 1),
+('WEEKEND25', 'Weekend special - 25% off', 'PERCENTAGE', 25, 400, 250, 200, true, '2026-01-01 00:00:00', '2026-12-31 23:59:59', 1),
+('FIRSTORDER', 'First order discount - 15% off', 'PERCENTAGE', 15, 200, 150, 2000, true, '2026-01-01 00:00:00', '2026-12-31 23:59:59', 1),
+('BIGSAVE30', 'Big savings - 30% off on orders above ₹1000', 'PERCENTAGE', 30, 1000, 300, 100, true, '2026-01-01 00:00:00', '2026-12-31 23:59:59', 1),
+('QUICKBITE50', 'QuickBite special - ₹50 off', 'FIXED', 50, 250, NULL, 1500, true, '2026-01-01 00:00:00', '2026-12-31 23:59:59', 1),
+('EXPIRED10', 'Expired promo code', 'PERCENTAGE', 10, 100, 100, 100, false, '2025-01-01 00:00:00', '2025-12-31 23:59:59', 1),
+('NEWUSER', 'New user exclusive - 20% off', 'PERCENTAGE', 20, 150, 100, 5000, true, '2026-01-01 00:00:00', '2026-12-31 23:59:59', 1);
+
 USE quickbite_menu;
 
 -- Create categories for all restaurants

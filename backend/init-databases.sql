@@ -163,25 +163,53 @@ CREATE TABLE IF NOT EXISTS menu_items (
 -- Use cart database
 USE quickbite_cart;
 
+CREATE TABLE IF NOT EXISTS promo_codes (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    code VARCHAR(50) UNIQUE NOT NULL,
+    description VARCHAR(255),
+    discount_type VARCHAR(20) NOT NULL,
+    discount_value DOUBLE NOT NULL,
+    min_order_amount DOUBLE DEFAULT 0,
+    max_discount_amount DOUBLE,
+    usage_limit INT,
+    usage_count INT DEFAULT 0,
+    is_active BOOLEAN DEFAULT true,
+    valid_from TIMESTAMP NOT NULL,
+    valid_until TIMESTAMP NOT NULL,
+    created_by BIGINT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_code (code),
+    INDEX idx_is_active (is_active),
+    INDEX idx_valid_dates (valid_from, valid_until)
+);
+
 CREATE TABLE IF NOT EXISTS shopping_carts (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     customer_id BIGINT NOT NULL,
     restaurant_id BIGINT NOT NULL,
+    promo_code_id BIGINT,
+    promo_code VARCHAR(50),
     total_price DOUBLE DEFAULT 0,
+    discount_amount DOUBLE DEFAULT 0,
     total_items INT DEFAULT 0,
+    subtotal DOUBLE DEFAULT 0,
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_customer_id (customer_id),
-    INDEX idx_restaurant_id (restaurant_id)
+    INDEX idx_restaurant_id (restaurant_id),
+    FOREIGN KEY (promo_code_id) REFERENCES promo_codes(id) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS cart_items (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     cart_id BIGINT NOT NULL,
     menu_item_id BIGINT NOT NULL,
+    item_name VARCHAR(255) NOT NULL,
     quantity INT NOT NULL,
     price DOUBLE NOT NULL,
+    special_instructions VARCHAR(500),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (cart_id) REFERENCES shopping_carts(id) ON DELETE CASCADE,

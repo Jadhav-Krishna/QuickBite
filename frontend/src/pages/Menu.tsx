@@ -137,7 +137,12 @@ export default function Menu() {
       }, 1400);
     }).catch((error) => {
       console.error('Error adding item to cart:', error);
-      alert('Failed to add item to cart. Please try again.');
+      if (error.message.includes('login')) {
+        alert('Please login to add items to cart');
+        navigate('/login');
+      } else {
+        alert('Failed to add item to cart. Please try again.');
+      }
     });
   };
 

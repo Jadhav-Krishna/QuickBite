@@ -8,11 +8,18 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfigurationSource;
 
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
+
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
+        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+    }
 
     @Bean
     public SecurityFilterChain securityFilterChain(
@@ -21,13 +28,9 @@ public class SecurityConfig {
     ) throws Exception {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
-                // CSRF protection is disabled because:
-                // 1. This is a stateless REST API using JWT tokens (no session cookies)
-                // 2. JWT tokens are sent in Authorization headers, not cookies
-                // 3. SessionCreationPolicy is STATELESS - no server-side sessions
-                // 4. CSRF attacks target cookie-based authentication, which we don't use
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(
@@ -37,8 +40,11 @@ public class SecurityConfig {
                                 "/api/auth/oauth2/login",
                                 "/api/auth/oauth2/callback/**",
                                 "/api/auth/validate",
+                                "/api/v1/auth/addresses/geocode",
+                                "/api/v1/auth/addresses/reverse-geocode",
                                 "/actuator/**"
                         ).permitAll()
+                        .requestMatchers("/api/v1/auth/addresses/**").authenticated()
                         .anyRequest().authenticated()
                 );
 

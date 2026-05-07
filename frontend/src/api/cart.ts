@@ -14,9 +14,19 @@ export interface CartDTO {
   customerId: number;
   restaurantId: number;
   items: CartItemDTO[];
+  subtotal: number;
+  discountAmount: number;
   totalPrice: number;
   totalItems: number;
   isActive: boolean;
+  promoCode?: string;
+  appliedPromoCode?: {
+    id: number;
+    code: string;
+    description: string;
+    discountType: string;
+    discountValue: number;
+  };
 }
 
 interface AddCartItemRequest {
@@ -72,5 +82,19 @@ export const cartService = {
 
   clearCart(customerId: number) {
     return request<CartDTO>(`${API_BASE_URL}/v1/cart?customerId=${customerId}`, { method: 'DELETE' });
+  },
+
+  applyPromoCode(customerId: number, promoCode: string) {
+    return request<CartDTO>(
+      `${API_BASE_URL}/v1/cart/promo?customerId=${customerId}&promoCode=${promoCode}`,
+      { method: 'POST' }
+    );
+  },
+
+  removePromoCode(customerId: number) {
+    return request<CartDTO>(
+      `${API_BASE_URL}/v1/cart/promo?customerId=${customerId}`,
+      { method: 'DELETE' }
+    );
   },
 };

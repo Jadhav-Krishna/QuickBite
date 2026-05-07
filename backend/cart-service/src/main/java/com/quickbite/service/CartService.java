@@ -2,6 +2,7 @@ package com.quickbite.service;
 
 import com.quickbite.dto.CartDTO;
 import com.quickbite.dto.CartItemDTO;
+import com.quickbite.dto.PromoCodeDTO;
 import com.quickbite.entity.CartItem;
 import com.quickbite.entity.ShoppingCart;
 import com.quickbite.repository.CartRepository;
@@ -21,8 +22,11 @@ public class CartService {
     @Autowired
     private CartRepository cartRepository;
 
-    @Autowired
+    @Autowired(required = false)
     private RedisTemplate<String, Object> redisTemplate;
+
+    @Autowired
+    private PromoCodeService promoCodeService;
 
     private static final String CART_PREFIX = "cart:";
     private static final long CART_TTL = 3600; // 1 hour in seconds
@@ -33,7 +37,11 @@ public class CartService {
                 .findByCustomerIdAndRestaurantIdAndIsActiveTrue(customerId, restaurantId)
                 .orElseGet(() -> createNewCart(customerId, restaurantId));
         
-        cacheCart(cart);
+        try {
+            cacheCart(cart);
+        } catch (Exception e) {
+            log.warn("Failed to cache cart, continuing without cache: {}", e.getMessage());
+        }
         return convertToDTO(cart);
     }
 
@@ -47,36 +55,63 @@ public class CartService {
 
     @Transactional
     public CartDTO addItemToCart(Long customerId, Long restaurantId, CartItemDTO itemDTO) {
-        ShoppingCart cart = cartRepository
-                .findByCustomerIdAndRestaurantIdAndIsActiveTrue(customerId, restaurantId)
-                .orElseGet(() -> createNewCart(customerId, restaurantId));
-
-        // Check if item already exists in cart
-        CartItem existingItem = cart.getItems().stream()
-                .filter(item -> item.getMenuItemId().equals(itemDTO.getMenuItemId()))
-                .findFirst()
-                .orElse(null);
-
-        if (existingItem != null) {
-            // Update quantity if item already exists
-            existingItem.setQuantity(existingItem.getQuantity() + itemDTO.getQuantity());
-            existingItem.setUpdatedAt(java.time.LocalDateTime.now());
-            cart.updateTotals();
-        } else {
-            // Add new item if it doesn't exist
-            CartItem cartItem = new CartItem();
-            cartItem.setMenuItemId(itemDTO.getMenuItemId());
-            cartItem.setItemName(itemDTO.getItemName());
-            cartItem.setQuantity(itemDTO.getQuantity());
-            cartItem.setPrice(itemDTO.getPrice());
-            cartItem.setSpecialInstructions(itemDTO.getSpecialInstructions());
-            cart.addItem(cartItem);
-        }
-
-        cart = cartRepository.save(cart);
+        log.info("addItemToCart called - customerId: {}, restaurantId: {}, itemDTO: {}", 
+                customerId, restaurantId, itemDTO);
         
-        cacheCart(cart);
-        return convertToDTO(cart);
+        try {
+            ShoppingCart cart = cartRepository
+                    .findByCustomerIdAndRestaurantIdAndIsActiveTrue(customerId, restaurantId)
+                    .orElseGet(() -> {
+                        log.info("Creating new cart for customer: {} and restaurant: {}", customerId, restaurantId);
+                        return createNewCart(customerId, restaurantId);
+                    });
+
+            log.info("Cart found/created with id: {}, items count: {}", cart.getId(), cart.getItems().size());
+
+            // Check if item already exists in cart
+            CartItem existingItem = cart.getItems().stream()
+                    .filter(item -> item.getMenuItemId().equals(itemDTO.getMenuItemId()))
+                    .findFirst()
+                    .orElse(null);
+
+            if (existingItem != null) {
+                log.info("Item already exists in cart, updating quantity from {} to {}", 
+                        existingItem.getQuantity(), existingItem.getQuantity() + itemDTO.getQuantity());
+                // Update quantity if item already exists
+                existingItem.setQuantity(existingItem.getQuantity() + itemDTO.getQuantity());
+                existingItem.setUpdatedAt(java.time.LocalDateTime.now());
+                cart.updateTotals();
+            } else {
+                log.info("Adding new item to cart: {}", itemDTO.getItemName());
+                // Add new item if it doesn't exist
+                CartItem cartItem = new CartItem();
+                cartItem.setMenuItemId(itemDTO.getMenuItemId());
+                cartItem.setItemName(itemDTO.getItemName());
+                cartItem.setQuantity(itemDTO.getQuantity());
+                cartItem.setPrice(itemDTO.getPrice());
+                cartItem.setSpecialInstructions(itemDTO.getSpecialInstructions());
+                cartItem.setCart(cart);
+                cart.addItem(cartItem);
+            }
+
+            log.info("Saving cart to database...");
+            cart = cartRepository.save(cart);
+            log.info("Cart saved successfully with id: {}, total items: {}, total price: {}", 
+                    cart.getId(), cart.getTotalItems(), cart.getTotalPrice());
+            
+            try {
+                cacheCart(cart);
+            } catch (Exception e) {
+                log.warn("Failed to cache cart, continuing without cache: {}", e.getMessage());
+            }
+            
+            CartDTO result = convertToDTO(cart);
+            log.info("Returning cart DTO: {}", result);
+            return result;
+        } catch (Exception e) {
+            log.error("Error in addItemToCart: {}", e.getMessage(), e);
+            throw e;
+        }
     }
 
     @Transactional
@@ -99,7 +134,11 @@ public class CartService {
         }
 
         cart = cartRepository.save(cart);
-        cacheCart(cart);
+        try {
+            cacheCart(cart);
+        } catch (Exception e) {
+            log.warn("Failed to cache cart, continuing without cache: {}", e.getMessage());
+        }
         return convertToDTO(cart);
     }
 
@@ -117,7 +156,11 @@ public class CartService {
         cart.removeItem(item);
         cart = cartRepository.save(cart);
         
-        cacheCart(cart);
+        try {
+            cacheCart(cart);
+        } catch (Exception e) {
+            log.warn("Failed to cache cart, continuing without cache: {}", e.getMessage());
+        }
         return convertToDTO(cart);
     }
 
@@ -143,16 +186,24 @@ public class CartService {
 
         // Get or create new cart for new restaurant
         ShoppingCart newCart = createNewCart(customerId, newRestaurantId);
-        cacheCart(newCart);
+        try {
+            cacheCart(newCart);
+        } catch (Exception e) {
+            log.warn("Failed to cache cart, continuing without cache: {}", e.getMessage());
+        }
         return convertToDTO(newCart);
     }
 
     @Transactional(readOnly = true)
     public CartDTO getCart(Long customerId) {
         // Try to get from cache first
-        CartDTO cachedCart = getCachedCart(customerId);
-        if (cachedCart != null) {
-            return cachedCart;
+        try {
+            CartDTO cachedCart = getCachedCart(customerId);
+            if (cachedCart != null) {
+                return cachedCart;
+            }
+        } catch (Exception e) {
+            log.warn("Failed to get cached cart, fetching from database: {}", e.getMessage());
         }
 
         // Get from database or return empty cart
@@ -170,7 +221,11 @@ public class CartService {
                     .build();
         }
 
-        cacheCart(cart);
+        try {
+            cacheCart(cart);
+        } catch (Exception e) {
+            log.warn("Failed to cache cart, continuing without cache: {}", e.getMessage());
+        }
         return convertToDTO(cart);
     }
 
@@ -180,25 +235,56 @@ public class CartService {
             cart.setIsActive(false);
             cartRepository.save(cart);
         });
-        removeCacheCart(customerId);
+        try {
+            removeCacheCart(customerId);
+        } catch (Exception e) {
+            log.warn("Failed to remove cached cart: {}", e.getMessage());
+        }
     }
 
     @Transactional
     public CartDTO applyPromoCode(Long customerId, String promoCode) {
+        log.info("Applying promo code: {} for customer: {}", promoCode, customerId);
+        
         ShoppingCart cart = cartRepository.findByCustomerIdAndIsActiveTrue(customerId)
                 .orElseThrow(() -> new RuntimeException("Cart not found"));
 
-        // Placeholder for real promo code validation service call
-        if ("DISCOUNT10".equals(promoCode)) {
-            // Apply 10% discount
-            Double currentTotal = cart.getTotalPrice();
-            cart.setTotalPrice(currentTotal * 0.9);
-        } else {
-            throw new RuntimeException("Invalid promo code");
-        }
+        com.quickbite.entity.PromoCode validPromoCode = promoCodeService.validatePromoCode(promoCode, cart.getSubtotal());
+
+        cart.setPromoCodeEntity(validPromoCode);
+        cart.setPromoCode(validPromoCode.getCode());
+        cart.updateTotals();
 
         cart = cartRepository.save(cart);
-        cacheCart(cart);
+        log.info("Promo code applied successfully: {} - Discount: {}", promoCode, cart.getDiscountAmount());
+        
+        try {
+            cacheCart(cart);
+        } catch (Exception e) {
+            log.warn("Failed to cache cart, continuing without cache: {}", e.getMessage());
+        }
+        return convertToDTO(cart);
+    }
+
+    @Transactional
+    public CartDTO removePromoCode(Long customerId) {
+        log.info("Removing promo code for customer: {}", customerId);
+        
+        ShoppingCart cart = cartRepository.findByCustomerIdAndIsActiveTrue(customerId)
+                .orElseThrow(() -> new RuntimeException("Cart not found"));
+
+        cart.setPromoCodeEntity(null);
+        cart.setPromoCode(null);
+        cart.updateTotals();
+
+        cart = cartRepository.save(cart);
+        log.info("Promo code removed successfully");
+        
+        try {
+            cacheCart(cart);
+        } catch (Exception e) {
+            log.warn("Failed to cache cart, continuing without cache: {}", e.getMessage());
+        }
         return convertToDTO(cart);
     }
 
@@ -227,18 +313,38 @@ public class CartService {
                         .build())
                 .collect(Collectors.toList());
 
+        PromoCodeDTO promoCodeDTO = null;
+        if (cart.getPromoCodeEntity() != null) {
+            com.quickbite.entity.PromoCode pc = cart.getPromoCodeEntity();
+            promoCodeDTO = PromoCodeDTO.builder()
+                    .id(pc.getId())
+                    .code(pc.getCode())
+                    .description(pc.getDescription())
+                    .discountType(pc.getDiscountType().name())
+                    .discountValue(pc.getDiscountValue())
+                    .build();
+        }
+
         return CartDTO.builder()
                 .id(cart.getId())
                 .customerId(cart.getCustomerId())
                 .restaurantId(cart.getRestaurantId())
                 .items(itemDTOs)
+                .subtotal(cart.getSubtotal())
+                .discountAmount(cart.getDiscountAmount())
                 .totalPrice(cart.getTotalPrice())
                 .totalItems(cart.getTotalItems())
                 .isActive(cart.getIsActive())
+                .promoCode(cart.getPromoCode())
+                .appliedPromoCode(promoCodeDTO)
                 .build();
     }
 
     private void cacheCart(ShoppingCart cart) {
+        if (redisTemplate == null) {
+            log.debug("Redis not available, skipping cache");
+            return;
+        }
         try {
             String key = CART_PREFIX + cart.getCustomerId();
             redisTemplate.opsForValue().set(key, convertToDTO(cart), java.time.Duration.ofSeconds(CART_TTL));
@@ -250,6 +356,9 @@ public class CartService {
 
     @SuppressWarnings("unchecked")
     private CartDTO getCachedCart(Long customerId) {
+        if (redisTemplate == null) {
+            return null;
+        }
         try {
             String key = CART_PREFIX + customerId;
             Object cachedCart = redisTemplate.opsForValue().get(key);
@@ -264,6 +373,9 @@ public class CartService {
     }
 
     private void removeCacheCart(Long customerId) {
+        if (redisTemplate == null) {
+            return;
+        }
         try {
             String key = CART_PREFIX + customerId;
             redisTemplate.delete(key);

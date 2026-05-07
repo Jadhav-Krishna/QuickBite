@@ -50,7 +50,7 @@ const getAuthHeaders = () => {
 
 export const addressService = {
   async getAllAddresses(): Promise<AddressDTO[]> {
-    const response = await fetch(`${API_BASE_URL}/addresses`, {
+    const response = await fetch(`${API_BASE_URL}/v1/auth/addresses`, {
       headers: getAuthHeaders(),
     });
     if (!response.ok) throw new Error('Failed to fetch addresses');
@@ -58,7 +58,7 @@ export const addressService = {
   },
 
   async createAddress(request: CreateAddressRequest): Promise<AddressDTO> {
-    const response = await fetch(`${API_BASE_URL}/addresses`, {
+    const response = await fetch(`${API_BASE_URL}/v1/auth/addresses`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(request),
@@ -68,7 +68,7 @@ export const addressService = {
   },
 
   async updateAddress(id: number, request: UpdateAddressRequest): Promise<AddressDTO> {
-    const response = await fetch(`${API_BASE_URL}/addresses/${id}`, {
+    const response = await fetch(`${API_BASE_URL}/v1/auth/addresses/${id}`, {
       method: 'PUT',
       headers: getAuthHeaders(),
       body: JSON.stringify(request),
@@ -78,7 +78,7 @@ export const addressService = {
   },
 
   async deleteAddress(id: number): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/addresses/${id}`, {
+    const response = await fetch(`${API_BASE_URL}/v1/auth/addresses/${id}`, {
       method: 'DELETE',
       headers: getAuthHeaders(),
     });
@@ -86,7 +86,7 @@ export const addressService = {
   },
 
   async setDefaultAddress(id: number): Promise<AddressDTO> {
-    const response = await fetch(`${API_BASE_URL}/addresses/${id}/default`, {
+    const response = await fetch(`${API_BASE_URL}/v1/auth/addresses/${id}/default`, {
       method: 'PUT',
       headers: getAuthHeaders(),
     });

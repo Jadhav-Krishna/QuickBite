@@ -54,8 +54,19 @@ export default function ItemDetails() {
       price: item.discountedPrice || item.price,
       quantity,
       restaurantId: item.restaurantId,
-    });
-    navigate('/cart');
+    })
+      .then(() => {
+        navigate('/cart');
+      })
+      .catch((error) => {
+        console.error('Failed to add to cart:', error);
+        if (error.message.includes('login')) {
+          alert('Please login to add items to cart');
+          navigate('/login');
+        } else {
+          alert('Failed to add item to cart. Please try again.');
+        }
+      });
   };
 
   if (loading) {

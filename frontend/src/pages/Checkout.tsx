@@ -13,7 +13,17 @@ type CheckoutPaymentMethod = 'CASH_ON_DELIVERY' | 'WALLET' | 'UPI' | 'CREDIT_CAR
 
 export default function Checkout() {
   const navigate = useNavigate();
-  const { items, totalPrice, clearCart } = useCart();
+  const { 
+    items, 
+    subtotal,
+    discountAmount,
+    totalPrice: cartTotal,
+    promoCode,
+    appliedPromoCode,
+    applyPromoCode,
+    removePromoCode,
+    clearCart 
+  } = useCart();
 
   const [addresses, setAddresses] = useState<AddressDTO[]>([]);
   const [selectedAddress, setSelectedAddress] = useState<AddressDTO | null>(null);
@@ -26,6 +36,9 @@ export default function Checkout() {
   const [detectingLocation, setDetectingLocation] = useState(false);
   const [locationSuccess, setLocationSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [promoInput, setPromoInput] = useState('');
+  const [promoError, setPromoError] = useState('');
+  const [isApplyingPromo, setIsApplyingPromo] = useState(false);
   const [newAddress, setNewAddress] = useState<CreateAddressRequest>({
     label: '',
     addressLine1: '',
@@ -37,8 +50,7 @@ export default function Checkout() {
   });
 
   const deliveryFee = items.length > 0 ? 49 : 0;
-  const discountAmount = 0;
-  const finalAmount = totalPrice + deliveryFee - discountAmount;
+  const finalAmount = cartTotal + deliveryFee;
 
   const restaurantId = useMemo(() => items[0]?.restaurantId, [items]);
 
@@ -137,6 +149,35 @@ export default function Checkout() {
     setDeliveryAddress(`${addr.addressLine1}, ${addr.city}, ${addr.state} ${addr.pincode}`);
   };
 
+  const handleApplyPromo = async () => {
+    if (!promoInput.trim()) {
+      setPromoError('Please enter a promo code');
+      return;
+    }
+
+    setIsApplyingPromo(true);
+    setPromoError('');
+
+    try {
+      await applyPromoCode(promoInput.trim().toUpperCase());
+      setPromoInput('');
+    } catch (error: any) {
+      setPromoError(error.message || 'Invalid promo code');
+    } finally {
+      setIsApplyingPromo(false);
+    }
+  };
+
+  const handleRemovePromo = async () => {
+    try {
+      await removePromoCode();
+      setPromoInput('');
+      setPromoError('');
+    } catch (error) {
+      console.error('Failed to remove promo code:', error);
+    }
+  };
+
   const buildCreateOrderPayload = (customerId: number): CreateOrderRequest => ({
     customerId,
     restaurantId: restaurantId!,
@@ -152,7 +193,7 @@ export default function Checkout() {
       quantity: item.quantity,
       price: item.price,
     })),
-    totalAmount: totalPrice,
+    totalAmount: subtotal,
     deliveryCharge: deliveryFee,
     discountAmount: discountAmount,
     finalAmount: finalAmount,
@@ -646,8 +687,14 @@ export default function Checkout() {
             <div className="mb-6 space-y-2">
               <div className="flex justify-between text-[var(--color-on-surface-variant)]">
                 <span>Subtotal</span>
-                <span>₹ {totalPrice.toFixed(2)}</span>
+                <span>₹ {subtotal.toFixed(2)}</span>
               </div>
+              {discountAmount > 0 && (
+                <div className="flex justify-between text-green-600">
+                  <span>Discount ({promoCode})</span>
+                  <span>-₹ {discountAmount.toFixed(2)}</span>
+                </div>
+              )}
               <div className="flex justify-between text-[var(--color-on-surface-variant)]">
                 <span>Delivery Fee</span>
                 <span>₹ {deliveryFee.toFixed(2)}</span>
@@ -656,6 +703,65 @@ export default function Checkout() {
                 <span>Total</span>
                 <span>₹ {finalAmount.toFixed(2)}</span>
               </div>
+            </div>
+
+            {/* Promo Code Section */}
+            <div className="mb-6 rounded-2xl bg-gradient-to-br from-[var(--color-primary-container)]/20 to-transparent p-4 border border-[var(--color-primary)]/20">
+              <h3 className="mb-3 text-sm font-bold flex items-center gap-2">
+                <svg className="w-5 h-5 text-[var(--color-primary)]" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                </svg>
+                <span>Have a Promo Code?</span>
+              </h3>
+              {promoCode ? (
+                <div className="rounded-xl bg-green-50 p-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <svg className="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                      </svg>
+                      <span className="font-bold text-green-700">{promoCode}</span>
+                    </div>
+                    <button
+                      onClick={handleRemovePromo}
+                      className="flex h-6 w-6 items-center justify-center rounded-full bg-green-100 text-green-700 transition hover:bg-green-200"
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                  {appliedPromoCode?.description && (
+                    <p className="text-xs text-green-600">{appliedPromoCode.description}</p>
+                  )}
+                </div>
+              ) : (
+                <div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={promoInput}
+                      onChange={(e) => {
+                        setPromoInput(e.target.value.toUpperCase());
+                        setPromoError('');
+                      }}
+                      onKeyPress={(e) => e.key === 'Enter' && handleApplyPromo()}
+                      placeholder="Enter code"
+                      className="flex-1 rounded-xl border border-[var(--color-outline-variant)] px-3 py-2 text-sm font-semibold uppercase outline-none focus:border-[var(--color-primary)]"
+                    />
+                    <button
+                      onClick={handleApplyPromo}
+                      disabled={isApplyingPromo}
+                      className="rounded-xl bg-[var(--color-primary)] px-4 py-2 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-50"
+                    >
+                      {isApplyingPromo ? 'Applying...' : 'Apply'}
+                    </button>
+                  </div>
+                  {promoError && (
+                    <p className="mt-2 text-xs text-red-500">{promoError}</p>
+                  )}
+                </div>
+              )}
             </div>
 
             <button

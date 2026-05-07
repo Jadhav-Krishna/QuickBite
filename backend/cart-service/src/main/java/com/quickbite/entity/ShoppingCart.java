@@ -25,8 +25,21 @@ public class ShoppingCart {
     @Column(nullable = false)
     private Long restaurantId;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "promo_code_id")
+    private PromoCode promoCodeEntity;
+
+    @Column(name = "promo_code", length = 50)
+    private String promoCode;
+
     @OneToMany(mappedBy = "cart", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<CartItem> items = new ArrayList<>();
+
+    @Column(nullable = false)
+    private Double subtotal = 0.0;
+
+    @Column(name = "discount_amount", nullable = false)
+    private Double discountAmount = 0.0;
 
     @Column(nullable = false)
     private Double totalPrice = 0.0;
@@ -55,8 +68,10 @@ public class ShoppingCart {
     }
 
     public void addItem(CartItem item) {
+        if (item.getCart() == null) {
+            item.setCart(this);
+        }
         items.add(item);
-        item.setCart(this);
         updateTotals();
     }
 
@@ -68,12 +83,28 @@ public class ShoppingCart {
 
     public void updateTotals() {
         totalItems = items.stream().mapToInt(CartItem::getQuantity).sum();
-        totalPrice = items.stream().mapToDouble(item -> item.getPrice() * item.getQuantity()).sum();
+        subtotal = items.stream().mapToDouble(item -> item.getPrice() * item.getQuantity()).sum();
+        
+        // Apply discount if promo code exists
+        if (promoCodeEntity != null && promoCode != null) {
+            discountAmount = promoCodeEntity.calculateDiscount(subtotal);
+        } else {
+            discountAmount = 0.0;
+        }
+        
+        totalPrice = subtotal - discountAmount;
+        if (totalPrice < 0) {
+            totalPrice = 0.0;
+        }
     }
 
     public void clear() {
         items.clear();
         totalItems = 0;
+        subtotal = 0.0;
+        discountAmount = 0.0;
         totalPrice = 0.0;
+        promoCode = null;
+        promoCodeEntity = null;
     }
 }

@@ -16,7 +16,11 @@ public class CartDTO {
     private Long customerId;
     private Long restaurantId;
     private List<CartItemDTO> items;
+    private Double subtotal;
+    private Double discountAmount;
     private Double totalPrice;
     private Integer totalItems;
     private Boolean isActive;
+    private String promoCode;
+    private PromoCodeDTO appliedPromoCode;
 }

@@ -33,9 +33,7 @@ public class CartService {
 
     @Transactional
     public CartDTO getOrCreateCart(Long customerId, Long restaurantId) {
-        ShoppingCart cart = cartRepository
-                .findByCustomerIdAndRestaurantIdAndIsActiveTrue(customerId, restaurantId)
-                .orElseGet(() -> createNewCart(customerId, restaurantId));
+        ShoppingCart cart = getOrCreateUniqueCart(customerId, restaurantId);
         
         try {
             cacheCart(cart);
@@ -43,6 +41,26 @@ public class CartService {
             log.warn("Failed to cache cart, continuing without cache: {}", e.getMessage());
         }
         return convertToDTO(cart);
+    }
+
+    private ShoppingCart getOrCreateUniqueCart(Long customerId, Long restaurantId) {
+        List<ShoppingCart> activeCarts = cartRepository.findAllByCustomerIdAndRestaurantIdAndIsActiveTrue(customerId, restaurantId);
+        if (activeCarts.isEmpty()) {
+            return createNewCart(customerId, restaurantId);
+        }
+        // Keep the most recent one, deactivate the rest
+        ShoppingCart keep = activeCarts.stream()
+                .max(java.util.Comparator.comparing(ShoppingCart::getCreatedAt))
+                .get();
+        activeCarts.stream()
+                .filter(c -> !c.getId().equals(keep.getId()))
+                .forEach(c -> {
+                    c.setIsActive(false);
+                    cartRepository.save(c);
+                });
+        log.info("Resolved {} duplicate active carts for customer: {}, restaurant: {}, keeping cart id: {}",
+                activeCarts.size(), customerId, restaurantId, keep.getId());
+        return keep;
     }
 
     private ShoppingCart createNewCart(Long customerId, Long restaurantId) {
@@ -59,12 +77,7 @@ public class CartService {
                 customerId, restaurantId, itemDTO);
         
         try {
-            ShoppingCart cart = cartRepository
-                    .findByCustomerIdAndRestaurantIdAndIsActiveTrue(customerId, restaurantId)
-                    .orElseGet(() -> {
-                        log.info("Creating new cart for customer: {} and restaurant: {}", customerId, restaurantId);
-                        return createNewCart(customerId, restaurantId);
-                    });
+            ShoppingCart cart = getOrCreateUniqueCart(customerId, restaurantId);
 
             log.info("Cart found/created with id: {}, items count: {}", cart.getId(), cart.getItems().size());
 
@@ -117,7 +130,7 @@ public class CartService {
     @Transactional
     public CartDTO updateCartItem(Long customerId, Long restaurantId, Long itemId, Integer quantity) {
         ShoppingCart cart = cartRepository
-                .findByCustomerIdAndRestaurantIdAndIsActiveTrue(customerId, restaurantId)
+                .findFirstByCustomerIdAndRestaurantIdAndIsActiveTrue(customerId, restaurantId)
                 .orElseThrow(() -> new RuntimeException("Cart not found"));
 
         CartItem item = cart.getItems().stream()
@@ -145,7 +158,7 @@ public class CartService {
     @Transactional
     public CartDTO removeItemFromCart(Long customerId, Long restaurantId, Long itemId) {
         ShoppingCart cart = cartRepository
-                .findByCustomerIdAndRestaurantIdAndIsActiveTrue(customerId, restaurantId)
+                .findFirstByCustomerIdAndRestaurantIdAndIsActiveTrue(customerId, restaurantId)
                 .orElseThrow(() -> new RuntimeException("Cart not found"));
 
         CartItem item = cart.getItems().stream()
@@ -166,7 +179,7 @@ public class CartService {
 
     @Transactional
     public CartDTO clearCart(Long customerId) {
-        ShoppingCart cart = cartRepository.findByCustomerIdAndIsActiveTrue(customerId)
+        ShoppingCart cart = cartRepository.findFirstByCustomerIdAndIsActiveTrue(customerId)
                 .orElseThrow(() -> new RuntimeException("Cart not found"));
 
         cart.clear();
@@ -178,8 +191,8 @@ public class CartService {
 
     @Transactional
     public CartDTO switchRestaurant(Long customerId, Long newRestaurantId) {
-        // Deactivate current cart
-        cartRepository.findByCustomerIdAndIsActiveTrue(customerId).ifPresent(cart -> {
+        // Deactivate all current active carts
+        cartRepository.findAllByCustomerIdAndIsActiveTrue(customerId).forEach(cart -> {
             cart.setIsActive(false);
             cartRepository.save(cart);
         });
@@ -207,7 +220,7 @@ public class CartService {
         }
 
         // Get from database or return empty cart
-        ShoppingCart cart = cartRepository.findByCustomerIdAndIsActiveTrue(customerId)
+        ShoppingCart cart = cartRepository.findFirstByCustomerIdAndIsActiveTrue(customerId)
                 .orElse(null);
 
         if (cart == null) {
@@ -231,7 +244,7 @@ public class CartService {
 
     @Transactional
     public void deleteCart(Long customerId) {
-        cartRepository.findByCustomerId(customerId).ifPresent(cart -> {
+        cartRepository.findFirstByCustomerId(customerId).ifPresent(cart -> {
             cart.setIsActive(false);
             cartRepository.save(cart);
         });
@@ -246,7 +259,7 @@ public class CartService {
     public CartDTO applyPromoCode(Long customerId, String promoCode) {
         log.info("Applying promo code: {} for customer: {}", promoCode, customerId);
         
-        ShoppingCart cart = cartRepository.findByCustomerIdAndIsActiveTrue(customerId)
+        ShoppingCart cart = cartRepository.findFirstByCustomerIdAndIsActiveTrue(customerId)
                 .orElseThrow(() -> new RuntimeException("Cart not found"));
 
         com.quickbite.entity.PromoCode validPromoCode = promoCodeService.validatePromoCode(promoCode, cart.getSubtotal());
@@ -270,7 +283,7 @@ public class CartService {
     public CartDTO removePromoCode(Long customerId) {
         log.info("Removing promo code for customer: {}", customerId);
         
-        ShoppingCart cart = cartRepository.findByCustomerIdAndIsActiveTrue(customerId)
+        ShoppingCart cart = cartRepository.findFirstByCustomerIdAndIsActiveTrue(customerId)
                 .orElseThrow(() -> new RuntimeException("Cart not found"));
 
         cart.setPromoCodeEntity(null);

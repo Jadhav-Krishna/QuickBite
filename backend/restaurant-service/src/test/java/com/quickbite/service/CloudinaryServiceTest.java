@@ -94,7 +94,8 @@ class CloudinaryServiceTest {
     @Test
     void deleteImage_invalidUrl() {
         service.deleteImage("https://invalid-url.com/image.jpg");
-        // Should not throw exception, just log error
+        
+        assertDoesNotThrow(() -> service.deleteImage("https://invalid-url.com/image.jpg"));
     }
 
     @Test
@@ -103,7 +104,8 @@ class CloudinaryServiceTest {
         when(uploader.destroy(anyString(), any())).thenThrow(new RuntimeException("Delete failed"));
 
         service.deleteImage("https://res.cloudinary.com/cloud/image/upload/v123/folder/image.jpg");
-        // Should not throw exception, just log error
+        
+        verify(uploader).destroy(anyString(), any());
     }
 
     @Test

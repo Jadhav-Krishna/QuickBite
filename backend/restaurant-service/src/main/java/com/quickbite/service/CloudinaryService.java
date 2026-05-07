@@ -33,7 +33,7 @@ public class CloudinaryService {
         String publicId = folder + "/" + UUID.randomUUID().toString();
 
         try {
-            Map uploadResult = cloudinary.uploader().upload(file.getBytes(),
+            Map<String, Object> uploadResult = cloudinary.uploader().upload(file.getBytes(),
                     ObjectUtils.asMap(
                             "public_id", publicId,
                             "folder", folder,

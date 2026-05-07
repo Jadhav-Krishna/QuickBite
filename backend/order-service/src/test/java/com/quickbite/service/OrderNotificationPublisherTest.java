@@ -186,6 +186,42 @@ class OrderNotificationPublisherTest {
     }
 
     @Test
+    void handleOrderEvent_unknownTypeUsesDefaultCustomerMessage() {
+        OrderEvent event = OrderEvent.builder()
+                .orderId(1L)
+                .customerId(1L)
+                .restaurantId(2L)
+                .eventType("CUSTOM_EVENT")
+                .orderNumber("ORD-1")
+                .message("Custom order update")
+                .build();
+
+        publisher.handleOrderEvent(event);
+
+        ArgumentCaptor<Map> notificationCaptor = ArgumentCaptor.forClass(Map.class);
+        verify(rabbitTemplate, times(1)).convertAndSend(anyString(), anyString(), notificationCaptor.capture());
+        Map notification = notificationCaptor.getValue();
+        org.junit.jupiter.api.Assertions.assertEquals("Order Update", notification.get("title"));
+        org.junit.jupiter.api.Assertions.assertEquals("Custom order update", notification.get("message"));
+        org.junit.jupiter.api.Assertions.assertEquals("INFO", notification.get("type"));
+    }
+
+    @Test
+    void handleOrderEvent_reflectionCoversRestaurantDefaults() throws Exception {
+        var titleMethod = OrderNotificationPublisher.class.getDeclaredMethod("getRestaurantNotificationTitle", String.class);
+        var messageMethod = OrderNotificationPublisher.class.getDeclaredMethod("getRestaurantNotificationMessage", OrderEvent.class);
+        titleMethod.setAccessible(true);
+        messageMethod.setAccessible(true);
+        OrderEvent event = OrderEvent.builder()
+                .eventType("CUSTOM_EVENT")
+                .message("Restaurant fallback")
+                .build();
+
+        org.junit.jupiter.api.Assertions.assertEquals("Order Update", titleMethod.invoke(publisher, "CUSTOM_EVENT"));
+        org.junit.jupiter.api.Assertions.assertEquals("Restaurant fallback", messageMethod.invoke(publisher, event));
+    }
+
+    @Test
     void handleOrderEvent_error() {
         OrderEvent event = OrderEvent.builder()
                 .orderId(1L)

@@ -1,5 +1,8 @@
 package com.quickbite.service;
 
+import com.quickbite.exception.InvalidRestaurantDataException;
+import com.quickbite.exception.RestaurantNotApprovedException;
+import com.quickbite.exception.RestaurantNotFoundException;
 import com.quickbite.entity.Restaurant;
 import com.quickbite.repository.RestaurantRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -63,7 +66,7 @@ class RestaurantServiceTest {
     void createRestaurant_missingName() {
         restaurant.setName(null);
 
-        assertThrows(RuntimeException.class,
+        assertThrows(InvalidRestaurantDataException.class,
                 () -> restaurantService.createRestaurant(restaurant));
     }
 
@@ -71,7 +74,7 @@ class RestaurantServiceTest {
     void createRestaurant_blankName() {
         restaurant.setName("");
 
-        assertThrows(RuntimeException.class,
+        assertThrows(InvalidRestaurantDataException.class,
                 () -> restaurantService.createRestaurant(restaurant));
     }
 
@@ -79,7 +82,7 @@ class RestaurantServiceTest {
     void createRestaurant_missingLocation() {
         restaurant.setLocation(null);
 
-        assertThrows(RuntimeException.class,
+        assertThrows(InvalidRestaurantDataException.class,
                 () -> restaurantService.createRestaurant(restaurant));
     }
 
@@ -87,7 +90,7 @@ class RestaurantServiceTest {
     void createRestaurant_missingCuisineType() {
         restaurant.setCuisineType(null);
 
-        assertThrows(RuntimeException.class,
+        assertThrows(InvalidRestaurantDataException.class,
                 () -> restaurantService.createRestaurant(restaurant));
     }
 
@@ -95,7 +98,7 @@ class RestaurantServiceTest {
     void createRestaurant_missingAddress() {
         restaurant.setAddress(null);
 
-        assertThrows(RuntimeException.class,
+        assertThrows(InvalidRestaurantDataException.class,
                 () -> restaurantService.createRestaurant(restaurant));
     }
 
@@ -103,7 +106,7 @@ class RestaurantServiceTest {
     void createRestaurant_missingCity() {
         restaurant.setCity(null);
 
-        assertThrows(RuntimeException.class,
+        assertThrows(InvalidRestaurantDataException.class,
                 () -> restaurantService.createRestaurant(restaurant));
     }
 
@@ -111,7 +114,7 @@ class RestaurantServiceTest {
     void createRestaurant_missingState() {
         restaurant.setState(null);
 
-        assertThrows(RuntimeException.class,
+        assertThrows(InvalidRestaurantDataException.class,
                 () -> restaurantService.createRestaurant(restaurant));
     }
 
@@ -119,7 +122,7 @@ class RestaurantServiceTest {
     void createRestaurant_missingPincode() {
         restaurant.setPincode(null);
 
-        assertThrows(RuntimeException.class,
+        assertThrows(InvalidRestaurantDataException.class,
                 () -> restaurantService.createRestaurant(restaurant));
     }
 
@@ -127,7 +130,7 @@ class RestaurantServiceTest {
     void createRestaurant_missingPhoneNumber() {
         restaurant.setPhoneNumber(null);
 
-        assertThrows(RuntimeException.class,
+        assertThrows(InvalidRestaurantDataException.class,
                 () -> restaurantService.createRestaurant(restaurant));
     }
 
@@ -135,7 +138,7 @@ class RestaurantServiceTest {
     void createRestaurant_missingEmail() {
         restaurant.setEmail(null);
 
-        assertThrows(RuntimeException.class,
+        assertThrows(InvalidRestaurantDataException.class,
                 () -> restaurantService.createRestaurant(restaurant));
     }
 
@@ -164,7 +167,7 @@ class RestaurantServiceTest {
         when(restaurantRepository.findById(any()))
                 .thenReturn(Optional.empty());
 
-        assertThrows(RuntimeException.class,
+        assertThrows(RestaurantNotFoundException.class,
                 () -> restaurantService.getRestaurantById(1L));
     }
 
@@ -226,11 +229,12 @@ class RestaurantServiceTest {
 
     @Test
     void updateRestaurant_notFound() {
-        when(restaurantRepository.findById(any()))
+        when(restaurantRepository.findById(1L))
                 .thenReturn(Optional.empty());
 
-        assertThrows(RuntimeException.class,
-                () -> restaurantService.updateRestaurant(1L, new Restaurant()));
+        Restaurant update = new Restaurant();
+        assertThrows(RestaurantNotFoundException.class,
+                () -> restaurantService.updateRestaurant(1L, update));
     }
 
     @Test
@@ -238,6 +242,9 @@ class RestaurantServiceTest {
         when(restaurantRepository.findById(any()))
                 .thenReturn(Optional.of(restaurant));
         when(restaurantRepository.save(any())).thenReturn(restaurant);
+
+        GeometryFactory gf = new GeometryFactory(new PrecisionModel(), 4326);
+        Point newLocation = gf.createPoint(new Coordinate(78.0, 24.0));
 
         Restaurant update = new Restaurant();
         update.setName("New Name");
@@ -261,11 +268,13 @@ class RestaurantServiceTest {
         update.setClosingTime("22:00");
         update.setIsOpen(true);
         update.setIsActive(false);
+        update.setLocation(newLocation);
 
         Restaurant result = restaurantService.updateRestaurant(1L, update);
 
         assertEquals("New Name", result.getName());
         assertEquals("Chinese", result.getCuisineType());
+        assertEquals(newLocation, result.getLocation());
     }
 
     // ================= APPROVAL =================
@@ -286,7 +295,7 @@ class RestaurantServiceTest {
         when(restaurantRepository.findById(any()))
                 .thenReturn(Optional.empty());
 
-        assertThrows(RuntimeException.class,
+        assertThrows(RestaurantNotFoundException.class,
                 () -> restaurantService.approveRestaurant(1L));
     }
 
@@ -313,7 +322,7 @@ class RestaurantServiceTest {
         when(restaurantRepository.findById(any()))
                 .thenReturn(Optional.of(restaurant));
 
-        assertThrows(RuntimeException.class,
+        assertThrows(RestaurantNotApprovedException.class,
                 () -> restaurantService.toggleOpen(1L));
     }
 
@@ -322,7 +331,7 @@ class RestaurantServiceTest {
         when(restaurantRepository.findById(any()))
                 .thenReturn(Optional.empty());
 
-        assertThrows(RuntimeException.class,
+        assertThrows(RestaurantNotFoundException.class,
                 () -> restaurantService.toggleOpen(1L));
     }
 
@@ -346,7 +355,7 @@ class RestaurantServiceTest {
         when(restaurantRepository.findById(any()))
                 .thenReturn(Optional.empty());
 
-        assertThrows(RuntimeException.class,
+        assertThrows(RestaurantNotFoundException.class,
                 () -> restaurantService.toggleActive(1L));
     }
 
@@ -369,7 +378,7 @@ class RestaurantServiceTest {
         when(restaurantRepository.findById(any()))
                 .thenReturn(Optional.empty());
 
-        assertThrows(RuntimeException.class,
+        assertThrows(RestaurantNotFoundException.class,
                 () -> restaurantService.updateRating(1L, 4.5, 100));
     }
 
@@ -418,7 +427,7 @@ class RestaurantServiceTest {
     void delete_notFound() {
         when(restaurantRepository.existsById(any())).thenReturn(false);
 
-        assertThrows(RuntimeException.class,
+        assertThrows(RestaurantNotFoundException.class,
                 () -> restaurantService.deleteRestaurant(1L));
     }
 }

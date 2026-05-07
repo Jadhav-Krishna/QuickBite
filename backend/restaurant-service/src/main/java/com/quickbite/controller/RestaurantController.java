@@ -15,7 +15,6 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/restaurants")
@@ -47,7 +46,7 @@ public class RestaurantController {
     public ResponseEntity<List<RestaurantDTO>> getAllRestaurants() {
         List<RestaurantDTO> restaurants = restaurantService.getAllRestaurants().stream()
                 .map(this::mapToDTO)
-                .collect(Collectors.toList());
+                .toList();
         return ResponseEntity.ok(restaurants);
     }
 
@@ -55,7 +54,7 @@ public class RestaurantController {
     public ResponseEntity<List<RestaurantDTO>> getActiveRestaurants() {
         List<RestaurantDTO> restaurants = restaurantService.getActiveRestaurants().stream()
                 .map(this::mapToDTO)
-                .collect(Collectors.toList());
+                .toList();
         return ResponseEntity.ok(restaurants);
     }
 
@@ -63,7 +62,7 @@ public class RestaurantController {
     public ResponseEntity<List<RestaurantDTO>> getRestaurantsByOwner(@PathVariable("ownerId") Long ownerId) {
         List<RestaurantDTO> restaurants = restaurantService.getRestaurantsByOwner(ownerId).stream()
                 .map(this::mapToDTO)
-                .collect(Collectors.toList());
+                .toList();
         return ResponseEntity.ok(restaurants);
     }
 
@@ -71,7 +70,7 @@ public class RestaurantController {
     public ResponseEntity<List<RestaurantDTO>> searchRestaurants(@RequestParam("keyword") String keyword) {
         List<RestaurantDTO> restaurants = restaurantService.searchRestaurants(keyword).stream()
                 .map(this::mapToDTO)
-                .collect(Collectors.toList());
+                .toList();
         return ResponseEntity.ok(restaurants);
     }
 
@@ -82,7 +81,7 @@ public class RestaurantController {
             @RequestParam(name = "radiusKm", defaultValue = "10.0") Double radiusKm) {
         List<RestaurantDTO> restaurants = restaurantService.getNearbyRestaurants(latitude, longitude, radiusKm).stream()
                 .map(this::mapToDTO)
-                .collect(Collectors.toList());
+                .toList();
         return ResponseEntity.ok(restaurants);
     }
 
@@ -95,7 +94,7 @@ public class RestaurantController {
         List<RestaurantDTO> restaurants = restaurantService.getNearbyRestaurantsByCuisine(
                 latitude, longitude, radiusKm, cuisineType).stream()
                 .map(this::mapToDTO)
-                .collect(Collectors.toList());
+                .toList();
         return ResponseEntity.ok(restaurants);
     }
 
@@ -103,7 +102,7 @@ public class RestaurantController {
     public ResponseEntity<List<RestaurantDTO>> getRestaurantsByCity(@PathVariable("city") String city) {
         List<RestaurantDTO> restaurants = restaurantService.getRestaurantsByCity(city).stream()
                 .map(this::mapToDTO)
-                .collect(Collectors.toList());
+                .toList();
         return ResponseEntity.ok(restaurants);
     }
 
@@ -111,7 +110,7 @@ public class RestaurantController {
     public ResponseEntity<List<RestaurantDTO>> getRestaurantsByCuisine(@PathVariable("cuisineType") String cuisineType) {
         List<RestaurantDTO> restaurants = restaurantService.getRestaurantsByCuisine(cuisineType).stream()
                 .map(this::mapToDTO)
-                .collect(Collectors.toList());
+                .toList();
         return ResponseEntity.ok(restaurants);
     }
 
@@ -237,9 +236,9 @@ public class RestaurantController {
         entity.setMinDeliveryTime(dto.getMinDeliveryTime() != null ? dto.getMinDeliveryTime() : 30);
         entity.setMaxDeliveryTime(dto.getMaxDeliveryTime() != null ? dto.getMaxDeliveryTime() : 60);
         entity.setEstimatedDeliveryMin(dto.getEstimatedDeliveryMin() != null ? dto.getEstimatedDeliveryMin() : 45);
-        entity.setIsActive(dto.getIsActive() != null ? dto.getIsActive() : true);
-        entity.setIsOpen(dto.getIsOpen() != null ? dto.getIsOpen() : false);
-        entity.setIsApproved(dto.getIsApproved() != null ? dto.getIsApproved() : false);
+        entity.setIsActive(dto.getIsActive() != null && dto.getIsActive());
+        entity.setIsOpen(dto.getIsOpen() != null && dto.getIsOpen());
+        entity.setIsApproved(dto.getIsApproved() != null && dto.getIsApproved());
         entity.setImageUrl(dto.getImageUrl());
         entity.setOpeningTime(dto.getOpeningTime());
         entity.setClosingTime(dto.getClosingTime());

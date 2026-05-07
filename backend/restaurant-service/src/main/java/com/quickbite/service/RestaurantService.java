@@ -1,6 +1,9 @@
 package com.quickbite.service;
 
 import com.quickbite.entity.Restaurant;
+import com.quickbite.exception.InvalidRestaurantDataException;
+import com.quickbite.exception.RestaurantNotApprovedException;
+import com.quickbite.exception.RestaurantNotFoundException;
 import com.quickbite.repository.RestaurantRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.locationtech.jts.geom.Coordinate;
@@ -22,37 +25,13 @@ public class RestaurantService {
     private RestaurantRepository restaurantRepository;
 
     private static final GeometryFactory geometryFactory = new GeometryFactory(new PrecisionModel(), 4326);
+    private static final String RESTAURANT_NOT_FOUND = "Restaurant not found with id: ";
 
     public Restaurant createRestaurant(Restaurant restaurant) {
         log.info("Creating restaurant: {} for owner: {}", restaurant.getName(), restaurant.getOwnerId());
 
-        if (restaurant.getLocation() == null) {
-            throw new RuntimeException("Restaurant location (latitude/longitude) is required");
-        }
-        if (restaurant.getName() == null || restaurant.getName().isBlank()) {
-            throw new RuntimeException("Restaurant name is required");
-        }
-        if (restaurant.getCuisineType() == null || restaurant.getCuisineType().isBlank()) {
-            throw new RuntimeException("Cuisine type is required");
-        }
-        if (restaurant.getAddress() == null || restaurant.getAddress().isBlank()) {
-            throw new RuntimeException("Address is required");
-        }
-        if (restaurant.getCity() == null || restaurant.getCity().isBlank()) {
-            throw new RuntimeException("City is required");
-        }
-        if (restaurant.getState() == null || restaurant.getState().isBlank()) {
-            throw new RuntimeException("State is required");
-        }
-        if (restaurant.getPincode() == null || restaurant.getPincode().isBlank()) {
-            throw new RuntimeException("Pincode is required");
-        }
-        if (restaurant.getPhoneNumber() == null || restaurant.getPhoneNumber().isBlank()) {
-            throw new RuntimeException("Phone number is required");
-        }
-        if (restaurant.getEmail() == null || restaurant.getEmail().isBlank()) {
-            throw new RuntimeException("Email is required");
-        }
+        validateRestaurantData(restaurant);
+
         if (restaurant.getImageUrl() == null || restaurant.getImageUrl().isBlank()) {
             restaurant.setImageUrl("https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=800&q=80");
         }
@@ -69,10 +48,34 @@ public class RestaurantService {
         return savedRestaurant;
     }
 
+    private void validateRestaurantData(Restaurant restaurant) {
+        validateLocation(restaurant.getLocation());
+        validateRequiredField(restaurant.getName(), "Restaurant name");
+        validateRequiredField(restaurant.getCuisineType(), "Cuisine type");
+        validateRequiredField(restaurant.getAddress(), "Address");
+        validateRequiredField(restaurant.getCity(), "City");
+        validateRequiredField(restaurant.getState(), "State");
+        validateRequiredField(restaurant.getPincode(), "Pincode");
+        validateRequiredField(restaurant.getPhoneNumber(), "Phone number");
+        validateRequiredField(restaurant.getEmail(), "Email");
+    }
+
+    private void validateLocation(Point location) {
+        if (location == null) {
+            throw new InvalidRestaurantDataException("Restaurant location (latitude/longitude) is required");
+        }
+    }
+
+    private void validateRequiredField(String value, String fieldName) {
+        if (value == null || value.isBlank()) {
+            throw new InvalidRestaurantDataException(fieldName + " is required");
+        }
+    }
+
     @Transactional(readOnly = true)
     public Restaurant getRestaurantById(Long id) {
         return restaurantRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Restaurant not found with id: " + id));
+                .orElseThrow(() -> new RestaurantNotFoundException(RESTAURANT_NOT_FOUND + id));
     }
 
     @Transactional(readOnly = true)
@@ -123,81 +126,57 @@ public class RestaurantService {
 
     public Restaurant updateRestaurant(Long id, Restaurant updatedRestaurant) {
         Restaurant existingRestaurant = restaurantRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Restaurant not found with id: " + id));
+                .orElseThrow(() -> new RestaurantNotFoundException(RESTAURANT_NOT_FOUND + id));
 
-        if (updatedRestaurant.getName() != null) {
-            existingRestaurant.setName(updatedRestaurant.getName());
-        }
-        if (updatedRestaurant.getCuisineType() != null) {
-            existingRestaurant.setCuisineType(updatedRestaurant.getCuisineType());
-        }
-        if (updatedRestaurant.getDescription() != null) {
-            existingRestaurant.setDescription(updatedRestaurant.getDescription());
-        }
-        if (updatedRestaurant.getAddress() != null) {
-            existingRestaurant.setAddress(updatedRestaurant.getAddress());
-        }
-        if (updatedRestaurant.getCity() != null) {
-            existingRestaurant.setCity(updatedRestaurant.getCity());
-        }
-        if (updatedRestaurant.getState() != null) {
-            existingRestaurant.setState(updatedRestaurant.getState());
-        }
-        if (updatedRestaurant.getPincode() != null) {
-            existingRestaurant.setPincode(updatedRestaurant.getPincode());
-        }
-        if (updatedRestaurant.getPhoneNumber() != null) {
-            existingRestaurant.setPhoneNumber(updatedRestaurant.getPhoneNumber());
-        }
-        if (updatedRestaurant.getEmail() != null) {
-            existingRestaurant.setEmail(updatedRestaurant.getEmail());
-        }
-        if (updatedRestaurant.getDeliveryFee() != null) {
-            existingRestaurant.setDeliveryFee(updatedRestaurant.getDeliveryFee());
-        }
-        if (updatedRestaurant.getDeliveryRadius() != null) {
-            existingRestaurant.setDeliveryRadius(updatedRestaurant.getDeliveryRadius());
-        }
-        if (updatedRestaurant.getMinOrderAmount() != null) {
-            existingRestaurant.setMinOrderAmount(updatedRestaurant.getMinOrderAmount());
-        }
-        if (updatedRestaurant.getMinDeliveryTime() != null) {
-            existingRestaurant.setMinDeliveryTime(updatedRestaurant.getMinDeliveryTime());
-        }
-        if (updatedRestaurant.getMaxDeliveryTime() != null) {
-            existingRestaurant.setMaxDeliveryTime(updatedRestaurant.getMaxDeliveryTime());
-        }
-        if (updatedRestaurant.getImageUrl() != null) {
-            existingRestaurant.setImageUrl(updatedRestaurant.getImageUrl());
-        }
-        if (updatedRestaurant.getEstimatedDeliveryMin() != null) {
-            existingRestaurant.setEstimatedDeliveryMin(updatedRestaurant.getEstimatedDeliveryMin());
-        }
-        if (updatedRestaurant.getCuisines() != null) {
-            existingRestaurant.setCuisines(updatedRestaurant.getCuisines());
-        }
-        if (updatedRestaurant.getOpeningTime() != null) {
-            existingRestaurant.setOpeningTime(updatedRestaurant.getOpeningTime());
-        }
-        if (updatedRestaurant.getClosingTime() != null) {
-            existingRestaurant.setClosingTime(updatedRestaurant.getClosingTime());
-        }
-        if (updatedRestaurant.getIsOpen() != null) {
-            existingRestaurant.setIsOpen(updatedRestaurant.getIsOpen());
-        }
-        if (updatedRestaurant.getIsActive() != null) {
-            existingRestaurant.setIsActive(updatedRestaurant.getIsActive());
-        }
-        if (updatedRestaurant.getLocation() != null) {
-            existingRestaurant.setLocation(updatedRestaurant.getLocation());
-        }
+        updateRestaurantFields(existingRestaurant, updatedRestaurant);
 
         return restaurantRepository.save(existingRestaurant);
     }
 
+    private void updateRestaurantFields(Restaurant existing, Restaurant updated) {
+        updateBasicFields(existing, updated);
+        updateLocationFields(existing, updated);
+        updateDeliveryFields(existing, updated);
+        updateOperationalFields(existing, updated);
+    }
+
+    private void updateBasicFields(Restaurant existing, Restaurant updated) {
+        if (updated.getName() != null) existing.setName(updated.getName());
+        if (updated.getCuisineType() != null) existing.setCuisineType(updated.getCuisineType());
+        if (updated.getDescription() != null) existing.setDescription(updated.getDescription());
+        if (updated.getCuisines() != null) existing.setCuisines(updated.getCuisines());
+        if (updated.getImageUrl() != null) existing.setImageUrl(updated.getImageUrl());
+    }
+
+    private void updateLocationFields(Restaurant existing, Restaurant updated) {
+        if (updated.getAddress() != null) existing.setAddress(updated.getAddress());
+        if (updated.getCity() != null) existing.setCity(updated.getCity());
+        if (updated.getState() != null) existing.setState(updated.getState());
+        if (updated.getPincode() != null) existing.setPincode(updated.getPincode());
+        if (updated.getLocation() != null) existing.setLocation(updated.getLocation());
+    }
+
+    private void updateDeliveryFields(Restaurant existing, Restaurant updated) {
+        if (updated.getDeliveryFee() != null) existing.setDeliveryFee(updated.getDeliveryFee());
+        if (updated.getDeliveryRadius() != null) existing.setDeliveryRadius(updated.getDeliveryRadius());
+        if (updated.getMinOrderAmount() != null) existing.setMinOrderAmount(updated.getMinOrderAmount());
+        if (updated.getMinDeliveryTime() != null) existing.setMinDeliveryTime(updated.getMinDeliveryTime());
+        if (updated.getMaxDeliveryTime() != null) existing.setMaxDeliveryTime(updated.getMaxDeliveryTime());
+        if (updated.getEstimatedDeliveryMin() != null) existing.setEstimatedDeliveryMin(updated.getEstimatedDeliveryMin());
+    }
+
+    private void updateOperationalFields(Restaurant existing, Restaurant updated) {
+        if (updated.getPhoneNumber() != null) existing.setPhoneNumber(updated.getPhoneNumber());
+        if (updated.getEmail() != null) existing.setEmail(updated.getEmail());
+        if (updated.getOpeningTime() != null) existing.setOpeningTime(updated.getOpeningTime());
+        if (updated.getClosingTime() != null) existing.setClosingTime(updated.getClosingTime());
+        if (updated.getIsOpen() != null) existing.setIsOpen(updated.getIsOpen());
+        if (updated.getIsActive() != null) existing.setIsActive(updated.getIsActive());
+    }
+
     public Restaurant approveRestaurant(Long id) {
         Restaurant restaurant = restaurantRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Restaurant not found with id: " + id));
+                .orElseThrow(() -> new RestaurantNotFoundException(RESTAURANT_NOT_FOUND + id));
         restaurant.setIsApproved(true);
         log.info("Restaurant approved: {}", id);
         return restaurantRepository.save(restaurant);
@@ -205,10 +184,10 @@ public class RestaurantService {
 
     public Restaurant toggleOpen(Long id) {
         Restaurant restaurant = restaurantRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Restaurant not found with id: " + id));
+                .orElseThrow(() -> new RestaurantNotFoundException(RESTAURANT_NOT_FOUND + id));
 
         if (!restaurant.getIsApproved()) {
-            throw new RuntimeException("Cannot open restaurant that is not approved");
+            throw new RestaurantNotApprovedException("Cannot open restaurant that is not approved");
         }
 
         restaurant.setIsOpen(!restaurant.getIsOpen());
@@ -218,14 +197,14 @@ public class RestaurantService {
 
     public Restaurant toggleActive(Long id) {
         Restaurant restaurant = restaurantRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Restaurant not found with id: " + id));
+                .orElseThrow(() -> new RestaurantNotFoundException(RESTAURANT_NOT_FOUND + id));
         restaurant.setIsActive(!restaurant.getIsActive());
         return restaurantRepository.save(restaurant);
     }
 
     public Restaurant updateRating(Long restaurantId, Double newAvgRating, Integer newReviewCount) {
         Restaurant restaurant = restaurantRepository.findById(restaurantId)
-                .orElseThrow(() -> new RuntimeException("Restaurant not found with id: " + restaurantId));
+                .orElseThrow(() -> new RestaurantNotFoundException(RESTAURANT_NOT_FOUND + restaurantId));
         restaurant.setRating(newAvgRating);
         restaurant.setReviewCount(newReviewCount);
         log.info("Updated rating for restaurant {}: {} ({} reviews)", restaurantId, newAvgRating, newReviewCount);
@@ -234,7 +213,7 @@ public class RestaurantService {
 
     public void deleteRestaurant(Long id) {
         if (!restaurantRepository.existsById(id)) {
-            throw new RuntimeException("Restaurant not found with id: " + id);
+            throw new RestaurantNotFoundException(RESTAURANT_NOT_FOUND + id);
         }
         restaurantRepository.deleteById(id);
         log.info("Restaurant deleted: {}", id);

@@ -140,7 +140,7 @@ export default function Cart() {
                   </div>
 
                   {/* Promo Code */}
-                  <div className="pt-4 border-t border-gray-200">
+                  {/* <div className="pt-4 border-t border-gray-200">
                     <button className="w-full flex items-center justify-between p-3 rounded-xl border-2 border-dashed border-orange-300 hover:border-orange-500 hover:bg-orange-50 transition-all group">
                       <div className="flex items-center gap-2">
                         <Tag className="w-4 h-4 text-orange-600" />
@@ -148,7 +148,7 @@ export default function Cart() {
                       </div>
                       <ArrowRight className="w-4 h-4 text-orange-600 group-hover:translate-x-1 transition-transform" />
                     </button>
-                  </div>
+                  </div> */}
 
                   {/* Total */}
                   <div className="pt-4 border-t-2 border-gray-200">

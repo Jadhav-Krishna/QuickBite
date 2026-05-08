@@ -149,9 +149,23 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const cartData = await cartService.getCart(user.userId);
       const backendItem = cartData.items.find(i => i.menuItemId === id);
       if (backendItem) {
-        await cartService.removeItem(user.userId, restaurantId, backendItem.id);
+        const updated = await cartService.removeItem(user.userId, restaurantId, backendItem.id);
+        const cartItems: CartItem[] = updated.items.map(i => ({
+          id: i.menuItemId,
+          name: i.itemName,
+          price: i.price,
+          quantity: i.quantity,
+          restaurantId: updated.restaurantId,
+        }));
+        setItems(cartItems);
+        setSubtotal(updated.subtotal || 0);
+        setDiscountAmount(updated.discountAmount || 0);
+        setTotalPrice(updated.totalPrice || 0);
+        setPromoCode(updated.promoCode || null);
+        setAppliedPromoCode(updated.appliedPromoCode || null);
+      } else {
+        setItems(prev => prev.filter(i => i.id !== id));
       }
-      setItems(prev => prev.filter(i => i.id !== id));
     } catch (error) {
       console.error('Failed to remove item from cart:', error);
     }
@@ -170,9 +184,21 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const cartData = await cartService.getCart(user.userId);
       const backendItem = cartData.items.find(i => i.menuItemId === id);
       if (backendItem) {
-        await cartService.updateItem(user.userId, restaurantId, backendItem.id, quantity);
+        const updated = await cartService.updateItem(user.userId, restaurantId, backendItem.id, quantity);
+        const cartItems: CartItem[] = updated.items.map(i => ({
+          id: i.menuItemId,
+          name: i.itemName,
+          price: i.price,
+          quantity: i.quantity,
+          restaurantId: updated.restaurantId,
+        }));
+        setItems(cartItems);
+        setSubtotal(updated.subtotal || 0);
+        setDiscountAmount(updated.discountAmount || 0);
+        setTotalPrice(updated.totalPrice || 0);
+        setPromoCode(updated.promoCode || null);
+        setAppliedPromoCode(updated.appliedPromoCode || null);
       }
-      setItems(prev => prev.map(i => i.id === id ? { ...i, quantity } : i));
     } catch (error) {
       console.error('Failed to update item quantity:', error);
     }

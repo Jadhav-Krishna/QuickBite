@@ -344,8 +344,13 @@ pipeline {
         stage('Docker - Build Images') {
             steps {
                 echo '========== Building Docker Images =========='
+
                 dir("${BACKEND_DIR}") {
                     script {
+
+                        sh 'pwd'
+                        sh 'ls -la'
+
                         def services = [
                             'eureka-server',
                             'admin-server',
@@ -360,13 +365,22 @@ pipeline {
                             'review-service',
                             'notification-service'
                         ]
-                        
+
                         for (String service : services) {
-                            echo "Building ${service}:${IMAGE_TAG}..."
+
+                            echo "========== ${service} =========="
+
                             sh """
+                                echo "Checking files..."
+                                ls -la ./${service}
+
+                                echo "Checking Dockerfile..."
+                                test -f ./${service}/Dockerfile
+
+                                echo "Building image..."
                                 docker build \
-                                  -t \${DOCKERHUB_USERNAME}/${service}:${IMAGE_TAG} \
-                                  -t \${DOCKERHUB_USERNAME}/${service}:latest \
+                                  -t ${DOCKERHUB_USERNAME}/${service}:${IMAGE_TAG} \
+                                  -t ${DOCKERHUB_USERNAME}/${service}:latest \
                                   ./${service}
                             """
                         }

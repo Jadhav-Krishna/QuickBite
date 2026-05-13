@@ -14,7 +14,7 @@ pipeline {
         IMAGE_TAG = "${env.BUILD_NUMBER}"
         
         SONAR_HOST_URL = 'http://localhost:9000'
-        SONAR_TOKEN = 'squ_6825486dda4d2bc8e5df3777fd95678d7fadd261'
+        SONAR_TOKEN = credentials('sonarqube-token')
         SONAR_PROJECT_KEY = 'quickbite'
         
         TRIVY_SEVERITY = 'CRITICAL,HIGH'

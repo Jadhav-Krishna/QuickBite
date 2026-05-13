@@ -14,3 +14,7 @@
 *.tmp
 .DS_Store
 .amazonq/rules/noScript.md
+.project
+.amazonq
+.factorypath
+./learning

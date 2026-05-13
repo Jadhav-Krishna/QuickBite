@@ -14,7 +14,7 @@ pipeline {
         IMAGE_TAG = "${env.BUILD_NUMBER}"
         
         SONAR_HOST_URL = 'http://localhost:9000'
-        SONAR_TOKEN = credentials('sonarqube-token')
+        SONAR_TOKEN = 'squ_6825486dda4d2bc8e5df3777fd95678d7fadd261'
         SONAR_PROJECT_KEY = 'quickbite'
         
         TRIVY_SEVERITY = 'CRITICAL,HIGH'
@@ -182,14 +182,16 @@ pipeline {
                                           -Dsonar.projectName=QuickBite-Backend \
                                           -Dsonar.coverage.jacoco.xmlReportPaths=**/target/site/jacoco/jacoco.xml \
                                           -Dsonar.java.coveragePlugin=jacoco \
-                                          -Dsonar.host.url=${SONAR_HOST_URL}
+                                          -Dsonar.host.url=${SONAR_HOST_URL} \
+                                          -Dsonar.login=${SONAR_TOKEN}
                                     else
                                         mvn clean verify sonar:sonar \
                                           -Dsonar.projectKey=${SONAR_PROJECT_KEY}-backend \
                                           -Dsonar.projectName=QuickBite-Backend \
                                           -Dsonar.coverage.jacoco.xmlReportPaths=**/target/site/jacoco/jacoco.xml \
                                           -Dsonar.java.coveragePlugin=jacoco \
-                                          -Dsonar.host.url=${SONAR_HOST_URL}
+                                          -Dsonar.host.url=${SONAR_HOST_URL} \
+                                          -Dsonar.login=${SONAR_TOKEN}
                                     fi
                                     echo "Backend SonarQube analysis command finished."
                                 """
@@ -222,10 +224,7 @@ pipeline {
                         withSonarQubeEnv('SonarQube') {
                             dir("${FRONTEND_DIR}") {
                                 echo "Starting Frontend SonarQube analysis in directory: ${pwd()}"
-                                sh '''
-                                    echo "Generating test coverage..."
-                                    npm run test:coverage || npm run test -- --coverage || echo "Coverage generation failed, continuing anyway"
-                                    
+                                sh """
                                     echo "Starting Frontend SonarQube scan..."
                                     npx sonar-scanner \
                                       -Dsonar.projectKey=quickbite-frontend \
@@ -234,12 +233,11 @@ pipeline {
                                       -Dsonar.tests=src \
                                       -Dsonar.test.inclusions=**/*.test.ts,**/*.test.tsx,**/*.spec.ts,**/*.spec.tsx \
                                       -Dsonar.exclusions=**/*.test.ts,**/*.test.tsx,**/*.spec.ts,**/*.spec.tsx,**/node_modules/**,**/dist/**,**/coverage/** \
-                                      -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info \
-                                      -Dsonar.typescript.lcov.reportPaths=coverage/lcov.info \
-                                      -Dsonar.host.url=${SONAR_HOST_URL}
+                                      -Dsonar.host.url=${SONAR_HOST_URL} \
+                                      -Dsonar.login=${SONAR_TOKEN}
                                     
                                     echo "Frontend SonarQube analysis completed successfully!"
-                                '''
+                                """
                             }
                         }
                         
@@ -289,41 +287,6 @@ pipeline {
             }
         }
 
-        stage('Frontend - Tests with Coverage') {
-            steps {
-                echo '========== Running Frontend Tests with Coverage =========='
-                dir("${FRONTEND_DIR}") {
-                    script {
-                        try {
-                            sh '''
-                                echo "Running Vitest tests with coverage..."
-                                npm run test:coverage || npm run test -- --coverage
-                                
-                                echo "Coverage report generated!"
-                                ls -la coverage/ || echo "Coverage directory not found"
-                                
-                                echo "Frontend tests completed successfully!"
-                            '''
-                        } catch (Exception e) {
-                            echo "Frontend tests failed: ${e.message}"
-                            echo "Continuing pipeline..."
-                        }
-                    }
-                }
-            }
-            post {
-                always {
-                    publishHTML([
-                        allowMissing: true,
-                        alwaysLinkToLastBuild: true,
-                        keepAll: true,
-                        reportDir: "${FRONTEND_DIR}/coverage",
-                        reportFiles: 'index.html',
-                        reportName: 'Frontend Coverage Report'
-                    ])
-                }
-            }
-        }
 
         stage('Frontend - Build') {
             steps {

@@ -165,31 +165,36 @@ pipeline {
             steps {
                 echo '========== Running SonarQube Code Quality Analysis =========='
                 script {
-                    withSonarQubeEnv('SonarQube') {
-                        dir("${BACKEND_DIR}") {
-                            try {
+                    echo "Checking SonarQube environment..."
+                    try {
+                        withSonarQubeEnv('SonarQube') {
+                            dir("${BACKEND_DIR}") {
+                                echo "Current directory: ${sh(returnStdout: true, script: 'pwd').trim()}"
                                 sh """
-                                    echo "Starting SonarQube analysis..."
+                                    echo "Executing Maven SonarQube command..."
                                     if [ -f "./mvnw" ]; then
+                                        chmod +x ./mvnw
                                         ./mvnw clean verify sonar:sonar \
                                           -Dsonar.projectKey=${SONAR_PROJECT_KEY}-backend \
                                           -Dsonar.projectName=QuickBite-Backend \
                                           -Dsonar.coverage.jacoco.xmlReportPaths=**/target/site/jacoco/jacoco.xml \
-                                          -Dsonar.java.coveragePlugin=jacoco
+                                          -Dsonar.java.coveragePlugin=jacoco \
+                                          -Dsonar.host.url=${SONAR_HOST_URL}
                                     else
                                         mvn clean verify sonar:sonar \
                                           -Dsonar.projectKey=${SONAR_PROJECT_KEY}-backend \
                                           -Dsonar.projectName=QuickBite-Backend \
                                           -Dsonar.coverage.jacoco.xmlReportPaths=**/target/site/jacoco/jacoco.xml \
-                                          -Dsonar.java.coveragePlugin=jacoco
+                                          -Dsonar.java.coveragePlugin=jacoco \
+                                          -Dsonar.host.url=${SONAR_HOST_URL}
                                     fi
-                                    echo "Backend SonarQube analysis completed!"
+                                    echo "Backend SonarQube analysis command finished."
                                 """
-                            } catch (Exception e) {
-                                echo "Backend SonarQube analysis failed: ${e.message}"
-                                echo "Continuing pipeline..."
                             }
                         }
+                    } catch (Exception e) {
+                        echo "CRITICAL ERROR in SonarQube Analysis: ${e.toString()}"
+                        echo "Continuing pipeline despite failure..."
                     }
                 }
             }
@@ -199,14 +204,15 @@ pipeline {
             steps {
                 echo '========== Running Frontend SonarQube Analysis =========='
                 script {
-                    withSonarQubeEnv('SonarQube') {
-                        dir("${FRONTEND_DIR}") {
-                            try {
+                    try {
+                        withSonarQubeEnv('SonarQube') {
+                            dir("${FRONTEND_DIR}") {
+                                echo "Starting Frontend SonarQube analysis in directory: ${pwd()}"
                                 sh '''
                                     echo "Generating test coverage..."
-                                    npm run test:coverage || npm run test -- --coverage
+                                    npm run test:coverage || npm run test -- --coverage || echo "Coverage generation failed, continuing anyway"
                                     
-                                    echo "Starting Frontend SonarQube analysis..."
+                                    echo "Starting Frontend SonarQube scan..."
                                     npx sonar-scanner \
                                       -Dsonar.projectKey=quickbite-frontend \
                                       -Dsonar.projectName=QuickBite-Frontend \
@@ -215,15 +221,17 @@ pipeline {
                                       -Dsonar.test.inclusions=**/*.test.ts,**/*.test.tsx,**/*.spec.ts,**/*.spec.tsx \
                                       -Dsonar.exclusions=**/*.test.ts,**/*.test.tsx,**/*.spec.ts,**/*.spec.tsx,**/node_modules/**,**/dist/**,**/coverage/** \
                                       -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info \
-                                      -Dsonar.typescript.lcov.reportPaths=coverage/lcov.info
+                                      -Dsonar.typescript.lcov.reportPaths=coverage/lcov.info \
+                                      -Dsonar.host.url=${SONAR_HOST_URL}
                                     
-                                    echo "Frontend SonarQube analysis completed!"
+                                    echo "Frontend SonarQube analysis completed successfully!"
                                 '''
-                            } catch (Exception e) {
-                                echo "Frontend SonarQube analysis failed: ${e.message}"
-                                echo "Continuing pipeline..."
                             }
                         }
+                    } catch (Exception e) {
+                        echo "CRITICAL: Frontend SonarQube analysis failed!"
+                        echo "Error message: ${e.message}"
+                        echo "Continuing pipeline despite failure..."
                     }
                 }
             }

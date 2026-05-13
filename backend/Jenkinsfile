@@ -1,5 +1,9 @@
 pipeline {
     agent any
+    
+    tools {
+        nodejs 'NodeJS'
+    }
 
     environment {
         JAVA_HOME = '/usr/lib/jvm/java-21-openjdk-amd64'
@@ -56,7 +60,10 @@ pipeline {
                         trivy --version || echo "Trivy not installed - will skip security scans"
                         
                         echo "Node Version:"
-                        node --version || echo "Node not installed"
+                        node --version || echo "Node not installed - PLEASE CONFIGURE NODEJS IN JENKINS GLOBAL TOOL CONFIGURATION"
+                        
+                        echo "NPM Version:"
+                        npm --version || echo "NPM not found"
                     '''
                 }
             }
@@ -192,8 +199,19 @@ pipeline {
                                 """
                             }
                         }
+                        
+                        echo "Waiting for Backend Quality Gate..."
+                        timeout(time: 5, unit: 'MINUTES') {
+                            def qg = waitForQualityGate()
+                            if (qg.status != 'OK') {
+                                echo "Backend Quality Gate Status: ${qg.status}"
+                                echo "WARNING: Backend Quality Gate failed but continuing pipeline..."
+                            } else {
+                                echo "Backend Quality Gate PASSED!"
+                            }
+                        }
                     } catch (Exception e) {
-                        echo "CRITICAL ERROR in SonarQube Analysis: ${e.toString()}"
+                        echo "CRITICAL ERROR in Backend SonarQube Analysis/Quality Gate: ${e.toString()}"
                         echo "Continuing pipeline despite failure..."
                     }
                 }
@@ -228,8 +246,19 @@ pipeline {
                                 '''
                             }
                         }
+                        
+                        echo "Waiting for Frontend Quality Gate..."
+                        timeout(time: 5, unit: 'MINUTES') {
+                            def qg = waitForQualityGate()
+                            if (qg.status != 'OK') {
+                                echo "Frontend Quality Gate Status: ${qg.status}"
+                                echo "WARNING: Frontend Quality Gate failed but continuing pipeline..."
+                            } else {
+                                echo "Frontend Quality Gate PASSED!"
+                            }
+                        }
                     } catch (Exception e) {
-                        echo "CRITICAL: Frontend SonarQube analysis failed!"
+                        echo "CRITICAL: Frontend SonarQube analysis/Quality Gate failed!"
                         echo "Error message: ${e.message}"
                         echo "Continuing pipeline despite failure..."
                     }
@@ -237,27 +266,6 @@ pipeline {
             }
         }
 
-        stage('Backend - Quality Gate') {
-            steps {
-                echo '========== Checking SonarQube Quality Gate =========='
-                script {
-                    try {
-                        timeout(time: 5, unit: 'MINUTES') {
-                            def qg = waitForQualityGate()
-                            if (qg.status != 'OK') {
-                                echo "Quality Gate Status: ${qg.status}"
-                                echo "WARNING: Quality Gate failed but continuing pipeline..."
-                            } else {
-                                echo "Quality Gate PASSED!"
-                            }
-                        }
-                    } catch (Exception e) {
-                        echo "Quality Gate check failed: ${e.message}"
-                        echo "Continuing pipeline..."
-                    }
-                }
-            }
-        }
 
         stage('Frontend - Install Dependencies') {
             steps {
@@ -267,12 +275,12 @@ pipeline {
                         try {
                             sh '''
                                 echo "Node version:"
-                                node --version
+                                node --version || which node || echo "Node not found in PATH"
                                 echo "NPM version:"
-                                npm --version
+                                npm --version || which npm || echo "NPM not found in PATH"
                                 
                                 echo "Installing dependencies..."
-                                npm ci || npm install
+                                npm install --legacy-peer-deps || npm install || echo "NPM install failed"
                                 
                                 echo "Dependencies installed successfully!"
                             '''

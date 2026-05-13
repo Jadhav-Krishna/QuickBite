@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Edit2, Plus, Power, Tag, Trash2, X } from 'lucide-react';
-import { promoCodeService, PromoCode, CreatePromoCodeRequest } from '../../api/promoCode';
+import { promoCodeService } from '../../api/promoCode';
+import type { PromoCode, CreatePromoCodeRequest } from '../../api/promoCode';
 
 export default function AdminPromoCodes() {
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);

@@ -751,13 +751,13 @@ EOF
             script {
                 sh '''
                     echo "Container Status:"
-                    docker ps -a
+                    docker ps -a || echo "Could not run docker ps -a (check permissions)"
                     
                     echo "Gateway Logs:"
-                    docker logs quickbite-gateway --tail 100 || true
+                    docker logs quickbite-gateway --tail 100 || echo "Could not fetch Gateway logs"
                     
                     echo "Eureka Logs:"
-                    docker logs quickbite-eureka-server --tail 100 || true
+                    docker logs quickbite-eureka-server --tail 100 || echo "Could not fetch Eureka logs"
                 '''
             }
             

@@ -13,7 +13,7 @@ services:
     networks:
       - quickbite-network
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
       timeout: 20s
       retries: 10
 
@@ -27,7 +27,7 @@ services:
     networks:
       - quickbite-network
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       timeout: 20s
       retries: 10
 
@@ -43,7 +43,7 @@ services:
     networks:
       - quickbite-network
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      test: [ "CMD", "rabbitmq-diagnostics", "ping" ]
       timeout: 20s
       retries: 10
 
@@ -79,22 +79,22 @@ services:
       - quickbite-network
     restart: unless-stopped
 
-  sonarqube:
-    image: sonarqube:lts-community
-    container_name: quickbite-sonarqube
-    ports:
-      - "9000:9000"
-    volumes:
-      - sonarqube_data:/opt/sonarqube/data
-      - sonarqube_logs:/opt/sonarqube/logs
-      - sonarqube_extensions:/opt/sonarqube/extensions
-    networks:
-      - quickbite-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/api/system/status"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+  #  sonarqube:
+  #    image: sonarqube:lts-community
+  #    container_name: quickbite-sonarqube
+  #    ports:
+  #      - "9000:9000"
+  #    volumes:
+  #      - sonarqube_data:/opt/sonarqube/data
+  #      - sonarqube_logs:/opt/sonarqube/logs
+  #      - sonarqube_extensions:/opt/sonarqube/extensions
+  #    networks:
+  #      - quickbite-network
+  #    healthcheck:
+  #      test: ["CMD", "curl", "-f", "http://localhost:9000/api/system/status"]
+  #      interval: 30s
+  #      timeout: 10s
+  #      retries: 3
 
   eureka-server:
     build: ./eureka-server
@@ -107,7 +107,7 @@ services:
       - quickbite-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
+      test: [ "CMD", "curl", "-f", "http://localhost:8761/actuator/health" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -296,51 +296,51 @@ services:
       - quickbite-network
     restart: unless-stopped
 
-# ================= MONITORING (NEW - SAFE ADDITION) =================
+    # ================= MONITORING (NEW - SAFE ADDITION) =================
 
-  # kafka-ui:
-  #   image: provectuslabs/kafka-ui
-  #   container_name: quickbite-kafka-ui
-  #   ports:
-  #     - "8081:8080"
-  #   environment:
-  #     KAFKA_CLUSTERS_0_NAME: quickbite
-  #     KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
-  #     KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
-  #   networks:
-  #     - quickbite-network
+  kafka-ui:
+    image: provectuslabs/kafka-ui
+    container_name: quickbite-kafka-ui
+    ports:
+      - "8081:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: quickbite
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+    networks:
+      - quickbite-network
 
-  # redis-insight:
-  #   image: redis/redisinsight
-  #   container_name: quickbite-redis-ui
-  #   ports:
-  #     - "8011:8001"
-  #   networks:
-  #     - quickbite-network
+  redis-insight:
+    image: redis/redisinsight
+    container_name: quickbite-redis-ui
+    ports:
+      - "8011:8001"
+    networks:
+      - quickbite-network
 
-  # prometheus:
-  #   image: prom/prometheus
-  #   container_name: quickbite-prometheus
-  #   ports:
-  #     - "9090:9090"
-  #   networks:
-  #     - quickbite-network
+  prometheus:
+    image: prom/prometheus
+    container_name: quickbite-prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - quickbite-network
 
-  # grafana:
-  #   image: grafana/grafana
-  #   container_name: quickbite-grafana
-  #   ports:
-  #     - "3000:3000"
-  #   networks:
-  #     - quickbite-network
+  grafana:
+    image: grafana/grafana
+    container_name: quickbite-grafana
+    ports:
+      - "3000:3000"
+    networks:
+      - quickbite-network
 
 volumes:
   mysql_data:
   redis_data:
   rabbitmq_data:
-  sonarqube_data:
-  sonarqube_logs:
-  sonarqube_extensions:
+#  sonarqube_data:
+#  sonarqube_logs:
+#  sonarqube_extensions:
 
 networks:
   quickbite-network:

@@ -23,7 +23,7 @@ class RestaurantTest {
         Restaurant restaurant = new Restaurant(
                 1L, 100L, "Test Restaurant", "Indian", "Description",
                 "Address", "City", "State", "462001", location,
-                4.5, 100, "9999999999", "test@mail.com",
+                4.5, 100, "9999999999", "test@mail.com", "GST123456789", "FSSAI12345678",
                 50.0, 10.0, 100.0, 30, 60, 45,
                 true, true, true, "image-url",
                 "09:00", "22:00", cuisines, now, now

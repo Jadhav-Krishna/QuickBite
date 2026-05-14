@@ -22,6 +22,11 @@ pipeline {
         
         BACKEND_DIR = 'backend'
         FRONTEND_DIR = 'frontend'
+
+        // EC2 Deployment Config
+        EC2_HOST = 'ec2-100-31-37-128.compute-1.amazonaws.com'
+        EC2_USER = 'ubuntu'
+        EC2_CREDENTIALS_ID = 'ec2-ssh-key' // Jenkins Credentials ID for the .pem file
     }
 
     stages {
@@ -598,7 +603,7 @@ JAVA_OPTS=-Xmx512m
                         def frontendEnv = """
 VITE_API_BASE_URL=/api
 VITE_RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID}
-VITE_WS_DELIVERY_URL=ws://\${window.location.hostname}:8000/ws/tracking
+VITE_WS_DELIVERY_URL=/ws/tracking
 VITE_OSRM_URL=https://router.project-osrm.org/route/v1/driving
 VITE_GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
 VITE_GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID}
@@ -675,7 +680,7 @@ VITE_LOCATIONIQ_API_KEY=${LOCATIONIQ_API_KEY}
                         [name: 'Delivery Service', url: 'http://localhost:8007/actuator/health'],
                         [name: 'Review Service', url: 'http://localhost:8008/actuator/health'],
                         [name: 'Notification Service', url: 'http://localhost:8009/actuator/health'],
-                        [name: 'Frontend', url: 'http://localhost:5173']
+                        [name: 'Frontend', url: 'http://localhost:80']
                     ]
                     
                     def healthyServices = 0
@@ -731,10 +736,37 @@ VITE_LOCATIONIQ_API_KEY=${LOCATIONIQ_API_KEY}
                         
                         # Test Frontend
                         echo "Testing Frontend..."
-                        curl -f http://localhost:5173 || echo "Frontend test failed"
+                        curl -f http://localhost:80 || echo "Frontend test failed"
                         
                         echo "Smoke tests completed!"
                     '''
+                }
+            }
+        }
+
+        stage('Deploy to EC2') {
+            steps {
+                echo '========== Deploying to Remote EC2 Instance =========='
+                script {
+                    sshagent(credentials: ["${EC2_CREDENTIALS_ID}"]) {
+                        sh """
+                            ssh -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} '
+                                mkdir -p ~/quickbite
+                            '
+                            
+                            # Transfer docker-compose and .env
+                            scp -o StrictHostKeyChecking=no ${BACKEND_DIR}/docker-compose.yml ${BACKEND_DIR}/.env ${EC2_USER}@${EC2_HOST}:~/quickbite/
+                            
+                            # Pull and Restart on EC2
+                            ssh -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} '
+                                cd ~/quickbite
+                                docker login -u ${DOCKERHUB_USERNAME} -p ${DOCKERHUB_TOKEN}
+                                docker compose pull
+                                docker compose up -d
+                                docker system prune -f
+                            '
+                        """
+                    }
                 }
             }
         }

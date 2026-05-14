@@ -6,7 +6,7 @@ services:
     container_name: quickbite-mysql
     env_file: .env
     ports:
-      - "3307:3306"
+      - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - ./init-databases.sql:/docker-entrypoint-initdb.d/init.sql
@@ -301,7 +301,7 @@ services:
     image: ${DOCKERHUB_USERNAME:-quickbite}/frontend:latest
     container_name: quickbite-frontend
     ports:
-      - "5173:80"
+      - "80:80"
     depends_on:
       gateway:
         condition: service_started

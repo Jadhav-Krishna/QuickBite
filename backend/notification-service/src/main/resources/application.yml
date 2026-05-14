@@ -37,9 +37,14 @@ mail:
     email: ${MAIL_ADMIN_EMAIL:${MAIL_USERNAME}}
 
 server:
-  port: ${NOTIFICATION_SERVICE_PORT:8089}
+  port: ${NOTIFICATION_SERVICE_PORT:8009}
   servlet:
     context-path: /
+
+management:
+  health:
+    mail:
+      enabled: false
 
 eureka:
   instance:

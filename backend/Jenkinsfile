@@ -821,7 +821,6 @@ VITE_LOCATIONIQ_API_KEY=${LOCATIONIQ_API_KEY}
                     docker logs quickbite-eureka-server --tail 100 || echo "Could not fetch Eureka logs"
                 '''
             }
-            
         }
         
         unstable {
@@ -831,4 +830,5 @@ VITE_LOCATIONIQ_API_KEY=${LOCATIONIQ_API_KEY}
             echo 'Some tests may have failed. Check reports.'
         }
     }
+}
 }

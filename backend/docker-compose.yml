@@ -6,7 +6,7 @@ services:
     container_name: quickbite-mysql
     env_file: .env
     ports:
-      - "3306:3306"
+      - "3307:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - ./init-databases.sql:/docker-entrypoint-initdb.d/init.sql
@@ -120,6 +120,10 @@ services:
     depends_on:
       eureka-server:
         condition: service_healthy
+      restaurant-service:
+        condition: service_healthy
+      menu-service:
+        condition: service_healthy
     ports:
       - "8000:8000"
     networks:
@@ -157,6 +161,12 @@ services:
     networks:
       - quickbite-network
     restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8002/actuator/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
 
   menu-service:
     build: ./menu-service
@@ -173,6 +183,12 @@ services:
     networks:
       - quickbite-network
     restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8003/actuator/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
 
   cart-service:
     build: ./cart-service
@@ -297,8 +313,8 @@ services:
     restart: unless-stopped
 
   frontend:
-    # build: ../frontend
-    image: ${DOCKERHUB_USERNAME:-quickbite}/frontend:latest
+    build: ../frontend
+    image: ${DOCKER_USERNAME:-quickbite}/frontend:latest
     container_name: quickbite-frontend
     ports:
       - "80:80"

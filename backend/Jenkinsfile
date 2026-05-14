@@ -430,19 +430,27 @@ VITE_LOCATIONIQ_API_KEY=${LOCATIONIQ_API_KEY}
         stage('Deploy to EC2') {
         // ─────────────────────────────────────────────
             steps {
-                sshagent(credentials: ["${EC2_CREDENTIALS_ID}"]) {
+                withCredentials([
+                    sshUserPrivateKey(
+                        credentialsId: "${EC2_CREDENTIALS_ID}",
+                        keyFileVariable: 'SSH_KEY_FILE',
+                        usernameVariable: 'SSH_USER'
+                    )
+                ]) {
                     sh """
+                        chmod 600 \$SSH_KEY_FILE
+
                         # Create remote directory
-                        ssh -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} 'mkdir -p ~/quickbite'
+                        ssh -o StrictHostKeyChecking=no -i \$SSH_KEY_FILE ${EC2_USER}@${EC2_HOST} 'mkdir -p ~/quickbite'
 
                         # Copy compose file and env
-                        scp -o StrictHostKeyChecking=no \\
+                        scp -o StrictHostKeyChecking=no -i \$SSH_KEY_FILE \\
                             ${BACKEND_DIR}/docker-compose.yml \\
                             ${BACKEND_DIR}/.env \\
                             ${EC2_USER}@${EC2_HOST}:~/quickbite/
 
                         # Pull latest images and restart
-                        ssh -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} '
+                        ssh -o StrictHostKeyChecking=no -i \$SSH_KEY_FILE ${EC2_USER}@${EC2_HOST} '
                             cd ~/quickbite
                             echo "${DOCKERHUB_TOKEN}" | docker login -u "${DOCKERHUB_USERNAME}" --password-stdin
                             docker compose pull

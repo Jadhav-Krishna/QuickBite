@@ -9,9 +9,8 @@ pipeline {
         GIT_BRANCH           = 'dev'
         GIT_CREDENTIALS      = 'github-credentials'
 
-        DOCKERHUB_CREDENTIALS = credentials('dockerhub-credentials')   // username:password secret text
-        DOCKERHUB_USERNAME   = "${DOCKERHUB_CREDENTIALS_USR}"
-        DOCKERHUB_TOKEN      = "${DOCKERHUB_CREDENTIALS_PSW}"
+        DOCKERHUB_USERNAME   = credentials('dockerhub-username')
+        DOCKERHUB_TOKEN      = credentials('dockerhub-token')
         IMAGE_TAG            = "${env.BUILD_NUMBER}"
 
         SONAR_HOST_URL       = 'http://localhost:9000'

@@ -2,26 +2,26 @@ pipeline {
     agent any
 
     environment {
-        JAVA_HOME            = '/usr/lib/jvm/java-21-openjdk-amd64'
-        PATH                 = "${JAVA_HOME}/bin:/usr/local/bin:/usr/bin:/bin:${env.PATH}"
+        JAVA_HOME         = '/usr/lib/jvm/java-21-openjdk-amd64'
+        PATH              = "${JAVA_HOME}/bin:/usr/local/bin:/usr/bin:/bin:${env.PATH}"
 
-        GIT_REPO             = 'https://github.com/Jadhav-Krishna/QuickBite.git'
-        GIT_BRANCH           = 'dev'
-        GIT_CREDENTIALS      = 'github-credentials'
+        GIT_REPO          = 'https://github.com/Jadhav-Krishna/QuickBite.git'
+        GIT_BRANCH        = 'dev'
+        GIT_CREDENTIALS   = 'github-credentials'
 
-        DOCKERHUB_USERNAME   = credentials('dockerhub-username')
-        DOCKERHUB_TOKEN      = credentials('dockerhub-token')
-        IMAGE_TAG            = "${env.BUILD_NUMBER}"
+        DOCKERHUB_USERNAME = credentials('dockerhub-username')
+        DOCKERHUB_TOKEN    = credentials('dockerhub-token')
+        IMAGE_TAG          = "${env.BUILD_NUMBER}"
 
-        SONAR_HOST_URL       = 'http://localhost:9000'
-        SONAR_TOKEN          = credentials('sonarqube-token')
-        SONAR_PROJECT_KEY    = 'quickbite'
+        SONAR_HOST_URL    = 'http://localhost:9000'
+        SONAR_TOKEN       = credentials('sonarqube-token')
+        SONAR_PROJECT_KEY = 'quickbite'
 
-        TRIVY_SEVERITY       = 'CRITICAL,HIGH'
-        TRIVY_TIMEOUT        = '10m'
+        TRIVY_SEVERITY    = 'CRITICAL,HIGH'
+        TRIVY_TIMEOUT     = '10m'
 
-        BACKEND_DIR          = 'backend'
-        FRONTEND_DIR         = 'frontend'
+        BACKEND_DIR       = 'backend'
+        FRONTEND_DIR      = 'frontend'
     }
 
     options {
@@ -32,9 +32,7 @@ pipeline {
 
     stages {
 
-        // ─────────────────────────────────────────────
         stage('Clone Repository') {
-        // ─────────────────────────────────────────────
             steps {
                 cleanWs()
                 git branch: "${GIT_BRANCH}",
@@ -44,9 +42,7 @@ pipeline {
             }
         }
 
-        // ─────────────────────────────────────────────
         stage('Environment Setup') {
-        // ─────────────────────────────────────────────
             steps {
                 sh '''
                     echo "=== Java ===" && java -version
@@ -55,36 +51,36 @@ pipeline {
                     echo "=== Node ===" && (node --version || echo "Node not found")
                     echo "=== NPM ===" && (npm --version || echo "NPM not found")
                     echo "=== Trivy ===" && (trivy --version || echo "Trivy not installed")
+                    echo "=== Docker Compose ===" && (docker compose version || docker-compose --version || echo "Compose not found")
                 '''
             }
         }
 
-        // ─────────────────────────────────────────────
         stage('Setup .env Files') {
-        // ─────────────────────────────────────────────
             steps {
                 withCredentials([
-                    string(credentialsId: 'mysql-root-password',    variable: 'MYSQL_ROOT_PASSWORD'),
-                    string(credentialsId: 'mysql-password',         variable: 'MYSQL_PASSWORD'),
-                    string(credentialsId: 'jwt-secret',             variable: 'JWT_SECRET'),
-                    string(credentialsId: 'google-client-id',       variable: 'GOOGLE_CLIENT_ID'),
-                    string(credentialsId: 'google-client-secret',   variable: 'GOOGLE_CLIENT_SECRET'),
-                    string(credentialsId: 'github-client-id',       variable: 'GITHUB_CLIENT_ID'),
-                    string(credentialsId: 'github-client-secret',   variable: 'GITHUB_CLIENT_SECRET'),
-                    string(credentialsId: 'razorpay-key-id',        variable: 'RAZORPAY_KEY_ID'),
-                    string(credentialsId: 'razorpay-key-secret',    variable: 'RAZORPAY_KEY_SECRET'),
-                    string(credentialsId: 'mail-username',          variable: 'MAIL_USERNAME'),
-                    string(credentialsId: 'mail-password',          variable: 'MAIL_PASSWORD'),
-                    string(credentialsId: 'twilio-account-sid',     variable: 'TWILIO_ACCOUNT_SID'),
-                    string(credentialsId: 'twilio-auth-token',      variable: 'TWILIO_AUTH_TOKEN'),
-                    string(credentialsId: 'twilio-from-phone',      variable: 'TWILIO_FROM_PHONE'),
-                    string(credentialsId: 'locationiq-api-key',     variable: 'LOCATIONIQ_API_KEY'),
-                    string(credentialsId: 'cloudinary-cloud-name',  variable: 'CLOUDINARY_CLOUD_NAME'),
-                    string(credentialsId: 'cloudinary-api-key',     variable: 'CLOUDINARY_API_KEY'),
-                    string(credentialsId: 'cloudinary-api-secret',  variable: 'CLOUDINARY_API_SECRET')
+                    string(credentialsId: 'mysql-root-password',   variable: 'MYSQL_ROOT_PASSWORD'),
+                    string(credentialsId: 'mysql-password',        variable: 'MYSQL_PASSWORD'),
+                    string(credentialsId: 'jwt-secret',            variable: 'JWT_SECRET'),
+                    string(credentialsId: 'google-client-id',      variable: 'GOOGLE_CLIENT_ID'),
+                    string(credentialsId: 'google-client-secret',  variable: 'GOOGLE_CLIENT_SECRET'),
+                    string(credentialsId: 'github-client-id',      variable: 'GITHUB_CLIENT_ID'),
+                    string(credentialsId: 'github-client-secret',  variable: 'GITHUB_CLIENT_SECRET'),
+                    string(credentialsId: 'razorpay-key-id',       variable: 'RAZORPAY_KEY_ID'),
+                    string(credentialsId: 'razorpay-key-secret',   variable: 'RAZORPAY_KEY_SECRET'),
+                    string(credentialsId: 'mail-username',         variable: 'MAIL_USERNAME'),
+                    string(credentialsId: 'mail-password',         variable: 'MAIL_PASSWORD'),
+                    string(credentialsId: 'twilio-account-sid',    variable: 'TWILIO_ACCOUNT_SID'),
+                    string(credentialsId: 'twilio-auth-token',     variable: 'TWILIO_AUTH_TOKEN'),
+                    string(credentialsId: 'twilio-from-phone',     variable: 'TWILIO_FROM_PHONE'),
+                    string(credentialsId: 'locationiq-api-key',    variable: 'LOCATIONIQ_API_KEY'),
+                    string(credentialsId: 'cloudinary-cloud-name', variable: 'CLOUDINARY_CLOUD_NAME'),
+                    string(credentialsId: 'cloudinary-api-key',    variable: 'CLOUDINARY_API_KEY'),
+                    string(credentialsId: 'cloudinary-api-secret', variable: 'CLOUDINARY_API_SECRET')
                 ]) {
-                    script {
-                        writeFile file: "${BACKEND_DIR}/.env", text: """DOCKERHUB_USERNAME=${DOCKERHUB_USERNAME}
+                    sh '''
+                        cat > backend/.env <<EOF
+DOCKERHUB_USERNAME=${DOCKERHUB_USERNAME}
 DOCKER_USERNAME=${DOCKERHUB_USERNAME}
 IMAGE_TAG=latest
 
@@ -156,24 +152,25 @@ CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
 
 CORS_ALLOWED_ORIGINS=*
 JAVA_OPTS=-Xmx512m
-"""
-                        writeFile file: "${FRONTEND_DIR}/.env", text: """VITE_API_BASE_URL=/api
+EOF
+
+                        cat > frontend/.env <<EOF
+VITE_API_BASE_URL=/api
 VITE_RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID}
 VITE_WS_DELIVERY_URL=/ws/tracking
 VITE_OSRM_URL=https://router.project-osrm.org/route/v1/driving
 VITE_GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
 VITE_GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID}
 VITE_LOCATIONIQ_API_KEY=${LOCATIONIQ_API_KEY}
-"""
+EOF
+
                         echo "✅ .env files created"
-                    }
+                    '''
                 }
             }
         }
 
-        // ─────────────────────────────────────────────
         stage('Backend - Build JARs') {
-        // ─────────────────────────────────────────────
             steps {
                 dir("${BACKEND_DIR}") {
                     script {
@@ -194,9 +191,7 @@ VITE_LOCATIONIQ_API_KEY=${LOCATIONIQ_API_KEY}
             }
         }
 
-        // ─────────────────────────────────────────────
         stage('Backend - Unit Tests') {
-        // ─────────────────────────────────────────────
             steps {
                 dir("${BACKEND_DIR}") {
                     script {
@@ -215,7 +210,7 @@ VITE_LOCATIONIQ_API_KEY=${LOCATIONIQ_API_KEY}
                                 failed << svc
                             }
                         }
-                        if (failed) echo "⚠️  Failed services: ${failed.join(', ')}"
+                        if (failed) echo "⚠️  Failed: ${failed.join(', ')}"
                     }
                 }
             }
@@ -227,24 +222,19 @@ VITE_LOCATIONIQ_API_KEY=${LOCATIONIQ_API_KEY}
             }
         }
 
-        // ─────────────────────────────────────────────
         stage('Frontend - Install & Build') {
-        // ─────────────────────────────────────────────
             steps {
                 dir("${FRONTEND_DIR}") {
                     sh '''
                         npm ci --prefer-offline || npm install --legacy-peer-deps
                         npm run build
-                        echo "✅ Frontend build complete"
                         ls -lh dist/
                     '''
                 }
             }
         }
 
-        // ─────────────────────────────────────────────
         stage('SonarQube - Backend') {
-        // ─────────────────────────────────────────────
             steps {
                 script {
                     try {
@@ -255,8 +245,6 @@ VITE_LOCATIONIQ_API_KEY=${LOCATIONIQ_API_KEY}
                                       -DskipTests \\
                                       -Dsonar.projectKey=${SONAR_PROJECT_KEY}-backend \\
                                       -Dsonar.projectName=QuickBite-Backend \\
-                                      -Dsonar.coverage.jacoco.xmlReportPaths=**/target/site/jacoco/jacoco.xml \\
-                                      -Dsonar.java.coveragePlugin=jacoco \\
                                       -Dsonar.host.url=${SONAR_HOST_URL} \\
                                       -Dsonar.token=${SONAR_TOKEN} \\
                                       -q
@@ -268,15 +256,13 @@ VITE_LOCATIONIQ_API_KEY=${LOCATIONIQ_API_KEY}
                             echo "Backend Quality Gate: ${qg.status}"
                         }
                     } catch (e) {
-                        echo "⚠️  SonarQube backend analysis failed (non-blocking): ${e.message}"
+                        echo "⚠️  SonarQube backend failed (non-blocking): ${e.message}"
                     }
                 }
             }
         }
 
-        // ─────────────────────────────────────────────
         stage('SonarQube - Frontend') {
-        // ─────────────────────────────────────────────
             steps {
                 script {
                     try {
@@ -298,34 +284,28 @@ VITE_LOCATIONIQ_API_KEY=${LOCATIONIQ_API_KEY}
                             echo "Frontend Quality Gate: ${qg.status}"
                         }
                     } catch (e) {
-                        echo "⚠️  SonarQube frontend analysis failed (non-blocking): ${e.message}"
+                        echo "⚠️  SonarQube frontend failed (non-blocking): ${e.message}"
                     }
                 }
             }
         }
 
-        // ─────────────────────────────────────────────
         stage('Docker - Login') {
-        // ─────────────────────────────────────────────
             steps {
-                sh 'echo "${DOCKERHUB_TOKEN}" | docker login -u "${DOCKERHUB_USERNAME}" --password-stdin'
+                sh 'echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin'
             }
         }
 
-        // ─────────────────────────────────────────────
-        stage('Docker - Cleanup Old Images') {
-        // ─────────────────────────────────────────────
+        stage('Docker - Cleanup') {
             steps {
                 sh '''
                     docker image prune -f || true
-                    docker images | grep "${DOCKERHUB_USERNAME}" | awk '{print $3}' | xargs -r docker rmi -f || true
+                    docker images --format "{{.Repository}}:{{.Tag}}" | grep "^${DOCKERHUB_USERNAME}/" | xargs -r docker rmi -f || true
                 '''
             }
         }
 
-        // ─────────────────────────────────────────────
         stage('Docker - Build Backend Images') {
-        // ─────────────────────────────────────────────
             steps {
                 dir("${BACKEND_DIR}") {
                     script {
@@ -348,9 +328,7 @@ VITE_LOCATIONIQ_API_KEY=${LOCATIONIQ_API_KEY}
             }
         }
 
-        // ─────────────────────────────────────────────
         stage('Docker - Build Frontend Image') {
-        // ─────────────────────────────────────────────
             steps {
                 dir("${FRONTEND_DIR}") {
                     sh """
@@ -363,11 +341,14 @@ VITE_LOCATIONIQ_API_KEY=${LOCATIONIQ_API_KEY}
             }
         }
 
-        // ─────────────────────────────────────────────
         stage('Trivy - Security Scan') {
-        // ─────────────────────────────────────────────
             steps {
                 script {
+                    def trivyAvailable = sh(script: 'which trivy', returnStatus: true) == 0
+                    if (!trivyAvailable) {
+                        echo "⚠️  Trivy not installed — skipping"
+                        return
+                    }
                     def services = [
                         'eureka-server', 'admin-server', 'quickbite-gateway',
                         'auth-service', 'restaurant-service', 'menu-service',
@@ -375,11 +356,6 @@ VITE_LOCATIONIQ_API_KEY=${LOCATIONIQ_API_KEY}
                         'delivery-service', 'review-service', 'notification-service',
                         'frontend'
                     ]
-                    def trivyAvailable = sh(script: 'which trivy', returnStatus: true) == 0
-                    if (!trivyAvailable) {
-                        echo "⚠️  Trivy not installed — skipping security scan"
-                        return
-                    }
                     for (String svc : services) {
                         sh """
                             trivy image \\
@@ -400,9 +376,7 @@ VITE_LOCATIONIQ_API_KEY=${LOCATIONIQ_API_KEY}
             }
         }
 
-        // ─────────────────────────────────────────────
         stage('Docker - Push Images') {
-        // ─────────────────────────────────────────────
             steps {
                 script {
                     def services = [
@@ -422,17 +396,12 @@ VITE_LOCATIONIQ_API_KEY=${LOCATIONIQ_API_KEY}
             }
         }
 
-        // ─────────────────────────────────────────────
         stage('Deploy') {
-        // ─────────────────────────────────────────────
             steps {
                 dir("${BACKEND_DIR}") {
                     sh '''
                         echo "=== Stopping existing containers ==="
                         docker compose down --remove-orphans || true
-
-                        echo "=== Pulling latest images ==="
-                        docker compose pull
 
                         echo "=== Starting all services ==="
                         docker compose up -d
@@ -444,9 +413,7 @@ VITE_LOCATIONIQ_API_KEY=${LOCATIONIQ_API_KEY}
             }
         }
 
-        // ─────────────────────────────────────────────
         stage('Health Checks') {
-        // ─────────────────────────────────────────────
             steps {
                 script {
                     echo 'Waiting 90s for services to start...'
@@ -480,25 +447,23 @@ VITE_LOCATIONIQ_API_KEY=${LOCATIONIQ_API_KEY}
             }
         }
 
-        // ─────────────────────────────────────────────
         stage('Smoke Tests') {
-        // ─────────────────────────────────────────────
             steps {
                 sh '''
-                    echo "--- Gateway health ---"
+                    echo "--- Gateway ---"
                     curl -sf http://localhost:8000/actuator/health && echo " OK" || echo " FAIL"
 
-                    echo "--- JWT login ---"
+                    echo "--- JWT Login ---"
                     RESP=$(curl -s -X POST http://localhost:8000/api/auth/login \
                       -H "Content-Type: application/json" \
-                      -d \'{\'email\':\'customer1@gmail.com\',\'password\':\'Password@123\'}\')
-                    echo $RESP | grep -q accessToken && echo "JWT login OK" || echo "JWT login FAIL: $RESP"
+                      -d '{"email":"customer1@gmail.com","password":"Password@123"}')
+                    echo "$RESP" | grep -q "accessToken" && echo "JWT login OK" || echo "JWT login FAIL: $RESP"
 
                     echo "--- Restaurants ---"
-                    curl -sf http://localhost:8000/api/v1/restaurants/active | grep -q "\\[" && echo " OK" || echo " FAIL"
+                    curl -sf "http://localhost:8000/api/v1/restaurants/active" | grep -q "\\[" && echo " OK" || echo " FAIL"
 
                     echo "--- Frontend ---"
-                    curl -sf http://localhost:80 | grep -qi "quickbite\|html" && echo " OK" || echo " FAIL"
+                    curl -sf http://localhost:80 | grep -qi "html" && echo " OK" || echo " FAIL"
                 '''
             }
         }
@@ -512,7 +477,10 @@ VITE_LOCATIONIQ_API_KEY=${LOCATIONIQ_API_KEY}
         }
         success {
             script {
-                def ec2Ip = sh(script: "curl -s http://169.254.169.254/latest/meta-data/public-ipv4 || echo 'your-ec2-ip'", returnStdout: true).trim()
+                def ec2Ip = sh(
+                    script: "curl -s --connect-timeout 3 http://169.254.169.254/latest/meta-data/public-ipv4 || echo 'your-ec2-ip'",
+                    returnStdout: true
+                ).trim()
                 echo """
 ==========================================
 ✅ PIPELINE SUCCEEDED — Build #${IMAGE_TAG}
@@ -524,7 +492,6 @@ VITE_LOCATIONIQ_API_KEY=${LOCATIONIQ_API_KEY}
   SonarQube : http://${ec2Ip}:9000
 =========================================="""
             }
-        }
         }
         failure {
             sh '''

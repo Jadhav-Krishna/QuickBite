@@ -9,7 +9,7 @@ import { geocodeAddress, getDrivingRoute, type LatLng } from '../../api/maps';
 import { getCurrentUser } from '../../utils/session';
 import type { OrderDTO } from '../../api/order';
 
-const WS_URL = import.meta.env.VITE_WS_DELIVERY_URL || 'ws://localhost:8000/ws/tracking';
+const WS_URL = import.meta.env.VITE_WS_DELIVERY_URL || 'ws://' + window.location.hostname + ':8000/ws/tracking';
 const DEFAULT_RESTAURANT_POS: LatLng = [19.0596, 72.8295];
 const DEFAULT_CUSTOMER_POS: LatLng = [19.076, 72.8777];
 

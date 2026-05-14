@@ -296,6 +296,19 @@ services:
       - quickbite-network
     restart: unless-stopped
 
+  frontend:
+    # build: ../frontend
+    image: ${DOCKERHUB_USERNAME:-quickbite}/frontend:latest
+    container_name: quickbite-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      gateway:
+        condition: service_started
+    networks:
+      - quickbite-network
+    restart: unless-stopped
+
     # ================= MONITORING (NEW - SAFE ADDITION) =================
 
   kafka-ui:

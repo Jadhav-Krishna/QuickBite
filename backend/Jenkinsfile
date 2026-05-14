@@ -183,7 +183,7 @@ pipeline {
                                           -Dsonar.coverage.jacoco.xmlReportPaths=**/target/site/jacoco/jacoco.xml \
                                           -Dsonar.java.coveragePlugin=jacoco \
                                           -Dsonar.host.url=${SONAR_HOST_URL} \
-                                          -Dsonar.login=${SONAR_TOKEN}
+                                          -Dsonar.token=${SONAR_TOKEN}
                                     else
                                         mvn clean verify sonar:sonar \
                                           -Dsonar.projectKey=${SONAR_PROJECT_KEY}-backend \
@@ -191,7 +191,7 @@ pipeline {
                                           -Dsonar.coverage.jacoco.xmlReportPaths=**/target/site/jacoco/jacoco.xml \
                                           -Dsonar.java.coveragePlugin=jacoco \
                                           -Dsonar.host.url=${SONAR_HOST_URL} \
-                                          -Dsonar.login=${SONAR_TOKEN}
+                                          -Dsonar.token=${SONAR_TOKEN}
                                     fi
                                     echo "Backend SonarQube analysis command finished."
                                 """
@@ -234,7 +234,7 @@ pipeline {
                                       -Dsonar.test.inclusions=**/*.test.ts,**/*.test.tsx,**/*.spec.ts,**/*.spec.tsx \
                                       -Dsonar.exclusions=**/*.test.ts,**/*.test.tsx,**/*.spec.ts,**/*.spec.tsx,**/node_modules/**,**/dist/**,**/coverage/** \
                                       -Dsonar.host.url=${SONAR_HOST_URL} \
-                                      -Dsonar.login=${SONAR_TOKEN}
+                                      -Dsonar.token=${SONAR_TOKEN}
                                     
                                     echo "Frontend SonarQube analysis completed successfully!"
                                 """
@@ -341,9 +341,9 @@ pipeline {
             }
         }
 
-        stage('Docker - Build Images') {
+        stage('Docker - Build Backend Images') {
             steps {
-                echo '========== Building Docker Images =========='
+                echo '========== Building Backend Docker Images =========='
 
                 dir("${BACKEND_DIR}") {
                     script {
@@ -389,6 +389,23 @@ pipeline {
             }
         }
 
+        stage('Docker - Build Frontend Image') {
+            steps {
+                echo '========== Building Frontend Docker Image =========='
+                dir("${FRONTEND_DIR}") {
+                    script {
+                        sh """
+                            echo "Building Frontend Docker Image..."
+                            docker build \
+                              -t ${DOCKERHUB_USERNAME}/frontend:${IMAGE_TAG} \
+                              -t ${DOCKERHUB_USERNAME}/frontend:latest \
+                              .
+                        """
+                    }
+                }
+            }
+        }
+
         stage('Trivy - Scan Docker Images') {
             steps {
                 echo '========== Scanning Docker Images with Trivy =========='
@@ -405,7 +422,8 @@ pipeline {
                         'payment-service',
                         'delivery-service',
                         'review-service',
-                        'notification-service'
+                        'notification-service',
+                        'frontend'
                     ]
                     
                     for (String service : services) {
@@ -456,7 +474,8 @@ pipeline {
                         'payment-service',
                         'delivery-service',
                         'review-service',
-                        'notification-service'
+                        'notification-service',
+                        'frontend'
                     ]
                     
                     for (String service : services) {
@@ -472,31 +491,29 @@ pipeline {
 
         stage('Setup Environment File') {
             steps {
-                echo '========== Creating .env File =========='
-                dir("${BACKEND_DIR}") {
+                echo '========== Creating .env Files =========='
+                withCredentials([
+                    string(credentialsId: 'mysql-root-password', variable: 'MYSQL_ROOT_PASSWORD'),
+                    string(credentialsId: 'mysql-password', variable: 'MYSQL_PASSWORD'),
+                    string(credentialsId: 'jwt-secret', variable: 'JWT_SECRET'),
+                    string(credentialsId: 'google-client-id', variable: 'GOOGLE_CLIENT_ID'),
+                    string(credentialsId: 'google-client-secret', variable: 'GOOGLE_CLIENT_SECRET'),
+                    string(credentialsId: 'github-client-id', variable: 'GITHUB_CLIENT_ID'),
+                    string(credentialsId: 'github-client-secret', variable: 'GITHUB_CLIENT_SECRET'),
+                    string(credentialsId: 'razorpay-key-id', variable: 'RAZORPAY_KEY_ID'),
+                    string(credentialsId: 'razorpay-key-secret', variable: 'RAZORPAY_KEY_SECRET'),
+                    string(credentialsId: 'mail-username', variable: 'MAIL_USERNAME'),
+                    string(credentialsId: 'mail-password', variable: 'MAIL_PASSWORD'),
+                    string(credentialsId: 'twilio-account-sid', variable: 'TWILIO_ACCOUNT_SID'),
+                    string(credentialsId: 'twilio-auth-token', variable: 'TWILIO_AUTH_TOKEN'),
+                    string(credentialsId: 'twilio-from-phone', variable: 'TWILIO_FROM_PHONE'),
+                    string(credentialsId: 'locationiq-api-key', variable: 'LOCATIONIQ_API_KEY'),
+                    string(credentialsId: 'cloudinary-cloud-name', variable: 'CLOUDINARY_CLOUD_NAME'),
+                    string(credentialsId: 'cloudinary-api-key', variable: 'CLOUDINARY_API_KEY'),
+                    string(credentialsId: 'cloudinary-api-secret', variable: 'CLOUDINARY_API_SECRET')
+                ]) {
                     script {
-                        withCredentials([
-                            string(credentialsId: 'mysql-root-password', variable: 'MYSQL_ROOT_PASSWORD'),
-                            string(credentialsId: 'mysql-password', variable: 'MYSQL_PASSWORD'),
-                            string(credentialsId: 'jwt-secret', variable: 'JWT_SECRET'),
-                            string(credentialsId: 'google-client-id', variable: 'GOOGLE_CLIENT_ID'),
-                            string(credentialsId: 'google-client-secret', variable: 'GOOGLE_CLIENT_SECRET'),
-                            string(credentialsId: 'github-client-id', variable: 'GITHUB_CLIENT_ID'),
-                            string(credentialsId: 'github-client-secret', variable: 'GITHUB_CLIENT_SECRET'),
-                            string(credentialsId: 'razorpay-key-id', variable: 'RAZORPAY_KEY_ID'),
-                            string(credentialsId: 'razorpay-key-secret', variable: 'RAZORPAY_KEY_SECRET'),
-                            string(credentialsId: 'mail-username', variable: 'MAIL_USERNAME'),
-                            string(credentialsId: 'mail-password', variable: 'MAIL_PASSWORD'),
-                            string(credentialsId: 'twilio-account-sid', variable: 'TWILIO_ACCOUNT_SID'),
-                            string(credentialsId: 'twilio-auth-token', variable: 'TWILIO_AUTH_TOKEN'),
-                            string(credentialsId: 'twilio-from-phone', variable: 'TWILIO_FROM_PHONE'),
-                            string(credentialsId: 'locationiq-api-key', variable: 'LOCATIONIQ_API_KEY'),
-                            string(credentialsId: 'cloudinary-cloud-name', variable: 'CLOUDINARY_CLOUD_NAME'),
-                            string(credentialsId: 'cloudinary-api-key', variable: 'CLOUDINARY_API_KEY'),
-                            string(credentialsId: 'cloudinary-api-secret', variable: 'CLOUDINARY_API_SECRET')
-                        ]) {
-                            sh '''
-                                cat > .env << EOF
+                        def commonEnv = """
 DOCKERHUB_USERNAME=${DOCKERHUB_USERNAME}
 DOCKERHUB_REPOSITORY=quickbite
 IMAGE_TAG=latest
@@ -568,13 +585,28 @@ CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
 CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
 CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
 
-CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://localhost:8080
+CORS_ALLOWED_ORIGINS=*
 
 JAVA_OPTS=-Xmx512m
-EOF
-                                echo ".env file created successfully"
-                            '''
-                        }
+"""
+                    dir("${BACKEND_DIR}") {
+                        writeFile file: '.env', text: commonEnv
+                        echo "Backend .env file created"
+                    }
+                    
+                    dir("${FRONTEND_DIR}") {
+                        def frontendEnv = """
+VITE_API_BASE_URL=/api
+VITE_RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID}
+VITE_WS_DELIVERY_URL=ws://\${window.location.hostname}:8000/ws/tracking
+VITE_OSRM_URL=https://router.project-osrm.org/route/v1/driving
+VITE_GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+VITE_GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID}
+VITE_LOCATIONIQ_API_KEY=${LOCATIONIQ_API_KEY}
+"""
+                        // We use sh to handle the window.location.hostname properly if needed or just writeFile
+                        writeFile file: '.env', text: frontendEnv
+                        echo "Frontend .env file created"
                     }
                 }
             }
@@ -606,6 +638,9 @@ EOF
                         docker compose up -d eureka-server
                         echo "Waiting for Eureka Server..."
                         sleep 45
+                        
+                        echo "Pulling latest images..."
+                        docker compose pull || echo "Pull failed, using local images"
                         
                         docker compose up -d
                         
@@ -639,7 +674,8 @@ EOF
                         [name: 'Payment Service', url: 'http://localhost:8006/actuator/health'],
                         [name: 'Delivery Service', url: 'http://localhost:8007/actuator/health'],
                         [name: 'Review Service', url: 'http://localhost:8008/actuator/health'],
-                        [name: 'Notification Service', url: 'http://localhost:8009/actuator/health']
+                        [name: 'Notification Service', url: 'http://localhost:8009/actuator/health'],
+                        [name: 'Frontend', url: 'http://localhost:5173']
                     ]
                     
                     def healthyServices = 0
@@ -692,6 +728,10 @@ EOF
                         # Test Restaurant Service
                         echo "Testing Restaurant Service..."
                         curl -f http://localhost:8000/api/restaurants/health || echo "Restaurant service test failed"
+                        
+                        # Test Frontend
+                        echo "Testing Frontend..."
+                        curl -f http://localhost:5173 || echo "Frontend test failed"
                         
                         echo "Smoke tests completed!"
                     '''

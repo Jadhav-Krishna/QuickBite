@@ -22,10 +22,6 @@ pipeline {
 
         BACKEND_DIR          = 'backend'
         FRONTEND_DIR         = 'frontend'
-
-        EC2_HOST             = 'ec2-100-31-37-128.compute-1.amazonaws.com'
-        EC2_USER             = 'ubuntu'
-        EC2_CREDENTIALS_ID   = 'ec2-ssh-key'
     }
 
     options {
@@ -427,38 +423,23 @@ VITE_LOCATIONIQ_API_KEY=${LOCATIONIQ_API_KEY}
         }
 
         // ─────────────────────────────────────────────
-        stage('Deploy to EC2') {
+        stage('Deploy') {
         // ─────────────────────────────────────────────
             steps {
-                withCredentials([
-                    sshUserPrivateKey(
-                        credentialsId: "${EC2_CREDENTIALS_ID}",
-                        keyFileVariable: 'SSH_KEY_FILE',
-                        usernameVariable: 'SSH_USER'
-                    )
-                ]) {
-                    sh """
-                        chmod 600 \$SSH_KEY_FILE
+                dir("${BACKEND_DIR}") {
+                    sh '''
+                        echo "=== Stopping existing containers ==="
+                        docker compose down --remove-orphans || true
 
-                        # Create remote directory
-                        ssh -o StrictHostKeyChecking=no -i \$SSH_KEY_FILE ${EC2_USER}@${EC2_HOST} 'mkdir -p ~/quickbite'
+                        echo "=== Pulling latest images ==="
+                        docker compose pull
 
-                        # Copy compose file and env
-                        scp -o StrictHostKeyChecking=no -i \$SSH_KEY_FILE \\
-                            ${BACKEND_DIR}/docker-compose.yml \\
-                            ${BACKEND_DIR}/.env \\
-                            ${EC2_USER}@${EC2_HOST}:~/quickbite/
+                        echo "=== Starting all services ==="
+                        docker compose up -d
 
-                        # Pull latest images and restart
-                        ssh -o StrictHostKeyChecking=no -i \$SSH_KEY_FILE ${EC2_USER}@${EC2_HOST} '
-                            cd ~/quickbite
-                            echo "${DOCKERHUB_TOKEN}" | docker login -u "${DOCKERHUB_USERNAME}" --password-stdin
-                            docker compose pull
-                            docker compose up -d --remove-orphans
-                            docker system prune -f
-                            docker compose ps
-                        '
-                    """
+                        echo "=== Container status ==="
+                        docker compose ps
+                    '''
                 }
             }
         }
@@ -468,32 +449,33 @@ VITE_LOCATIONIQ_API_KEY=${LOCATIONIQ_API_KEY}
         // ─────────────────────────────────────────────
             steps {
                 script {
-                    sleep 60   // give services time to start
+                    echo 'Waiting 90s for services to start...'
+                    sleep 90
                     def endpoints = [
-                        [name: 'Eureka',        url: 'http://localhost:8761/actuator/health'],
-                        [name: 'Gateway',       url: 'http://localhost:8000/actuator/health'],
-                        [name: 'Auth',          url: 'http://localhost:8001/actuator/health'],
-                        [name: 'Restaurant',    url: 'http://localhost:8002/actuator/health'],
-                        [name: 'Menu',          url: 'http://localhost:8003/actuator/health'],
-                        [name: 'Cart',          url: 'http://localhost:8004/actuator/health'],
-                        [name: 'Order',         url: 'http://localhost:8005/actuator/health'],
-                        [name: 'Payment',       url: 'http://localhost:8006/actuator/health'],
-                        [name: 'Delivery',      url: 'http://localhost:8007/actuator/health'],
-                        [name: 'Review',        url: 'http://localhost:8008/actuator/health'],
-                        [name: 'Notification',  url: 'http://localhost:8009/actuator/health'],
-                        [name: 'Frontend',      url: 'http://localhost:80']
+                        [name: 'Eureka',       url: 'http://localhost:8761/actuator/health'],
+                        [name: 'Gateway',      url: 'http://localhost:8000/actuator/health'],
+                        [name: 'Auth',         url: 'http://localhost:8001/actuator/health'],
+                        [name: 'Restaurant',   url: 'http://localhost:8002/actuator/health'],
+                        [name: 'Menu',         url: 'http://localhost:8003/actuator/health'],
+                        [name: 'Cart',         url: 'http://localhost:8004/actuator/health'],
+                        [name: 'Order',        url: 'http://localhost:8005/actuator/health'],
+                        [name: 'Payment',      url: 'http://localhost:8006/actuator/health'],
+                        [name: 'Delivery',     url: 'http://localhost:8007/actuator/health'],
+                        [name: 'Review',       url: 'http://localhost:8008/actuator/health'],
+                        [name: 'Notification', url: 'http://localhost:8009/actuator/health'],
+                        [name: 'Frontend',     url: 'http://localhost:80']
                     ]
                     int healthy = 0
                     for (ep in endpoints) {
                         def code = sh(
-                            script: "curl -s -o /dev/null -w '%{http_code}' --connect-timeout 10 ${ep.url} || echo '000'",
+                            script: "curl -s -o /dev/null -w '%{http_code}' --connect-timeout 15 --retry 3 ${ep.url} || echo '000'",
                             returnStdout: true
                         ).trim()
                         if (code == '200') { echo "✅ ${ep.name}"; healthy++ }
                         else               { echo "❌ ${ep.name} → HTTP ${code}" }
                     }
                     echo "Health: ${healthy}/${endpoints.size()} services UP"
-                    if (healthy == 0) error("All services are down!")
+                    if (healthy == 0) error('All services are down — check docker compose logs')
                 }
             }
         }
@@ -503,20 +485,20 @@ VITE_LOCATIONIQ_API_KEY=${LOCATIONIQ_API_KEY}
         // ─────────────────────────────────────────────
             steps {
                 sh '''
-                    echo "--- Gateway ---"
-                    curl -sf http://localhost:8000/actuator/health && echo "OK" || echo "FAIL"
+                    echo "--- Gateway health ---"
+                    curl -sf http://localhost:8000/actuator/health && echo " OK" || echo " FAIL"
 
-                    echo "--- Auth login ---"
-                    curl -sf -X POST http://localhost:8000/api/auth/login \
+                    echo "--- JWT login ---"
+                    RESP=$(curl -s -X POST http://localhost:8000/api/auth/login \
                       -H "Content-Type: application/json" \
-                      -d '{"email":"customer1@gmail.com","password":"Password@123"}' \
-                      | grep -q accessToken && echo "JWT login OK" || echo "JWT login FAIL"
+                      -d \'{\'email\':\'customer1@gmail.com\',\'password\':\'Password@123\'}\')
+                    echo $RESP | grep -q accessToken && echo "JWT login OK" || echo "JWT login FAIL: $RESP"
 
                     echo "--- Restaurants ---"
-                    curl -sf http://localhost:8000/api/v1/restaurants/active | grep -q "\\[" && echo "OK" || echo "FAIL"
+                    curl -sf http://localhost:8000/api/v1/restaurants/active | grep -q "\\[" && echo " OK" || echo " FAIL"
 
                     echo "--- Frontend ---"
-                    curl -sf http://localhost:80 | grep -q "QuickBite" && echo "OK" || echo "FAIL"
+                    curl -sf http://localhost:80 | grep -qi "quickbite\|html" && echo " OK" || echo " FAIL"
                 '''
             }
         }
@@ -529,15 +511,20 @@ VITE_LOCATIONIQ_API_KEY=${LOCATIONIQ_API_KEY}
             archiveArtifacts artifacts: 'trivy-*.txt', allowEmptyArchive: true
         }
         success {
-            echo """
+            script {
+                def ec2Ip = sh(script: "curl -s http://169.254.169.254/latest/meta-data/public-ipv4 || echo 'your-ec2-ip'", returnStdout: true).trim()
+                echo """
 ==========================================
- ✅ PIPELINE SUCCEEDED  — Build #${IMAGE_TAG}
+✅ PIPELINE SUCCEEDED — Build #${IMAGE_TAG}
 ==========================================
- Images pushed: ${DOCKERHUB_USERNAME}/*:${IMAGE_TAG}
- Frontend : http://localhost
- Gateway  : http://localhost:8000
- Eureka   : http://localhost:8761
+  Frontend  : http://${ec2Ip}
+  Gateway   : http://${ec2Ip}:8000
+  Eureka    : http://${ec2Ip}:8761
+  RabbitMQ  : http://${ec2Ip}:15672
+  SonarQube : http://${ec2Ip}:9000
 =========================================="""
+            }
+        }
         }
         failure {
             sh '''

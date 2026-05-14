@@ -617,6 +617,8 @@ VITE_LOCATIONIQ_API_KEY=${LOCATIONIQ_API_KEY}
             }
         }
 
+        }
+
         stage('Deploy - Infrastructure') {
             steps {
                 echo '========== Deploying Infrastructure Services =========='
@@ -830,5 +832,4 @@ VITE_LOCATIONIQ_API_KEY=${LOCATIONIQ_API_KEY}
             echo 'Some tests may have failed. Check reports.'
         }
     }
-}
 }

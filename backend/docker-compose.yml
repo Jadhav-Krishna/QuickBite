@@ -120,6 +120,10 @@ services:
     depends_on:
       eureka-server:
         condition: service_healthy
+      restaurant-service:
+        condition: service_healthy
+      menu-service:
+        condition: service_healthy
     ports:
       - "8000:8000"
     networks:
@@ -160,6 +164,12 @@ services:
     networks:
       - quickbite-network
     restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8002/actuator/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
 
   menu-service:
     build: ./menu-service
@@ -176,6 +186,12 @@ services:
     networks:
       - quickbite-network
     restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8003/actuator/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
 
   cart-service:
     build: ./cart-service
@@ -311,7 +327,7 @@ services:
         VITE_RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
         VITE_LOCATIONIQ_API_KEY: ${LOCATIONIQ_API_KEY:-}
         VITE_OAUTH_REDIRECT_BASE_URL: ${OAUTH2_REDIRECT_BASE_URL:-http://localhost}
-    image: ${DOCKERHUB_USERNAME:-quickbite}/frontend:latest
+    image: ${DOCKER_USERNAME:-quickbite}/frontend:latest
     container_name: quickbite-frontend
     ports:
       - "80:80"

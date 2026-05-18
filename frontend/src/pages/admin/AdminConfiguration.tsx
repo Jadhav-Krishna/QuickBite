@@ -73,7 +73,7 @@ export default function AdminConfiguration() {
         color: 'cyan',
         settings: [
           { key: 'GATEWAY_PORT', value: '8000', description: 'API Gateway port' },
-          { key: 'CORS_ORIGINS', value: 'http://localhost:5173', description: 'Allowed CORS origins' },
+          { key: 'CORS_ORIGINS', value: window.location.origin, description: 'Allowed CORS origins' },
         ],
       },
     ];

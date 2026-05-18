@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Star, MessageSquare, Calendar, User, TrendingUp, Award } from 'lucide-react';
+import { API_BASE_URL } from '../../api/auth';
 import { reviewService, type ReviewDTO } from '../../api/review';
 import { requireCurrentUserId } from '../../utils/session';
 
@@ -19,7 +20,7 @@ export default function AgentReviews() {
       const userId = requireCurrentUserId();
       
       // Fetch agent details to get agentId
-      const response = await fetch(`http://localhost:8000/api/v1/delivery/agents/user/${userId}`, {
+      const response = await fetch(`${API_BASE_URL}/v1/delivery/agents/user/${userId}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
         },

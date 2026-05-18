@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import SockJS from 'sockjs-client';
 import { Client, type IMessage } from '@stomp/stompjs';
 
+const TRACKING_SOCKET_URL = import.meta.env.VITE_WS_DELIVERY_URL || '/ws/tracking';
+
 interface LocationUpdate {
   agentId: number;
   latitude: number;
@@ -19,7 +21,7 @@ export const useWebSocketTracking = (orderId?: number) => {
   const clientRef = useRef<Client | null>(null);
 
   useEffect(() => {
-    const socket = new SockJS('http://localhost:8011/ws/tracking');
+    const socket = new SockJS(TRACKING_SOCKET_URL);
     const client = new Client({
       webSocketFactory: () => socket as any,
       reconnectDelay: 5000,
@@ -87,7 +89,7 @@ export const useAgentTracking = (agentId: number) => {
   const clientRef = useRef<Client | null>(null);
 
   useEffect(() => {
-    const socket = new SockJS('http://localhost:8011/ws/tracking');
+    const socket = new SockJS(TRACKING_SOCKET_URL);
     const client = new Client({
       webSocketFactory: () => socket as any,
       reconnectDelay: 5000,

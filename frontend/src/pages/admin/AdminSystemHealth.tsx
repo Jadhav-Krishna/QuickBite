@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Activity, CheckCircle2, XCircle, Server, Database, Zap, RefreshCw } from 'lucide-react';
+import { API_BASE_URL } from '../../api/auth';
 
 interface ServiceStatus {
   name: string;
@@ -26,8 +27,8 @@ export default function AdminSystemHealth() {
     try {
       setLoading(true);
       const [healthRes, configRes] = await Promise.all([
-        fetch('http://localhost:8762/api/admin/health').then(r => r.json()),
-        fetch('http://localhost:8762/api/admin/config').then(r => r.json()),
+        fetch(`${API_BASE_URL}/admin/health`).then(r => r.json()),
+        fetch(`${API_BASE_URL}/admin/config`).then(r => r.json()),
       ]);
       setHealth(healthRes);
       setServices(configRes.services || []);

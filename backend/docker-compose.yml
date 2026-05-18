@@ -6,7 +6,7 @@ services:
     container_name: quickbite-mysql
     env_file: .env
     ports:
-      - "3306:3306"
+      - "3307:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - ./init-databases.sql:/docker-entrypoint-initdb.d/init.sql
@@ -131,6 +131,9 @@ services:
     image: ${DOCKER_USERNAME:-quickbite}/auth-service:latest
     container_name: quickbite-auth-service
     env_file: .env
+    environment:
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost}
+      OAUTH2_REDIRECT_BASE_URL: ${OAUTH2_REDIRECT_BASE_URL:-http://localhost}
     depends_on:
       mysql:
         condition: service_healthy
@@ -297,7 +300,17 @@ services:
     restart: unless-stopped
 
   frontend:
-    # build: ../frontend
+    build:
+      context: ../frontend
+      args:
+        VITE_API_BASE_URL: /api
+        VITE_WS_DELIVERY_URL: /ws/tracking
+        VITE_OSRM_URL: https://router.project-osrm.org/route/v1/driving
+        VITE_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+        VITE_GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+        VITE_RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+        VITE_LOCATIONIQ_API_KEY: ${LOCATIONIQ_API_KEY:-}
+        VITE_OAUTH_REDIRECT_BASE_URL: ${OAUTH2_REDIRECT_BASE_URL:-http://localhost}
     image: ${DOCKERHUB_USERNAME:-quickbite}/frontend:latest
     container_name: quickbite-frontend
     ports:

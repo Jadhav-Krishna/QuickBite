@@ -4,13 +4,16 @@ import com.quickbite.dto.*;
 import com.quickbite.entity.User;
 import com.quickbite.entity.UserRole;
 import com.quickbite.service.AuthService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.util.HashMap;
 import java.util.List;
@@ -26,6 +29,12 @@ public class AuthController {
 
     @Autowired
     private AuthService authService;
+
+    @Value("${app.frontend-base-url:http://localhost:5173}")
+    private String frontendBaseUrl;
+
+    @Value("${oauth2.redirect-base-url:}")
+    private String oauthRedirectBaseUrl;
 
     // ==================== Registration & Login ====================
 
@@ -59,63 +68,89 @@ public class AuthController {
     }
 
     @GetMapping("/oauth2/callback/google")
-    public ResponseEntity<String> googleCallback(@RequestParam("code") String code) {
+    public ResponseEntity<String> googleCallback(@RequestParam("code") String code, HttpServletRequest servletRequest) {
         log.info("Google OAuth callback received with code");
         try {
             OAuth2LoginRequest request = new OAuth2LoginRequest();
             request.setProvider("GOOGLE");
             request.setToken(code);
+            request.setRedirectUri(buildCallbackUri(servletRequest));
             AuthResponse response = authService.loginWithOAuth2(request);
-            
-            // Redirect to frontend with tokens
-            String redirectUrl = String.format(
-                "http://localhost:5173/auth/callback?token=%s&refreshToken=%s&userId=%d&email=%s&role=%s&fullName=%s",
-                response.getAccessToken(),
-                response.getRefreshToken(),
-                response.getUserId(),
-                response.getEmail(),
-                response.getRole(),
-                response.getFullName()
-            );
+
+            String redirectUrl = buildFrontendCallbackUrl(response);
             return ResponseEntity.status(HttpStatus.FOUND)
                     .header(LOCATION_HEADER, redirectUrl)
                     .build();
         } catch (Exception e) {
             log.error("Google OAuth failed: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.FOUND)
-                    .header(LOCATION_HEADER, "http://localhost:5173/login?error=" + e.getMessage())
+                    .header(LOCATION_HEADER, buildFrontendErrorUrl(e.getMessage()))
                     .build();
         }
     }
 
     @GetMapping("/oauth2/callback/github")
-    public ResponseEntity<String> githubCallback(@RequestParam("code") String code) {
+    public ResponseEntity<String> githubCallback(@RequestParam("code") String code, HttpServletRequest servletRequest) {
         log.info("GitHub OAuth callback received with code");
         try {
             OAuth2LoginRequest request = new OAuth2LoginRequest();
             request.setProvider("GITHUB");
             request.setToken(code);
+            request.setRedirectUri(buildCallbackUri(servletRequest));
             AuthResponse response = authService.loginWithOAuth2(request);
-            
-            // Redirect to frontend with tokens
-            String redirectUrl = String.format(
-                "http://localhost:5173/auth/callback?token=%s&refreshToken=%s&userId=%d&email=%s&role=%s&fullName=%s",
-                response.getAccessToken(),
-                response.getRefreshToken(),
-                response.getUserId(),
-                response.getEmail(),
-                response.getRole(),
-                response.getFullName()
-            );
+
+            String redirectUrl = buildFrontendCallbackUrl(response);
             return ResponseEntity.status(HttpStatus.FOUND)
                     .header(LOCATION_HEADER, redirectUrl)
                     .build();
         } catch (Exception e) {
             log.error("GitHub OAuth failed: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.FOUND)
-                    .header(LOCATION_HEADER, "http://localhost:5173/login?error=" + e.getMessage())
+                    .header(LOCATION_HEADER, buildFrontendErrorUrl(e.getMessage()))
                     .build();
         }
+    }
+
+    private String buildCallbackUri(HttpServletRequest request) {
+        if (oauthRedirectBaseUrl != null && !oauthRedirectBaseUrl.isBlank()) {
+            String baseUrl = oauthRedirectBaseUrl.endsWith("/")
+                    ? oauthRedirectBaseUrl.substring(0, oauthRedirectBaseUrl.length() - 1)
+                    : oauthRedirectBaseUrl;
+            return baseUrl + request.getRequestURI();
+        }
+
+        String forwardedProto = request.getHeader("X-Forwarded-Proto");
+        String forwardedHost = request.getHeader("X-Forwarded-Host");
+        String proto = forwardedProto != null && !forwardedProto.isBlank() ? forwardedProto : request.getScheme();
+        String host = forwardedHost != null && !forwardedHost.isBlank() ? forwardedHost : request.getHeader("Host");
+
+        return UriComponentsBuilder.fromUriString(proto + "://" + host)
+                .path(request.getRequestURI())
+                .build()
+                .toUriString();
+    }
+
+    private String buildFrontendCallbackUrl(AuthResponse response) {
+        return UriComponentsBuilder.fromHttpUrl(frontendBaseUrl)
+                .path("/auth/callback")
+                .queryParam("token", response.getAccessToken())
+                .queryParam("refreshToken", response.getRefreshToken())
+                .queryParam("userId", response.getUserId())
+                .queryParam("email", response.getEmail())
+                .queryParam("role", response.getRole())
+                .queryParam("fullName", response.getFullName())
+                .build()
+                .encode()
+                .toUriString();
+    }
+
+    private String buildFrontendErrorUrl(String message) {
+        return UriComponentsBuilder.fromHttpUrl(frontendBaseUrl)
+                .path("/login")
+                .queryParam("error", message)
+                .build()
+                .encode()
+                .toUriString();
     }
 
     @GetMapping("/validate")

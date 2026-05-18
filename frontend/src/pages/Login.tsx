@@ -11,6 +11,20 @@ gsap.registerPlugin(ScrollTrigger);
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 const GITHUB_CLIENT_ID = import.meta.env.VITE_GITHUB_CLIENT_ID || '';
 
+const getOAuthRedirectBaseUrl = () => {
+  const explicitBaseUrl = import.meta.env.VITE_OAUTH_REDIRECT_BASE_URL;
+  if (explicitBaseUrl) {
+    return explicitBaseUrl.replace(/\/$/, '');
+  }
+
+  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api';
+  if (/^https?:\/\//i.test(apiBaseUrl)) {
+    return new URL(apiBaseUrl).origin;
+  }
+
+  return window.location.origin;
+};
+
 // Validation patterns
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
@@ -196,8 +210,7 @@ export default function Login() {
       setError('Google OAuth is not configured. Please set VITE_GOOGLE_CLIENT_ID in your .env file.');
       return;
     }
-    // Redirect to backend OAuth endpoint through API Gateway
-    const redirectUri = `http://localhost:8000/api/auth/oauth2/callback/google`;
+    const redirectUri = `${getOAuthRedirectBaseUrl()}/api/auth/oauth2/callback/google`;
     const scope = 'openid email profile';
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${GOOGLE_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent`;
     window.location.href = authUrl;
@@ -208,8 +221,7 @@ export default function Login() {
       setError('GitHub OAuth is not configured. Please set VITE_GITHUB_CLIENT_ID in your .env file.');
       return;
     }
-    // Redirect to backend OAuth endpoint through API Gateway
-    const redirectUri = `http://localhost:8000/api/auth/oauth2/callback/github`;
+    const redirectUri = `${getOAuthRedirectBaseUrl()}/api/auth/oauth2/callback/github`;
     const scope = 'read:user user:email';
     const authUrl = `https://github.com/login/oauth/authorize?client_id=${GITHUB_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}`;
     window.location.href = authUrl;

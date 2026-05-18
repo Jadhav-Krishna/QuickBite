@@ -18,5 +18,7 @@ public class OAuth2LoginRequest {
     @NotBlank(message = "Token is required")
     private String token;
 
+    private String redirectUri; // Required when token contains an OAuth authorization code
+
     private String role; // Optional - if provided, used during registration
 }

@@ -17,7 +17,7 @@ spring:
   sql:
     init:
       mode: always
-      data-locations: classpath:data.sql
+      data-locations: optional:classpath:data.sql
       continue-on-error: false
   servlet:
     multipart:

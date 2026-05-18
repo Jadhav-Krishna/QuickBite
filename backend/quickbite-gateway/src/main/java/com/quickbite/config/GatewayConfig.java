@@ -47,6 +47,10 @@ public class GatewayConfig {
                         .path("/api/v1/notifications/**")
                         .uri("lb://NOTIFICATION-SERVICE"))
 
+                .route("admin-server", r -> r
+                        .path("/api/admin/**")
+                        .uri("http://admin-server:8762"))
+
                 .route("delivery-websocket", r -> r
                         .path("/ws/tracking/**")
                         .uri("lb:ws://DELIVERY-SERVICE"))

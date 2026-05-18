@@ -78,6 +78,9 @@ public class AuthService {
     @Value("${oauth2.github.clientSecret:}")
     private String githubClientSecret;
 
+    @Value("${oauth2.redirect-base-url:http://localhost:8000}")
+    private String oauthRedirectBaseUrl;
+
     // ==================== Registration & Login ====================
 
     public AuthResponse signup(SignupRequest request) {
@@ -221,7 +224,7 @@ public class AuthService {
             
             if (!accessToken.contains(".")) {
                 log.info("Exchanging Google authorization code for access token");
-                accessToken = exchangeGoogleCode(accessToken);
+                accessToken = exchangeGoogleCode(accessToken, resolveRedirectUri(request, "google"));
             }
 
             log.info("Validating Google access token");
@@ -260,7 +263,7 @@ public class AuthService {
         try {
             String accessToken = request.getToken();
             if (!accessToken.contains(".")) {
-                accessToken = exchangeGitHubCode(accessToken);
+                accessToken = exchangeGitHubCode(accessToken, resolveRedirectUri(request, "github"));
             }
 
             var headers = new org.springframework.http.HttpHeaders();
@@ -340,7 +343,7 @@ public class AuthService {
         return defaultValue;
     }
 
-    private String exchangeGitHubCode(String code) {
+    private String exchangeGitHubCode(String code, String redirectUri) {
         try {
             log.info("Exchanging GitHub authorization code");
             String tokenUrl = "https://github.com/login/oauth/access_token";
@@ -357,6 +360,7 @@ public class AuthService {
             params.put("client_id", githubClientId);
             params.put("client_secret", githubClientSecret);
             params.put("code", code);
+            params.put("redirect_uri", redirectUri);
 
             var headers = new org.springframework.http.HttpHeaders();
             headers.setContentType(org.springframework.http.MediaType.APPLICATION_JSON);
@@ -386,7 +390,7 @@ public class AuthService {
         }
     }
 
-    private String exchangeGoogleCode(String code) {
+    private String exchangeGoogleCode(String code, String redirectUri) {
         try {
             log.info("Exchanging Google authorization code");
             String tokenUrl = "https://oauth2.googleapis.com/token";
@@ -404,7 +408,7 @@ public class AuthService {
             params.add("client_secret", googleClientSecret);
             params.add("code", code);
             params.add("grant_type", "authorization_code");
-            params.add("redirect_uri", "http://localhost:8000/api/auth/oauth2/callback/google");
+            params.add("redirect_uri", redirectUri);
 
             var headers = new org.springframework.http.HttpHeaders();
             headers.setContentType(org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED);
@@ -431,6 +435,17 @@ public class AuthService {
             log.error("Google token exchange failed", e);
             throw new AuthenticationException("Google token exchange failed: " + e.getMessage());
         }
+    }
+
+    private String resolveRedirectUri(OAuth2LoginRequest request, String provider) {
+        if (request.getRedirectUri() != null && !request.getRedirectUri().isBlank()) {
+            return request.getRedirectUri();
+        }
+
+        String baseUrl = oauthRedirectBaseUrl.endsWith("/")
+                ? oauthRedirectBaseUrl.substring(0, oauthRedirectBaseUrl.length() - 1)
+                : oauthRedirectBaseUrl;
+        return baseUrl + "/api/auth/oauth2/callback/" + provider;
     }
 
     private User createOAuthUser(String email, String name, String provider, String providerId) {

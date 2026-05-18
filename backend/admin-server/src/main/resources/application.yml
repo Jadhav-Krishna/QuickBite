@@ -13,8 +13,8 @@ server:
 
 eureka:
   instance:
-    hostname: localhost
-    prefer-ip-address: false
+    hostname: ${ADMIN_SERVER_HOST:admin-server}
+    prefer-ip-address: true
     status-page-url-path: /actuator/info
     health-check-url-path: /actuator/health
     lease-renewal-interval-in-seconds: 10

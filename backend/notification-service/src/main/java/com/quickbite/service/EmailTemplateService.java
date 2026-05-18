@@ -110,6 +110,47 @@ public class EmailTemplateService {
                 """.formatted(userName, userRole);
     }
 
+    public String generatePasswordResetEmail(String userEmail, String resetLink) {
+        return """
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <style>
+                        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                        .header { background: linear-gradient(135deg, #f97316 0%%, #ea580c 100%%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+                        .content { background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; }
+                        .info-box { background: white; padding: 20px; border-left: 4px solid #f97316; margin: 20px 0; border-radius: 5px; }
+                        .footer { text-align: center; margin-top: 30px; color: #6b7280; font-size: 14px; }
+                        .button { display: inline-block; padding: 14px 36px; background: #f97316; color: white !important; text-decoration: none; border-radius: 8px; margin-top: 20px; font-weight: bold; font-size: 16px; }
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <div class="header">
+                            <h1>🍔 QuickBite</h1>
+                            <h2>Password Reset Request</h2>
+                        </div>
+                        <div class="content">
+                            <p>Hello,</p>
+                            <p>We received a request to reset the password for your QuickBite account associated with <strong>%s</strong>.</p>
+                            <div class="info-box">
+                                <p>Click the button below to set a new password. This link is valid for <strong>30 minutes</strong>.</p>
+                            </div>
+                            <div style="text-align: center; margin: 30px 0;">
+                                <a href="%s" class="button">Reset My Password</a>
+                            </div>
+                            <p style="color: #6b7280; font-size: 13px;">If you did not request a password reset, you can safely ignore this email. Your password will not change.</p>
+                            <div class="footer">
+                                <p>© 2026 QuickBite. All rights reserved.</p>
+                            </div>
+                        </div>
+                    </div>
+                </body>
+                </html>
+                """.formatted(userEmail, resetLink);
+    }
+
     public String generateAdminNotificationEmail(String eventType, String userName, String userEmail, String userRole, String timestamp) {
         String action = eventType.equals("USER_LOGIN") ? "logged in" : "signed up";
         String emoji = eventType.equals("USER_LOGIN") ? "🔐" : "👤";

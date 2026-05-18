@@ -153,6 +153,24 @@ public class AuthController {
                 .toUriString();
     }
 
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Map<String, String>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        log.info("Forgot password request for email: {}", request.getEmail());
+        authService.forgotPassword(request.getEmail());
+        Map<String, String> response = new HashMap<>();
+        response.put(MESSAGE_KEY, "If that email is registered, a reset link has been sent.");
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<Map<String, String>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        log.info("Reset password request");
+        authService.resetPassword(request.getToken(), request.getNewPassword());
+        Map<String, String> response = new HashMap<>();
+        response.put(MESSAGE_KEY, "Password reset successfully.");
+        return ResponseEntity.ok(response);
+    }
+
     @GetMapping("/validate")
     public ResponseEntity<Map<String, Object>> validateToken(@RequestHeader("Authorization") String authHeader) {
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {

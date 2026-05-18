@@ -110,6 +110,27 @@ public class AuthEventListener {
         }
     }
 
+    @RabbitListener(queues = "auth.password_reset.queue")
+    public void handlePasswordResetEvent(AuthEvent event) {
+        log.info("Received password reset event for user: {}", event.getRecipientEmail());
+        try {
+            // Extract reset link from message: "Click the link to reset your password: <url>"
+            String resetLink = event.getMessage().contains(": ")
+                    ? event.getMessage().substring(event.getMessage().lastIndexOf(": ") + 2).trim()
+                    : "";
+            String emailContent = emailTemplateService.generatePasswordResetEmail(
+                    event.getRecipientEmail(), resetLink);
+            emailService.sendHtmlEmail(
+                    event.getRecipientEmail(),
+                    "Reset Your QuickBite Password",
+                    emailContent
+            );
+            log.info("Password reset email sent to: {}", event.getRecipientEmail());
+        } catch (Exception e) {
+            log.error("Failed to send password reset email to: {}", event.getRecipientEmail(), e);
+        }
+    }
+
     private String extractUserName(String message) {
         // Extract name from messages like "Welcome back, John Doe. You are signed in."
         // or "Welcome John Doe! Your account has been created successfully..."

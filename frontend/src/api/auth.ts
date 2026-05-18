@@ -328,6 +328,30 @@ export const authService = {
     );
   },
 
+  async forgotPassword(email: string): Promise<ApiMessage> {
+    return requestJson<ApiMessage>(
+      '/auth/forgot-password',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      },
+      'Failed to send reset link.',
+    );
+  },
+
+  async resetPassword(token: string, newPassword: string): Promise<ApiMessage> {
+    return requestJson<ApiMessage>(
+      '/auth/reset-password',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, newPassword }),
+      },
+      'Failed to reset password.',
+    );
+  },
+
   async logoutFromServer(): Promise<void> {
     const accessToken = localStorage.getItem('accessToken');
     if (!accessToken) {

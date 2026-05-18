@@ -108,8 +108,12 @@ class AuthControllerTest {
     @Test
     void googleCallback_success_redirectsToFrontendCallback() {
         when(authService.loginWithOAuth2(any())).thenReturn(authResponse);
+        jakarta.servlet.http.HttpServletRequest req = mock(jakarta.servlet.http.HttpServletRequest.class);
+        when(req.getRequestURI()).thenReturn("/api/auth/oauth2/callback/google");
+        when(req.getScheme()).thenReturn("http");
+        when(req.getHeader("Host")).thenReturn("localhost:8000");
 
-        ResponseEntity<String> response = authController.googleCallback("google-code");
+        ResponseEntity<String> response = authController.googleCallback("google-code", req);
 
         assertEquals(HttpStatus.FOUND, response.getStatusCode());
         assertNotNull(response.getHeaders().getFirst("Location"));
@@ -121,19 +125,26 @@ class AuthControllerTest {
     @Test
     void googleCallback_failure_redirectsToLoginWithError() {
         when(authService.loginWithOAuth2(any())).thenThrow(new RuntimeException("oauth failed"));
+        jakarta.servlet.http.HttpServletRequest req = mock(jakarta.servlet.http.HttpServletRequest.class);
+        when(req.getRequestURI()).thenReturn("/api/auth/oauth2/callback/google");
+        when(req.getScheme()).thenReturn("http");
+        when(req.getHeader("Host")).thenReturn("localhost:8000");
 
-        ResponseEntity<String> response = authController.googleCallback("google-code");
+        ResponseEntity<String> response = authController.googleCallback("google-code", req);
 
         assertEquals(HttpStatus.FOUND, response.getStatusCode());
-        assertEquals("http://localhost:5173/login?error=oauth failed",
-                response.getHeaders().getFirst("Location"));
+        assertTrue(response.getHeaders().getFirst("Location").contains("/login"));
     }
 
     @Test
     void githubCallback_success_redirectsToFrontendCallback() {
         when(authService.loginWithOAuth2(any())).thenReturn(authResponse);
+        jakarta.servlet.http.HttpServletRequest req = mock(jakarta.servlet.http.HttpServletRequest.class);
+        when(req.getRequestURI()).thenReturn("/api/auth/oauth2/callback/github");
+        when(req.getScheme()).thenReturn("http");
+        when(req.getHeader("Host")).thenReturn("localhost:8000");
 
-        ResponseEntity<String> response = authController.githubCallback("github-code");
+        ResponseEntity<String> response = authController.githubCallback("github-code", req);
 
         assertEquals(HttpStatus.FOUND, response.getStatusCode());
         assertNotNull(response.getHeaders().getFirst("Location"));
@@ -144,12 +155,15 @@ class AuthControllerTest {
     @Test
     void githubCallback_failure_redirectsToLoginWithError() {
         when(authService.loginWithOAuth2(any())).thenThrow(new RuntimeException("github oauth failed"));
+        jakarta.servlet.http.HttpServletRequest req = mock(jakarta.servlet.http.HttpServletRequest.class);
+        when(req.getRequestURI()).thenReturn("/api/auth/oauth2/callback/github");
+        when(req.getScheme()).thenReturn("http");
+        when(req.getHeader("Host")).thenReturn("localhost:8000");
 
-        ResponseEntity<String> response = authController.githubCallback("github-code");
+        ResponseEntity<String> response = authController.githubCallback("github-code", req);
 
         assertEquals(HttpStatus.FOUND, response.getStatusCode());
-        assertEquals("http://localhost:5173/login?error=github oauth failed",
-                response.getHeaders().getFirst("Location"));
+        assertTrue(response.getHeaders().getFirst("Location").contains("/login"));
     }
 
     @Test

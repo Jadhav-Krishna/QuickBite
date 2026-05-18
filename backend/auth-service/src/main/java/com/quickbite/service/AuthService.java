@@ -81,6 +81,9 @@ public class AuthService {
     @Value("${oauth2.redirect-base-url:http://localhost:8000}")
     private String oauthRedirectBaseUrl;
 
+    @Value("${app.frontend-base-url:http://localhost:5173}")
+    private String frontendBaseUrl;
+
     // ==================== Registration & Login ====================
 
     public AuthResponse signup(SignupRequest request) {
@@ -559,6 +562,63 @@ public class AuthService {
         user.setIsActive(false);
         userRepository.save(user);
         log.info("Account deactivated for user: {}", email);
+    }
+
+    // ==================== Forgot / Reset Password ====================
+
+    public void forgotPassword(String email) {
+        userRepository.findByEmail(email).ifPresent(user -> {
+            if (user.getOauthProvider() != null && !user.getOauthProvider().isEmpty()) {
+                return; // silently skip OAuth accounts
+            }
+            String token = java.util.UUID.randomUUID().toString();
+            if (redisTemplate != null) {
+                redisTemplate.opsForValue().set(
+                        "pwd:reset:" + token, email,
+                        java.time.Duration.ofMinutes(30));
+            }
+            String resetLink = frontendBaseUrl + "/forgot-password?token=" + token;
+            publishPasswordResetNotification(user, resetLink);
+            log.info("Password reset link generated for: {}", email);
+        });
+        // Always return success to avoid email enumeration
+    }
+
+    public void resetPassword(String token, String newPassword) {
+        if (redisTemplate == null) {
+            throw new AuthenticationException("Password reset service unavailable");
+        }
+        String key = "pwd:reset:" + token;
+        Object cached = redisTemplate.opsForValue().get(key);
+        if (cached == null) {
+            throw new InvalidCredentialsException("Reset link is invalid or has expired");
+        }
+        String email = cached.toString();
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new AuthenticationException(USER_NOT_FOUND));
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+        redisTemplate.delete(key);
+        log.info("Password reset successfully for: {}", email);
+    }
+
+    private void publishPasswordResetNotification(User user, String resetLink) {
+        if (rabbitTemplate == null) return;
+        try {
+            AuthEvent event = AuthEvent.builder()
+                    .eventType("PASSWORD_RESET")
+                    .userId(user.getId())
+                    .title("Password Reset Request")
+                    .message("Click the link to reset your password: " + resetLink)
+                    .notificationType("EMAIL")
+                    .recipientEmail(user.getEmail())
+                    .recipientRole(user.getRole().name())
+                    .createdAt(LocalDateTime.now().toString())
+                    .build();
+            rabbitTemplate.convertAndSend(NOTIFICATION_EXCHANGE, "notification.password_reset", event);
+        } catch (Exception e) {
+            log.warn("Failed to publish password reset notification: {}", e.getMessage());
+        }
     }
 
     // ==================== Admin Operations ====================

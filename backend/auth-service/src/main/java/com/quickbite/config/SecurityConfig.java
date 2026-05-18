@@ -37,6 +37,8 @@ public class SecurityConfig {
                                 "/api/auth/oauth2/login",
                                 "/api/auth/oauth2/callback/**",
                                 "/api/auth/validate",
+                                "/api/auth/forgot-password",
+                                "/api/auth/reset-password",
                                 "/api/v1/auth/addresses/geocode",
                                 "/api/v1/auth/addresses/reverse-geocode",
                                 "/actuator/**"

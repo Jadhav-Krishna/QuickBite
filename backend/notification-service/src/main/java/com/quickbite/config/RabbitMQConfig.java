@@ -25,6 +25,7 @@ public class RabbitMQConfig {
     public static final String SMS_QUEUE = "quickbite.sms.queue";
     public static final String AUTH_LOGIN_QUEUE = "auth.login.queue";
     public static final String AUTH_SIGNUP_QUEUE = "auth.signup.queue";
+    public static final String AUTH_PASSWORD_RESET_QUEUE = "auth.password_reset.queue";
 
     // Routing keys
     public static final String NOTIFICATION_ROUTING_KEY = "notification.#";
@@ -83,6 +84,11 @@ public class RabbitMQConfig {
         return new Queue(AUTH_SIGNUP_QUEUE, true, false, false);
     }
 
+    @Bean
+    public Queue authPasswordResetQueue() {
+        return new Queue(AUTH_PASSWORD_RESET_QUEUE, true, false, false);
+    }
+
     // Bindings
     @Bean
     public Binding notificationBinding(@Qualifier("notificationQueue") Queue notificationQueue, 
@@ -122,6 +128,14 @@ public class RabbitMQConfig {
         return BindingBuilder.bind(authSignupQueue)
                 .to(notificationExchange)
                 .with("notification.signup");
+    }
+
+    @Bean
+    public Binding authPasswordResetBinding(@Qualifier("authPasswordResetQueue") Queue authPasswordResetQueue,
+                                            @Qualifier("notificationExchange") TopicExchange notificationExchange) {
+        return BindingBuilder.bind(authPasswordResetQueue)
+                .to(notificationExchange)
+                .with("notification.password_reset");
     }
 
     @Bean

@@ -1,5 +1,6 @@
 package com.quickbite.config;
 
+import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.TopicExchange;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -16,6 +17,11 @@ public class RabbitMQConfig {
     @Bean
     public TopicExchange notificationExchange() {
         return new TopicExchange(NOTIFICATION_EXCHANGE, true, false);
+    }
+
+    @Bean
+    public Queue authPasswordResetQueue() {
+        return new Queue("auth.password_reset.queue", true, false, false);
     }
 
     @Bean

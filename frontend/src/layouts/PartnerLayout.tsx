@@ -68,7 +68,7 @@ export default function PartnerLayout() {
         </div>
       </aside>
 
-      <main className="flex-1 ml-72 flex flex-col min-h-screen">
+      <main className="flex-1 ml-72 flex min-h-screen flex-col bg-[#f8f9fa]">
         <header className="h-20 bg-white/80 backdrop-blur-xl border-b border-[var(--color-outline-variant)]/50 px-10 flex items-center justify-between sticky top-0 z-10">
           <div className="flex items-center gap-3">
             <h2 className="font-display text-xl font-bold">Spice Route Kitchen</h2>
@@ -82,7 +82,7 @@ export default function PartnerLayout() {
           </div>
         </header>
 
-        <div className="p-8 md:p-10 flex-1 overflow-x-hidden">
+        <div className="flex-1 overflow-x-hidden bg-[#f8f9fa] p-8 md:p-10">
           <Outlet />
         </div>
       </main>

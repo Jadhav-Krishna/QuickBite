@@ -384,7 +384,7 @@ export default function PartnerMenu() {
       ) : null}
 
       {showDishModal ? (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm p-4 flex items-center justify-center">
+        <div className="fixed h-[90vh] bottom-0 right-0 top-0 left-0 z-[9999] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
           <form onSubmit={handleDishSubmit} className="w-full max-w-2xl rounded-3xl border border-[var(--color-outline-variant)]/30 bg-white p-6 shadow-2xl">
             <div className="mb-5 flex items-center justify-between">
               <h2 className="font-display text-2xl font-black">{editingDishId ? 'Edit Dish' : 'Add New Dish'}</h2>

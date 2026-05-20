@@ -76,6 +76,7 @@ export default function PartnerDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [showRestaurantForm, setShowRestaurantForm] = useState(false);
+  const [restaurantFormStep, setRestaurantFormStep] = useState(1);
   const [restaurantForm, setRestaurantForm] = useState<RestaurantForm>(EMPTY_FORM);
 
   const primaryRestaurant = restaurants[0] || null;
@@ -144,12 +145,14 @@ export default function PartnerDashboard() {
     } else {
       setRestaurantForm(EMPTY_FORM);
     }
+    setRestaurantFormStep(1);
     setShowRestaurantForm(true);
   };
 
   const closeRestaurantForm = () => {
     if (saving) return;
     setShowRestaurantForm(false);
+    setRestaurantFormStep(1);
   };
 
   const validateRestaurantForm = () => {
@@ -211,6 +214,7 @@ export default function PartnerDashboard() {
         setRestaurants([created]);
       }
       setShowRestaurantForm(false);
+      setRestaurantFormStep(1);
       await loadDashboard();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to save restaurant.');
@@ -357,88 +361,155 @@ export default function PartnerDashboard() {
       )}
 
       {showRestaurantForm ? (
-        <div className="fixed top-1/2 inset-0 z-50 bg-black/40 backdrop-blur-sm p-4 flex items-center justify-center">
-          <form onSubmit={handleRestaurantSubmit} className="w-full max-w-4xl rounded-3xl border border-[var(--color-outline-variant)]/30 bg-white p-6 shadow-2xl">
-            <div className="mb-5 flex items-center justify-between">
-              <h2 className="font-display text-2xl font-black">{primaryRestaurant ? 'Edit Restaurant Profile' : 'Create Restaurant Profile'}</h2>
-              <button type="button" onClick={closeRestaurantForm} className="rounded-full p-2 hover:bg-[var(--color-surface-container)]">
+        <div className="fixed bottom-0 right-0 top-0 left-0 z-[9999] flex items-center justify-center bg-black/40 px-4 py-6 backdrop-blur-sm">
+          <form
+            onSubmit={handleRestaurantSubmit}
+            className={`flex max-h-[calc(100dvh-5rem)] w-full flex-col overflow-hidden rounded-3xl border border-[var(--color-outline-variant)]/30 bg-white shadow-2xl transition-[max-width] ${
+              restaurantFormStep === 2 ? 'max-w-7xl' : 'max-w-7xl'
+            }`}
+          >
+            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-[var(--color-outline-variant)]/30 px-4 py-4 sm:px-6">
+              <div>
+                <h2 className="font-display text-xl font-black sm:text-2xl">{primaryRestaurant ? 'Edit Restaurant Profile' : 'Create Restaurant Profile'}</h2>
+                <div className="mt-3 flex gap-2">
+                  {[1, 2].map((step) => (
+                    <button
+                      key={step}
+                      type="button"
+                      onClick={() => setRestaurantFormStep(step)}
+                      className={`h-2.5 rounded-full transition-all ${restaurantFormStep === step ? 'w-10 bg-[var(--color-primary)]' : 'w-2.5 bg-[var(--color-outline-variant)]/60'}`}
+                      aria-label={`Go to step ${step}`}
+                    />
+                  ))}
+                </div>
+              </div>
+              <button type="button" onClick={closeRestaurantForm} className="shrink-0 rounded-full p-2 hover:bg-[var(--color-surface-container)]">
                 <X size={18} />
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {[
-                { key: 'name', label: 'Restaurant Name*' },
-                { key: 'cuisineType', label: 'Primary Cuisine*' },
-                { key: 'phoneNumber', label: 'Phone Number*' },
-                { key: 'email', label: 'Email*', type: 'email' },
-                { key: 'gstNumber', label: 'GST Number* (15 digits)', maxLength: 15 },
-                { key: 'fssaiLicenseNumber', label: 'FSSAI License* (14 digits)', maxLength: 14 },
-                { key: 'address', label: 'Address*' },
-                { key: 'city', label: 'City*' },
-                { key: 'state', label: 'State*' },
-                { key: 'pincode', label: 'Pincode*' },
-                { key: 'imageUrl', label: 'Image URL*' },
-                { key: 'openingTime', label: 'Opening Time', type: 'time' },
-                { key: 'closingTime', label: 'Closing Time', type: 'time' },
-                { key: 'deliveryFee', label: 'Delivery Fee', type: 'number' },
-                { key: 'estimatedDeliveryMin', label: 'Estimated Delivery (mins)', type: 'number' },
-                { key: 'latitude', label: 'Latitude*', type: 'number' },
-                { key: 'longitude', label: 'Longitude*', type: 'number' },
-              ].map((field) => (
-                <label key={field.key} className="text-sm font-semibold text-[var(--color-on-surface)]">
-                  <span className="mb-1.5 block">{field.label}</span>
-                  <input
-                    type={field.type || 'text'}
-                    value={restaurantForm[field.key as keyof RestaurantForm]}
-                    onChange={(e) => setRestaurantForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
-                    maxLength={field.maxLength}
-                    className="w-full rounded-xl border border-[var(--color-outline-variant)]/40 px-4 py-3 text-sm"
-                    required={field.label.includes('*')}
-                  />
-                </label>
-              ))}
+            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+              {restaurantFormStep === 1 ? (
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-widest text-[var(--color-primary)]">Step 1 of 2</p>
+                    <h3 className="mt-1 font-display text-lg font-black">Restaurant Details</h3>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    {[
+                      { key: 'name', label: 'Restaurant Name*' },
+                      { key: 'cuisineType', label: 'Primary Cuisine*' },
+                      { key: 'phoneNumber', label: 'Phone Number*' },
+                      { key: 'email', label: 'Email*', type: 'email' },
+                      { key: 'gstNumber', label: 'GST Number* (15 digits)', maxLength: 15 },
+                      { key: 'fssaiLicenseNumber', label: 'FSSAI License* (14 digits)', maxLength: 14 },
+                      { key: 'address', label: 'Address*' },
+                      { key: 'city', label: 'City*' },
+                      { key: 'state', label: 'State*' },
+                      { key: 'pincode', label: 'Pincode*' },
+                    ].map((field) => (
+                      <label key={field.key} className="text-sm font-semibold text-[var(--color-on-surface)]">
+                        <span className="mb-1 block">{field.label}</span>
+                        <input
+                          type={field.type || 'text'}
+                          value={restaurantForm[field.key as keyof RestaurantForm]}
+                          onChange={(e) => setRestaurantForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                          maxLength={field.maxLength}
+                          className="w-full rounded-xl border border-[var(--color-outline-variant)]/40 px-4 py-2.5 text-sm"
+                          required={field.label.includes('*')}
+                        />
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-widest text-[var(--color-primary)]">Step 2 of 2</p>
+                    <h3 className="mt-1 font-display text-lg font-black">Operations & Location</h3>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(20rem,0.45fr)]">
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                        {[
+                          { key: 'imageUrl', label: 'Image URL*' },
+                          { key: 'openingTime', label: 'Opening Time', type: 'time' },
+                          { key: 'closingTime', label: 'Closing Time', type: 'time' },
+                          { key: 'deliveryFee', label: 'Delivery Fee', type: 'number' },
+                          { key: 'estimatedDeliveryMin', label: 'Estimated Delivery (mins)', type: 'number' },
+                          { key: 'latitude', label: 'Latitude*', type: 'number' },
+                          { key: 'longitude', label: 'Longitude*', type: 'number' },
+                        ].map((field) => (
+                          <label key={field.key} className="text-sm font-semibold text-[var(--color-on-surface)]">
+                            <span className="mb-1 block">{field.label}</span>
+                            <input
+                              type={field.type || 'text'}
+                              value={restaurantForm[field.key as keyof RestaurantForm]}
+                              onChange={(e) => setRestaurantForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                              className="w-full rounded-xl border border-[var(--color-outline-variant)]/40 px-4 py-2.5 text-sm"
+                              required={field.label.includes('*')}
+                            />
+                          </label>
+                        ))}
+                      </div>
+
+                      <label className="block text-sm font-semibold text-[var(--color-on-surface)]">
+                        <span className="mb-1 block">Description</span>
+                        <textarea
+                          rows={2}
+                          value={restaurantForm.description}
+                          onChange={(e) => setRestaurantForm((prev) => ({ ...prev, description: e.target.value }))}
+                          className="w-full rounded-xl border border-[var(--color-outline-variant)]/40 px-4 py-2.5 text-sm"
+                        />
+                      </label>
+                    </div>
+
+                    {primaryRestaurant?.id && (
+                      <div className="xl:max-h-[22rem] xl:overflow-y-auto">
+                        <ImageUpload
+                          currentImageUrl={primaryRestaurant.imageUrl}
+                          onUpload={async (file) => {
+                            const imageUrl = await restaurantService.uploadRestaurantImage(primaryRestaurant.id, file);
+                            setRestaurants((prev) => prev.map((r) => (r.id === primaryRestaurant.id ? { ...r, imageUrl } : r)));
+                            setRestaurantForm((prev) => ({ ...prev, imageUrl }));
+                            return imageUrl;
+                          }}
+                          onDelete={async () => {
+                            await restaurantService.deleteRestaurantImage(primaryRestaurant.id);
+                            setRestaurants((prev) => prev.map((r) => (r.id === primaryRestaurant.id ? { ...r, imageUrl: undefined } : r)));
+                            setRestaurantForm((prev) => ({ ...prev, imageUrl: '' }));
+                          }}
+                          maxSizeMB={10}
+                          aspectRatio="16/9"
+                          label="Restaurant Image"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
-            <label className="mt-4 block text-sm font-semibold text-[var(--color-on-surface)]">
-              <span className="mb-1.5 block">Description</span>
-              <textarea
-                rows={3}
-                value={restaurantForm.description}
-                onChange={(e) => setRestaurantForm((prev) => ({ ...prev, description: e.target.value }))}
-                className="w-full rounded-xl border border-[var(--color-outline-variant)]/40 px-4 py-3 text-sm"
-              />
-            </label>
-
-            {primaryRestaurant?.id && (
-              <div className="mt-4">
-                <ImageUpload
-                  currentImageUrl={primaryRestaurant.imageUrl}
-                  onUpload={async (file) => {
-                    const imageUrl = await restaurantService.uploadRestaurantImage(primaryRestaurant.id, file);
-                    setRestaurants((prev) => prev.map((r) => (r.id === primaryRestaurant.id ? { ...r, imageUrl } : r)));
-                    setRestaurantForm((prev) => ({ ...prev, imageUrl }));
-                    return imageUrl;
-                  }}
-                  onDelete={async () => {
-                    await restaurantService.deleteRestaurantImage(primaryRestaurant.id);
-                    setRestaurants((prev) => prev.map((r) => (r.id === primaryRestaurant.id ? { ...r, imageUrl: undefined } : r)));
-                    setRestaurantForm((prev) => ({ ...prev, imageUrl: '' }));
-                  }}
-                  maxSizeMB={10}
-                  aspectRatio="16/9"
-                  label="Restaurant Image"
-                />
-              </div>
-            )}
-
-            <div className="mt-6 flex justify-end gap-2">
+            <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-[var(--color-outline-variant)]/30 px-4 py-4 sm:flex-row sm:justify-end sm:px-6">
               <button type="button" onClick={closeRestaurantForm} className="rounded-full border border-[var(--color-outline-variant)]/40 px-5 py-2.5 text-sm font-semibold">
                 Cancel
               </button>
-              <button type="submit" disabled={saving} className="rounded-full bg-[var(--color-primary)] px-5 py-2.5 text-sm font-bold text-white disabled:opacity-60">
-                {saving ? 'Saving...' : primaryRestaurant ? 'Update Restaurant' : 'Create Restaurant'}
-              </button>
+              {restaurantFormStep === 1 ? (
+                <button type="button" onClick={() => setRestaurantFormStep(2)} className="rounded-full bg-[var(--color-primary)] px-5 py-2.5 text-sm font-bold text-white">
+                  Next
+                </button>
+              ) : (
+                <>
+                  <button type="button" onClick={() => setRestaurantFormStep(1)} className="rounded-full border border-[var(--color-outline-variant)]/40 px-5 py-2.5 text-sm font-semibold">
+                    Back
+                  </button>
+                  <button type="submit" disabled={saving} className="rounded-full bg-[var(--color-primary)] px-5 py-2.5 text-sm font-bold text-white disabled:opacity-60">
+                    {saving ? 'Saving...' : primaryRestaurant ? 'Update Restaurant' : 'Create Restaurant'}
+                  </button>
+                </>
+              )}
             </div>
           </form>
         </div>

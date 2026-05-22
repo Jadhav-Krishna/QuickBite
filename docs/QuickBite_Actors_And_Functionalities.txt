@@ -1,0 +1,876 @@
+================================================================================
+                    QUICKBITE - ACTORS & FUNCTIONALITIES
+                        Microserviced Backend System
+================================================================================
+
+TABLE OF CONTENTS
+-----------------
+1. System Actors Overview
+2. Customer Functionalities
+3. Restaurant Owner Functionalities
+4. Delivery Agent Functionalities
+5. Admin Functionalities
+6. Application Admin Functionalities
+7. Use Case Diagrams
+8. Actor-Service Mapping
+9. Permission Matrix
+
+================================================================================
+1. SYSTEM ACTORS OVERVIEW
+================================================================================
+
+QuickBite system has 5 primary actors:
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ Actor                  │ Role Enum              │ Primary Services      │
+├────────────────────────┼────────────────────────┼───────────────────────┤
+│ Customer               │ CUSTOMER               │ All services          │
+│ Restaurant Owner       │ RESTAURANT_OWNER       │ Restaurant, Menu,     │
+│                        │                        │ Order                 │
+│ Delivery Agent         │ DELIVERY_AGENT         │ Delivery, Order       │
+│ Admin                  │ ADMIN                  │ All services          │
+│ Application Admin      │ APPLICATION_ADMIN      │ Auth, System          │
+└─────────────────────────────────────────────────────────────────────────┘
+
+================================================================================
+2. CUSTOMER FUNCTIONALITIES
+================================================================================
+
+2.1 AUTHENTICATION & PROFILE MANAGEMENT (Auth Service - Port 8081)
+-------------------------------------------------------------------
+✓ User Registration
+  - POST /api/auth/signup
+  - Register with email/password
+  - Automatic role assignment (CUSTOMER)
+  - Password encryption (BCrypt)
+  - Email verification flag
+
+✓ User Login
+  - POST /api/auth/login
+  - Email/password authentication
+  - JWT token generation (access + refresh)
+  - Last login timestamp update
+
+✓ OAuth2 Login
+  - POST /api/auth/oauth2/login
+  - Google OAuth2 integration
+  - GitHub OAuth2 integration
+  - Automatic user creation for new OAuth users
+  - Profile picture from OAuth provider
+
+✓ Token Management
+  - POST /api/auth/refresh-token
+  - Refresh access token using refresh token
+  - GET /api/auth/validate
+  - Validate JWT token
+
+✓ Profile Management
+  - GET /api/auth/profile
+  - View user profile details
+  - PUT /api/auth/profile
+  - Update profile (fullName, phone, profilePicture)
+  - PUT /api/auth/password
+  - Change password (requires old password)
+  - POST /api/auth/deactivate
+  - Deactivate account (soft delete)
+
+✓ Address Management
+  - POST /api/auth/addresses
+  - Add new delivery address
+  - GET /api/auth/addresses
+  - List all saved addresses
+  - PUT /api/auth/addresses/{id}
+  - Update address details
+  - DELETE /api/auth/addresses/{id}
+  - Remove address
+  - PUT /api/auth/addresses/{id}/default
+  - Set default delivery address
+
+2.2 RESTAURANT BROWSING (Restaurant Service - Port 8082)
+---------------------------------------------------------
+✓ Browse Restaurants
+  - GET /api/v1/restaurants
+  - List all restaurants
+  - GET /api/v1/restaurants/active
+  - List only active & approved restaurants
+
+✓ Location-Based Search
+  - GET /api/v1/restaurants/nearby
+  - Find restaurants within radius (PostGIS spatial query)
+  - Parameters: latitude, longitude, radiusKm (default 10km)
+  - GET /api/v1/restaurants/nearby/cuisine
+  - Filter nearby restaurants by cuisine type
+
+✓ Search & Filter
+  - GET /api/v1/restaurants/search?keyword={keyword}
+  - Search by name, cuisine, description
+  - GET /api/v1/restaurants/city/{city}
+  - Filter by city
+  - GET /api/v1/restaurants/cuisine/{cuisineType}
+  - Filter by cuisine type
+
+✓ Restaurant Details
+  - GET /api/v1/restaurants/{id}
+  - View complete restaurant details
+  - Includes: rating, reviews, delivery info, timings
+
+2.3 MENU BROWSING (Menu Service - Port 8083)
+---------------------------------------------
+✓ Browse Menu
+  - GET /api/v1/menu/items/restaurant/{restaurantId}
+  - View complete restaurant menu
+  - GET /api/v1/menu/categories/restaurant/{restaurantId}
+  - View menu categories
+  - GET /api/v1/menu/items/category/{categoryId}
+  - View items by category
+
+✓ Menu Filters
+  - GET /api/v1/menu/items/restaurant/{restaurantId}/available
+  - View only available items
+  - GET /api/v1/menu/items/restaurant/{restaurantId}/veg
+  - Filter vegetarian items
+  - GET /api/v1/menu/items/search?keyword={keyword}
+  - Search menu items
+
+✓ Item Details
+  - GET /api/v1/menu/items/{id}
+  - View item details (price, description, rating, prep time)
+
+2.4 SHOPPING CART MANAGEMENT (Cart Service - Port 8084)
+--------------------------------------------------------
+✓ Cart Operations
+  - GET /api/v1/cart?customerId={id}
+  - View current cart
+  - POST /api/v1/cart/items
+  - Add item to cart
+  - PUT /api/v1/cart/items/{itemId}
+  - Update item quantity
+  - DELETE /api/v1/cart/items/{itemId}
+  - Remove item from cart
+  - DELETE /api/v1/cart?customerId={id}
+  - Clear entire cart
+
+✓ Restaurant Switching
+  - POST /api/v1/cart/switch-restaurant
+  - Switch to different restaurant (clears current cart)
+
+✓ Promo Codes
+  - POST /api/v1/cart/promo
+  - Apply promo code to cart
+  - Automatic discount calculation
+
+✓ Cart Summary
+  - GET /api/v1/cart/total?customerId={id}
+  - Get cart total amount
+
+2.5 ORDER PLACEMENT & TRACKING (Order Service - Port 8085)
+-----------------------------------------------------------
+✓ Place Order
+  - POST /api/v1/orders
+  - Create order from cart
+  - Select payment method (RAZORPAY, WALLET, COD)
+  - Provide delivery address
+  - Add special instructions
+  - Automatic order number generation
+
+✓ Order History
+  - GET /api/v1/orders/customer/{customerId}
+  - View all past orders
+  - Includes order status, items, payment info
+
+✓ Order Details
+  - GET /api/v1/orders/{orderNumber}
+  - View specific order details
+  - Real-time status updates
+
+✓ Order Tracking
+  - Track order status progression:
+    PENDING → CONFIRMED → PREPARING → READY_FOR_PICKUP → 
+    PICKED_UP → OUT_FOR_DELIVERY → DELIVERED
+
+✓ Order Cancellation
+  - PUT /api/v1/orders/{orderNumber}/cancel
+  - Cancel order (before preparation)
+  - Automatic refund initiation
+
+2.6 PAYMENT MANAGEMENT (Payment Service - Port 8086)
+-----------------------------------------------------
+✓ Online Payment (Razorpay)
+  - POST /api/v1/payments/initiate
+  - Initiate Razorpay payment
+  - POST /api/v1/payments/verify
+  - Verify payment signature
+  - Razorpay checkout integration
+
+✓ Wallet Management
+  - GET /api/v1/payments/wallet/balance/{customerId}
+  - Check wallet balance
+  - POST /api/v1/payments/wallet/deposit
+  - Add money to wallet
+  - POST /api/v1/payments/wallet/pay
+  - Pay from wallet
+  - GET /api/v1/payments/wallet/statements/{customerId}
+  - View wallet transaction history
+
+✓ Cash on Delivery (COD)
+  - POST /api/v1/payments/cod
+  - Select COD payment method
+  - Payment marked as PENDING until delivery
+
+✓ Payment History
+  - GET /api/v1/payments/customer/{customerId}
+  - View all payment transactions
+  - Includes refunds, wallet transactions
+
+✓ Refunds
+  - Automatic refund processing for cancelled orders
+  - Refund to original payment method or wallet
+
+2.7 DELIVERY TRACKING (Delivery Service - Port 8087)
+-----------------------------------------------------
+✓ Track Delivery Agent
+  - Real-time location updates
+  - View agent details (name, phone, vehicle)
+  - Estimated delivery time
+
+✓ Route Information
+  - GET /api/v1/delivery/route
+  - View delivery route on map
+  - Distance and time estimation (OSRM integration)
+
+2.8 REVIEWS & RATINGS (Review Service - Port 8088)
+---------------------------------------------------
+✓ Submit Review
+  - POST /api/v1/reviews
+  - Rate restaurant (1-5 stars)
+  - Rate delivery agent (1-5 stars)
+  - Write review comments
+  - Option for anonymous review
+
+✓ View Reviews
+  - GET /api/v1/reviews/restaurant/{restaurantId}
+  - View restaurant reviews
+  - GET /api/v1/reviews/customer/{customerId}
+  - View own review history
+
+2.9 NOTIFICATIONS (Notification Service - Port 8089)
+-----------------------------------------------------
+✓ View Notifications
+  - GET /api/v1/notifications/user/{userId}
+  - View all notifications
+  - GET /api/v1/notifications/user/{userId}/unread
+  - View unread notifications
+  - GET /api/v1/notifications/user/{userId}/unread/count
+  - Get unread count
+
+✓ Manage Notifications
+  - PUT /api/v1/notifications/{notificationId}/read
+  - Mark as read
+  - PUT /api/v1/notifications/user/{userId}/read-all
+  - Mark all as read
+  - DELETE /api/v1/notifications/{notificationId}
+  - Delete notification
+  - DELETE /api/v1/notifications/user/{userId}
+  - Clear all notifications
+
+✓ Notification Types
+  - Order placed confirmation
+  - Order status updates
+  - Payment confirmations
+  - Delivery agent assigned
+  - Order delivered
+  - Promotional offers
+
+================================================================================
+3. RESTAURANT OWNER FUNCTIONALITIES
+================================================================================
+
+3.1 AUTHENTICATION (Auth Service - Port 8081)
+----------------------------------------------
+✓ Same as Customer authentication
+  - Registration with role: RESTAURANT_OWNER
+  - Login, OAuth2, Profile management
+
+3.2 RESTAURANT MANAGEMENT (Restaurant Service - Port 8082)
+-----------------------------------------------------------
+✓ Register Restaurant
+  - POST /api/v1/restaurants
+  - Submit restaurant details
+  - Provide location (latitude, longitude)
+  - Set delivery radius, fees, timings
+  - Upload restaurant image
+  - Status: isApproved=false (pending admin approval)
+
+✓ Update Restaurant
+  - PUT /api/v1/restaurants/{id}
+  - Update restaurant details
+  - Change timings, delivery settings
+  - Update contact information
+
+✓ Restaurant Operations
+  - PUT /api/v1/restaurants/{id}/toggle-open
+  - Open/Close restaurant for orders
+  - PUT /api/v1/restaurants/{id}/toggle-active
+  - Activate/Deactivate restaurant
+
+✓ Image Management
+  - POST /api/v1/restaurants/{id}/upload-image
+  - Upload/update restaurant image (Cloudinary)
+  - DELETE /api/v1/restaurants/{id}/delete-image
+  - Remove restaurant image
+
+✓ View Own Restaurants
+  - GET /api/v1/restaurants/owner/{ownerId}
+  - List all owned restaurants
+
+3.3 MENU MANAGEMENT (Menu Service - Port 8083)
+-----------------------------------------------
+✓ Category Management
+  - POST /api/v1/menu/categories
+  - Create menu category
+  - PUT /api/v1/menu/categories/{id}
+  - Update category details
+  - DELETE /api/v1/menu/categories/{id}
+  - Delete category
+  - Set display order for categories
+
+✓ Menu Item Management
+  - POST /api/v1/menu/items
+  - Add new menu item
+  - PUT /api/v1/menu/items/{id}
+  - Update item details (price, description, etc.)
+  - DELETE /api/v1/menu/items/{id}
+  - Remove menu item
+  - PUT /api/v1/menu/items/{id}/availability
+  - Toggle item availability
+
+✓ Item Image Management
+  - POST /api/v1/menu/items/{id}/upload-image
+  - Upload item image (Cloudinary)
+  - DELETE /api/v1/menu/items/{id}/delete-image
+  - Remove item image
+
+✓ Menu Analytics
+  - View item order counts
+  - View item ratings
+  - Popular items tracking
+
+3.4 ORDER MANAGEMENT (Order Service - Port 8085)
+-------------------------------------------------
+✓ View Orders
+  - GET /api/v1/orders/restaurant/{restaurantId}
+  - View active orders (PENDING, PREPARING, READY_FOR_PICKUP)
+  - Real-time order notifications
+
+✓ Order Processing
+  - PUT /api/v1/orders/{orderNumber}/confirm
+  - Accept order (status: CONFIRMED → PREPARING)
+  - PUT /api/v1/orders/{orderNumber}/status?status=PREPARING
+  - Update order status
+  - PUT /api/v1/orders/{orderNumber}/status?status=READY_FOR_PICKUP
+  - Mark order ready for pickup
+
+✓ Pickup Confirmation
+  - PUT /api/v1/orders/{orderNumber}/pickup/restaurant-confirm
+  - Confirm order handed to delivery agent
+
+✓ Order Cancellation
+  - PUT /api/v1/orders/{orderNumber}/cancel
+  - Cancel order with reason
+  - Automatic refund processing
+
+3.5 ANALYTICS & REPORTS
+------------------------
+✓ Restaurant Performance
+  - View total orders
+  - View revenue statistics
+  - View ratings and reviews
+  - Popular menu items
+
+✓ Notifications
+  - New order alerts
+  - Payment confirmations
+  - Customer reviews
+
+================================================================================
+4. DELIVERY AGENT FUNCTIONALITIES
+================================================================================
+
+4.1 AUTHENTICATION (Auth Service - Port 8081)
+----------------------------------------------
+✓ Same as Customer authentication
+  - Registration with role: DELIVERY_AGENT
+  - Login, Profile management
+
+4.2 AGENT REGISTRATION (Delivery Service - Port 8087)
+------------------------------------------------------
+✓ Register as Delivery Agent
+  - POST /api/v1/delivery/agents/register
+  - Provide personal details
+  - Vehicle information (type, number)
+  - License number, Aadhar number
+  - Status: isVerified=false (pending verification)
+
+✓ Profile Management
+  - GET /api/v1/delivery/agents/{agentId}
+  - View agent profile
+  - PUT /api/v1/delivery/agents/{agentId}/profile
+  - Update profile details
+
+4.3 AVAILABILITY MANAGEMENT (Delivery Service - Port 8087)
+-----------------------------------------------------------
+✓ Toggle Online/Offline
+  - PUT /api/v1/delivery/agents/{agentId}/availability
+  - Go online to receive orders
+  - Go offline when not available
+
+✓ Location Updates
+  - PUT /api/v1/delivery/agents/{agentId}/location
+  - Real-time location updates (PostGIS)
+  - Automatic location tracking during delivery
+
+4.4 ORDER MANAGEMENT (Order Service - Port 8085)
+-------------------------------------------------
+✓ View Available Orders
+  - GET /api/v1/orders/delivery/available
+  - View orders ready for pickup
+  - Nearby orders based on location
+
+✓ View Assigned Orders
+  - GET /api/v1/orders/delivery-agent/{agentId}
+  - View assigned deliveries
+  - Current and past deliveries
+
+✓ Order Details
+  - GET /api/v1/orders/{orderNumber}
+  - View order details
+  - Customer address, phone
+  - Restaurant location
+  - Order items
+
+4.5 DELIVERY OPERATIONS (Delivery Service - Port 8087)
+-------------------------------------------------------
+✓ Pickup Confirmation
+  - PUT /api/v1/delivery/agents/{agentId}/orders/{orderId}/pickup
+  - Confirm order picked up from restaurant
+  - Status: READY_FOR_PICKUP → PICKED_UP → OUT_FOR_DELIVERY
+
+✓ Delivery Confirmation
+  - PUT /api/v1/delivery/agents/{agentId}/orders/{orderId}/deliver
+  - Confirm order delivered to customer
+  - Status: OUT_FOR_DELIVERY → DELIVERED
+  - Automatic earnings calculation
+
+✓ Route Navigation
+  - GET /api/v1/delivery/route
+  - Get optimized route (OSRM)
+  - Turn-by-turn navigation
+  - Distance and time estimation
+
+4.6 EARNINGS & ANALYTICS (Delivery Service - Port 8087)
+--------------------------------------------------------
+✓ View Earnings
+  - GET /api/v1/delivery/agents/{agentId}/earnings
+  - View total earnings
+  - Today's earnings
+  - Delivery count
+
+✓ Delivery History
+  - View past deliveries
+  - Ratings received
+  - Performance metrics
+
+✓ Notifications
+  - New delivery assignment
+  - Order ready for pickup
+  - Customer messages
+  - Earnings updates
+
+================================================================================
+5. ADMIN FUNCTIONALITIES
+================================================================================
+
+5.1 AUTHENTICATION (Auth Service - Port 8081)
+----------------------------------------------
+✓ Admin Login
+  - POST /api/auth/login
+  - Role: ADMIN
+  - Full system access
+
+5.2 USER MANAGEMENT (Auth Service - Port 8081)
+-----------------------------------------------
+✓ View Users
+  - GET /api/auth/users
+  - List all users (requires admin token)
+  - GET /api/auth/users/role/{role}
+  - Filter users by role
+
+✓ User Operations
+  - PUT /api/auth/users/{userId}/suspend
+  - Suspend user account
+  - PUT /api/auth/users/{userId}/reactivate
+  - Reactivate suspended account
+  - DELETE /api/auth/users/{userId}
+  - Permanently delete user
+
+5.3 RESTAURANT MANAGEMENT (Restaurant Service - Port 8082)
+-----------------------------------------------------------
+✓ Restaurant Approval
+  - PUT /api/v1/restaurants/{id}/approve
+  - Approve new restaurant registration
+  - Verify restaurant details
+
+✓ Restaurant Operations
+  - PUT /api/v1/restaurants/{id}/toggle-active
+  - Activate/Deactivate restaurant
+  - DELETE /api/v1/restaurants/{id}
+  - Remove restaurant from system
+
+✓ View All Restaurants
+  - GET /api/v1/restaurants
+  - View all restaurants (including pending)
+
+5.4 MENU MANAGEMENT (Menu Service - Port 8083)
+-----------------------------------------------
+✓ Menu Oversight
+  - GET /api/v1/menu/items
+  - View all menu items across restaurants
+  - Monitor pricing, availability
+  - Remove inappropriate items
+
+5.5 ORDER MANAGEMENT (Order Service - Port 8085)
+-------------------------------------------------
+✓ View All Orders
+  - View orders across all restaurants
+  - Monitor order status
+  - Handle disputes
+
+✓ Order Operations
+  - Force cancel orders
+  - Reassign delivery agents
+  - Update order status
+
+5.6 PAYMENT MANAGEMENT (Payment Service - Port 8086)
+-----------------------------------------------------
+✓ Payment Oversight
+  - GET /api/v1/payments
+  - View all payment transactions
+  - Monitor payment failures
+  - Process refunds manually
+
+✓ Promo Code Management
+  - Create promo codes
+  - Set discount rules
+  - Activate/Deactivate codes
+  - Monitor usage
+
+5.7 DELIVERY AGENT MANAGEMENT (Delivery Service - Port 8087)
+-------------------------------------------------------------
+✓ Agent Verification
+  - Verify delivery agent documents
+  - Approve agent registration
+  - Suspend/Reactivate agents
+
+✓ Agent Monitoring
+  - GET /api/v1/delivery/agents
+  - View all delivery agents
+  - Monitor performance metrics
+  - View agent locations
+
+5.8 REVIEW MODERATION (Review Service - Port 8088)
+---------------------------------------------------
+✓ Review Management
+  - GET /api/v1/reviews
+  - View all reviews
+  - Remove inappropriate reviews
+  - Monitor rating trends
+
+5.9 SYSTEM MONITORING
+----------------------
+✓ Analytics Dashboard
+  - Total users, restaurants, orders
+  - Revenue statistics
+  - Active delivery agents
+  - System health metrics
+
+✓ Notifications
+  - System alerts
+  - Payment failures
+  - User complaints
+  - Restaurant issues
+
+================================================================================
+6. APPLICATION ADMIN FUNCTIONALITIES
+================================================================================
+
+6.1 SYSTEM ADMINISTRATION (Auth Service - Port 8081)
+-----------------------------------------------------
+✓ Super Admin Access
+  - Role: APPLICATION_ADMIN
+  - Highest level of access
+  - Manage other admins
+
+✓ Admin Management
+  - Create new admin accounts
+  - Assign admin roles
+  - Revoke admin access
+
+✓ System Configuration
+  - Configure system settings
+  - Manage service configurations
+  - Database maintenance
+
+✓ Security Management
+  - Monitor security logs
+  - Manage JWT secrets
+  - Configure OAuth2 settings
+
+================================================================================
+7. USE CASE DIAGRAMS (PlantUML)
+================================================================================
+
+@startuml QuickBite_Use_Cases_Customer
+left to right direction
+skinparam packageStyle rectangle
+
+actor Customer
+
+rectangle "QuickBite System" {
+  usecase "Register/Login" as UC1
+  usecase "Browse Restaurants" as UC2
+  usecase "Search Restaurants" as UC3
+  usecase "View Menu" as UC4
+  usecase "Add to Cart" as UC5
+  usecase "Manage Cart" as UC6
+  usecase "Place Order" as UC7
+  usecase "Make Payment" as UC8
+  usecase "Track Order" as UC9
+  usecase "Manage Wallet" as UC10
+  usecase "Submit Review" as UC11
+  usecase "View Notifications" as UC12
+  usecase "Manage Profile" as UC13
+  usecase "Manage Addresses" as UC14
+}
+
+Customer --> UC1
+Customer --> UC2
+Customer --> UC3
+Customer --> UC4
+Customer --> UC5
+Customer --> UC6
+Customer --> UC7
+Customer --> UC8
+Customer --> UC9
+Customer --> UC10
+Customer --> UC11
+Customer --> UC12
+Customer --> UC13
+Customer --> UC14
+
+UC7 ..> UC6 : <<include>>
+UC8 ..> UC7 : <<include>>
+UC9 ..> UC7 : <<include>>
+UC11 ..> UC9 : <<extend>>
+
+@enduml
+
+@startuml QuickBite_Use_Cases_RestaurantOwner
+left to right direction
+skinparam packageStyle rectangle
+
+actor "Restaurant Owner" as Owner
+
+rectangle "QuickBite System" {
+  usecase "Register Restaurant" as UC1
+  usecase "Manage Restaurant" as UC2
+  usecase "Toggle Open/Close" as UC3
+  usecase "Create Categories" as UC4
+  usecase "Manage Menu Items" as UC5
+  usecase "Upload Images" as UC6
+  usecase "View Orders" as UC7
+  usecase "Accept Order" as UC8
+  usecase "Update Order Status" as UC9
+  usecase "Confirm Pickup" as UC10
+  usecase "View Analytics" as UC11
+}
+
+Owner --> UC1
+Owner --> UC2
+Owner --> UC3
+Owner --> UC4
+Owner --> UC5
+Owner --> UC6
+Owner --> UC7
+Owner --> UC8
+Owner --> UC9
+Owner --> UC10
+Owner --> UC11
+
+UC5 ..> UC4 : <<include>>
+UC9 ..> UC8 : <<include>>
+UC10 ..> UC9 : <<include>>
+
+@enduml
+
+@startuml QuickBite_Use_Cases_DeliveryAgent
+left to right direction
+skinparam packageStyle rectangle
+
+actor "Delivery Agent" as Agent
+
+rectangle "QuickBite System" {
+  usecase "Register as Agent" as UC1
+  usecase "Toggle Online/Offline" as UC2
+  usecase "Update Location" as UC3
+  usecase "View Available Orders" as UC4
+  usecase "View Assigned Orders" as UC5
+  usecase "Confirm Pickup" as UC6
+  usecase "Navigate Route" as UC7
+  usecase "Confirm Delivery" as UC8
+  usecase "View Earnings" as UC9
+  usecase "View Delivery History" as UC10
+}
+
+Agent --> UC1
+Agent --> UC2
+Agent --> UC3
+Agent --> UC4
+Agent --> UC5
+Agent --> UC6
+Agent --> UC7
+Agent --> UC8
+Agent --> UC9
+Agent --> UC10
+
+UC6 ..> UC5 : <<include>>
+UC7 ..> UC6 : <<include>>
+UC8 ..> UC7 : <<include>>
+
+@enduml
+
+@startuml QuickBite_Use_Cases_Admin
+left to right direction
+skinparam packageStyle rectangle
+
+actor Admin
+
+rectangle "QuickBite System" {
+  usecase "Manage Users" as UC1
+  usecase "Approve Restaurants" as UC2
+  usecase "Manage Restaurants" as UC3
+  usecase "Monitor Orders" as UC4
+  usecase "Manage Payments" as UC5
+  usecase "Verify Agents" as UC6
+  usecase "Moderate Reviews" as UC7
+  usecase "Create Promo Codes" as UC8
+  usecase "View Analytics" as UC9
+  usecase "System Configuration" as UC10
+}
+
+Admin --> UC1
+Admin --> UC2
+Admin --> UC3
+Admin --> UC4
+Admin --> UC5
+Admin --> UC6
+Admin --> UC7
+Admin --> UC8
+Admin --> UC9
+Admin --> UC10
+
+@enduml
+
+================================================================================
+8. ACTOR-SERVICE MAPPING
+================================================================================
+
+┌──────────────────────┬─────────────────────────────────────────────────┐
+│ Actor                │ Services Used                                   │
+├──────────────────────┼─────────────────────────────────────────────────┤
+│ Customer             │ • Auth Service (authentication)                 │
+│                      │ • Restaurant Service (browse)                   │
+│                      │ • Menu Service (view menu)                      │
+│                      │ • Cart Service (shopping cart)                  │
+│                      │ • Order Service (place orders)                  │
+│                      │ • Payment Service (payments, wallet)            │
+│                      │ • Delivery Service (track delivery)             │
+│                      │ • Review Service (submit reviews)               │
+│                      │ • Notification Service (alerts)                 │
+├──────────────────────┼─────────────────────────────────────────────────┤
+│ Restaurant Owner     │ • Auth Service (authentication)                 │
+│                      │ • Restaurant Service (manage restaurant)        │
+│                      │ • Menu Service (manage menu)                    │
+│                      │ • Order Service (process orders)                │
+│                      │ • Notification Service (order alerts)           │
+├──────────────────────┼─────────────────────────────────────────────────┤
+│ Delivery Agent       │ • Auth Service (authentication)                 │
+│                      │ • Delivery Service (agent operations)           │
+│                      │ • Order Service (view/update orders)            │
+│                      │ • Notification Service (delivery alerts)        │
+├──────────────────────┼─────────────────────────────────────────────────┤
+│ Admin                │ • All Services (full access)                    │
+│                      │ • System monitoring and management              │
+├──────────────────────┼─────────────────────────────────────────────────┤
+│ Application Admin    │ • Auth Service (admin management)               │
+│                      │ • System configuration                          │
+│                      │ • Security management                           │
+└──────────────────────┴─────────────────────────────────────────────────┘
+
+================================================================================
+9. PERMISSION MATRIX
+================================================================================
+
+┌─────────────────────────┬──────────┬──────────┬──────────┬───────┬─────────┐
+│ Functionality           │ Customer │ Owner    │ Agent    │ Admin │ App Adm │
+├─────────────────────────┼──────────┼──────────┼──────────┼───────┼─────────┤
+│ Register/Login          │    ✓     │    ✓     │    ✓     │   ✓   │    ✓    │
+│ Browse Restaurants      │    ✓     │    ✓     │    ✓     │   ✓   │    ✓    │
+│ Place Order             │    ✓     │    ✗     │    ✗     │   ✓   │    ✗    │
+│ Manage Restaurant       │    ✗     │    ✓     │    ✗     │   ✓   │    ✗    │
+│ Manage Menu             │    ✗     │    ✓     │    ✗     │   ✓   │    ✗    │
+│ Process Orders          │    ✗     │    ✓     │    ✗     │   ✓   │    ✗    │
+│ Deliver Orders          │    ✗     │    ✗     │    ✓     │   ✓   │    ✗    │
+│ Approve Restaurant      │    ✗     │    ✗     │    ✗     │   ✓   │    ✗    │
+│ Suspend Users           │    ✗     │    ✗     │    ✗     │   ✓   │    ✓    │
+│ Verify Agents           │    ✗     │    ✗     │    ✗     │   ✓   │    ✗    │
+│ Create Promo Codes      │    ✗     │    ✗     │    ✗     │   ✓   │    ✗    │
+│ System Configuration    │    ✗     │    ✗     │    ✗     │   ✗   │    ✓    │
+│ Manage Admins           │    ✗     │    ✗     │    ✗     │   ✗   │    ✓    │
+└─────────────────────────┴──────────┴──────────┴──────────┴───────┴─────────┘
+
+Legend: ✓ = Allowed, ✗ = Not Allowed
+
+================================================================================
+10. FUNCTIONAL REQUIREMENTS SUMMARY
+================================================================================
+
+TOTAL FUNCTIONALITIES BY ACTOR:
+--------------------------------
+• Customer:              60+ functionalities across 9 services
+• Restaurant Owner:      35+ functionalities across 4 services
+• Delivery Agent:        25+ functionalities across 3 services
+• Admin:                 50+ functionalities across all services
+• Application Admin:     15+ functionalities for system management
+
+TOTAL API ENDPOINTS:     150+ REST endpoints
+TOTAL SERVICES:          9 microservices
+TOTAL DATABASES:         9 separate PostgreSQL databases
+
+KEY FEATURES:
+-------------
+✓ JWT-based authentication with refresh tokens
+✓ OAuth2 integration (Google, GitHub)
+✓ Location-based search (PostGIS)
+✓ Real-time order tracking
+✓ Multiple payment methods (Razorpay, Wallet, COD)
+✓ Image upload (Cloudinary)
+✓ Route optimization (OSRM)
+✓ Rating and review system
+✓ Real-time notifications
+✓ Wallet management
+✓ Promo code system
+✓ Multi-role access control
+
+================================================================================
+END OF DOCUMENT
+================================================================================

@@ -1,0 +1,736 @@
+@startuml QuickBite_Database_ERD
+!define table(x) class x << (T,#FFAAAA) >>
+!define primary_key(x) <b><u>x</u></b>
+!define foreign_key(x) <i>x</i>
+!define unique(x) x {unique}
+
+title QuickBite - Complete Database Entity Relationship Diagram
+
+' ==================== AUTH SERVICE DATABASE ====================
+
+package "Auth Service DB (Port 8081)" {
+    entity "users" as users {
+        primary_key(id) : BIGINT
+        --
+        unique(email) : VARCHAR(255) NOT NULL
+        password : VARCHAR(255) NULL
+        fullName : VARCHAR(255) NOT NULL
+        phone : VARCHAR(20) NULL
+        role : ENUM(CUSTOMER, RESTAURANT_OWNER, DELIVERY_AGENT, ADMIN, APPLICATION_ADMIN) NOT NULL
+        isActive : BOOLEAN NOT NULL DEFAULT TRUE
+        isEmailVerified : BOOLEAN NOT NULL DEFAULT FALSE
+        oauthProvider : VARCHAR(50) NULL
+        unique(oauthId) : VARCHAR(255) NULL
+        profilePictureUrl : VARCHAR(500) NULL
+        createdAt : TIMESTAMP NOT NULL
+        updatedAt : TIMESTAMP NOT NULL
+        lastLogin : TIMESTAMP NULL
+    }
+
+    entity "addresses" as addresses {
+        primary_key(id) : BIGINT
+        --
+        foreign_key(userId) : BIGINT NOT NULL
+        label : VARCHAR(100) NOT NULL
+        addressLine1 : VARCHAR(255) NOT NULL
+        addressLine2 : VARCHAR(255) NULL
+        city : VARCHAR(100) NOT NULL
+        state : VARCHAR(100) NOT NULL
+        pincode : VARCHAR(10) NOT NULL
+        latitude : DOUBLE NULL
+        longitude : DOUBLE NULL
+        isDefault : BOOLEAN NOT NULL DEFAULT FALSE
+        createdAt : TIMESTAMP NOT NULL
+        updatedAt : TIMESTAMP NOT NULL
+    }
+}
+
+' ==================== RESTAURANT SERVICE DATABASE ====================
+
+package "Restaurant Service DB (Port 8082)" {
+    entity "restaurants" as restaurants {
+        primary_key(id) : BIGINT
+        --
+        foreign_key(ownerId) : BIGINT NOT NULL
+        name : VARCHAR(255) NOT NULL
+        cuisineType : VARCHAR(100) NOT NULL
+        description : VARCHAR(1000) NULL
+        address : VARCHAR(255) NOT NULL
+        city : VARCHAR(100) NOT NULL
+        state : VARCHAR(100) NOT NULL
+        pincode : VARCHAR(10) NOT NULL
+        location : POINT (PostGIS) NULL
+        rating : DOUBLE NOT NULL DEFAULT 0.0
+        reviewCount : INTEGER NOT NULL DEFAULT 0
+        phoneNumber : VARCHAR(20) NOT NULL
+        email : VARCHAR(255) NOT NULL
+        deliveryFee : DOUBLE NOT NULL DEFAULT 0.0
+        deliveryRadius : DOUBLE NOT NULL DEFAULT 10.0
+        minOrderAmount : DOUBLE NOT NULL DEFAULT 0.0
+        minDeliveryTime : INTEGER NOT NULL DEFAULT 30
+        maxDeliveryTime : INTEGER NOT NULL DEFAULT 60
+        estimatedDeliveryMin : INTEGER NOT NULL DEFAULT 45
+        isActive : BOOLEAN NOT NULL DEFAULT TRUE
+        isOpen : BOOLEAN NOT NULL DEFAULT FALSE
+        isApproved : BOOLEAN NOT NULL DEFAULT FALSE
+        imageUrl : VARCHAR(500) NOT NULL
+        openingTime : VARCHAR(10) NULL
+        closingTime : VARCHAR(10) NULL
+        createdAt : TIMESTAMP NOT NULL
+        updatedAt : TIMESTAMP NOT NULL
+    }
+
+    entity "restaurant_cuisines" as restaurant_cuisines {
+        foreign_key(restaurant_id) : BIGINT NOT NULL
+        cuisines : VARCHAR(100) NOT NULL
+    }
+}
+
+' ==================== MENU SERVICE DATABASE ====================
+
+package "Menu Service DB (Port 8083)" {
+    entity "menu_categories" as categories {
+        primary_key(id) : BIGINT
+        --
+        foreign_key(restaurantId) : BIGINT NOT NULL
+        name : VARCHAR(255) NOT NULL
+        description : VARCHAR(500) NULL
+        displayOrder : INTEGER NOT NULL
+        isActive : BOOLEAN NOT NULL DEFAULT TRUE
+        imageUrl : VARCHAR(500) NULL
+        createdAt : TIMESTAMP NOT NULL
+        updatedAt : TIMESTAMP NOT NULL
+    }
+
+    entity "menu_items" as menu_items {
+        primary_key(id) : BIGINT
+        --
+        foreign_key(restaurantId) : BIGINT NOT NULL
+        foreign_key(categoryId) : BIGINT NOT NULL
+        name : VARCHAR(255) NOT NULL
+        description : VARCHAR(500) NULL
+        price : DOUBLE NOT NULL
+        discountedPrice : DOUBLE NOT NULL
+        isAvailable : BOOLEAN NOT NULL DEFAULT TRUE
+        preparationTime : INTEGER NOT NULL
+        orderCount : INTEGER NOT NULL DEFAULT 0
+        rating : DOUBLE NOT NULL DEFAULT 0.0
+        isVegetarian : BOOLEAN NOT NULL
+        isSpicy : BOOLEAN NOT NULL
+        imageUrl : VARCHAR(500) NULL
+        createdAt : TIMESTAMP NOT NULL
+        updatedAt : TIMESTAMP NOT NULL
+    }
+}
+
+' ==================== CART SERVICE DATABASE ====================
+
+package "Cart Service DB (Port 8084)" {
+    entity "shopping_carts" as carts {
+        primary_key(id) : BIGINT
+        --
+        foreign_key(customerId) : BIGINT NOT NULL
+        foreign_key(restaurantId) : BIGINT NOT NULL
+        totalPrice : DOUBLE NOT NULL DEFAULT 0.0
+        totalItems : INTEGER NOT NULL DEFAULT 0
+        isActive : BOOLEAN NOT NULL DEFAULT TRUE
+        createdAt : TIMESTAMP NOT NULL
+        updatedAt : TIMESTAMP NOT NULL
+    }
+
+    entity "cart_items" as cart_items {
+        primary_key(id) : BIGINT
+        --
+        foreign_key(cartId) : BIGINT NOT NULL
+        foreign_key(menuItemId) : BIGINT NOT NULL
+        itemName : VARCHAR(255) NOT NULL
+        quantity : INTEGER NOT NULL
+        price : DOUBLE NOT NULL
+        specialInstructions : VARCHAR(500) NULL
+        createdAt : TIMESTAMP NOT NULL
+        updatedAt : TIMESTAMP NOT NULL
+    }
+}
+
+' ==================== ORDER SERVICE DATABASE ====================
+
+package "Order Service DB (Port 8085)" {
+    entity "orders" as orders {
+        primary_key(id) : BIGINT
+        --
+        unique(orderNumber) : VARCHAR(50) NOT NULL
+        foreign_key(customerId) : BIGINT NOT NULL
+        foreign_key(restaurantId) : BIGINT NOT NULL
+        status : ENUM(PENDING, CONFIRMED, PREPARING, READY_FOR_PICKUP, PICKED_UP, OUT_FOR_DELIVERY, DELIVERED, CANCELLED) NOT NULL
+        totalAmount : DOUBLE NOT NULL
+        deliveryCharge : DOUBLE NULL
+        discountAmount : DOUBLE NULL
+        finalAmount : DOUBLE NULL
+        deliveryAddress : VARCHAR(500) NULL
+        deliveryLatitude : DOUBLE NULL
+        deliveryLongitude : DOUBLE NULL
+        customerPhone : VARCHAR(20) NULL
+        specialInstructions : VARCHAR(500) NULL
+        foreign_key(deliveryAgentId) : BIGINT NULL
+        restaurantPickupConfirmed : BOOLEAN NOT NULL DEFAULT FALSE
+        restaurantPickupConfirmedAt : TIMESTAMP NULL
+        agentPickupConfirmed : BOOLEAN NOT NULL DEFAULT FALSE
+        agentPickupConfirmedAt : TIMESTAMP NULL
+        estimatedDeliveryTime : TIMESTAMP NULL
+        actualDeliveryTime : TIMESTAMP NULL
+        paymentMethod : ENUM(RAZORPAY, WALLET, COD) NOT NULL
+        paymentStatus : ENUM(PENDING, SUCCESS, FAILED, REFUNDED) NOT NULL DEFAULT PENDING
+        paymentCompleted : BOOLEAN DEFAULT FALSE
+        createdAt : TIMESTAMP NOT NULL
+        updatedAt : TIMESTAMP NOT NULL
+    }
+
+    entity "order_items" as order_items {
+        primary_key(id) : BIGINT
+        --
+        foreign_key(orderId) : BIGINT NOT NULL
+        foreign_key(menuItemId) : BIGINT NOT NULL
+        itemName : VARCHAR(255) NOT NULL
+        quantity : INTEGER NOT NULL
+        price : DOUBLE NOT NULL
+        specialInstructions : VARCHAR(500) NULL
+        createdAt : TIMESTAMP NOT NULL
+    }
+}
+
+' ==================== PAYMENT SERVICE DATABASE ====================
+
+package "Payment Service DB (Port 8086)" {
+    entity "payments" as payments {
+        primary_key(id) : BIGINT
+        --
+        unique(transactionId) : VARCHAR(100) NOT NULL
+        foreign_key(orderId) : BIGINT NOT NULL
+        foreign_key(customerId) : BIGINT NOT NULL
+        amount : DOUBLE NOT NULL
+        status : ENUM(PENDING, SUCCESS, FAILED, REFUNDED) NOT NULL
+        paymentMethod : ENUM(RAZORPAY, WALLET, COD) NOT NULL
+        razorpayPaymentId : VARCHAR(255) NULL
+        razorpayOrderId : VARCHAR(255) NULL
+        razorpaySignature : VARCHAR(500) NULL
+        failureReason : VARCHAR(500) NULL
+        currency : VARCHAR(3) NOT NULL DEFAULT 'INR'
+        refundedAt : TIMESTAMP NULL
+        createdAt : TIMESTAMP NOT NULL
+        updatedAt : TIMESTAMP NOT NULL
+    }
+
+    entity "wallets" as wallets {
+        primary_key(id) : BIGINT
+        --
+        unique(customerId) : BIGINT NOT NULL
+        balance : DECIMAL(10,2) NOT NULL DEFAULT 0.00
+        createdAt : TIMESTAMP NOT NULL
+        updatedAt : TIMESTAMP NOT NULL
+    }
+
+    entity "wallet_transactions" as wallet_transactions {
+        primary_key(id) : BIGINT
+        --
+        foreign_key(walletId) : BIGINT NOT NULL
+        foreign_key(customerId) : BIGINT NOT NULL
+        transactionType : ENUM(CREDIT, DEBIT) NOT NULL
+        amount : DECIMAL(10,2) NOT NULL
+        balanceBefore : DECIMAL(10,2) NOT NULL
+        balanceAfter : DECIMAL(10,2) NOT NULL
+        description : VARCHAR(500) NULL
+        foreign_key(referenceId) : BIGINT NULL
+        referenceType : VARCHAR(50) NULL
+        createdAt : TIMESTAMP NOT NULL
+    }
+
+    entity "promo_codes" as promo_codes {
+        primary_key(id) : BIGINT
+        --
+        unique(code) : VARCHAR(50) NOT NULL
+        description : VARCHAR(500) NULL
+        discountType : ENUM(PERCENTAGE, FIXED) NOT NULL
+        discountValue : DOUBLE NOT NULL
+        minOrderAmount : DOUBLE NOT NULL DEFAULT 0.0
+        maxDiscountAmount : DOUBLE NULL
+        validFrom : TIMESTAMP NOT NULL
+        validUntil : TIMESTAMP NOT NULL
+        usageLimit : INTEGER NULL
+        usageCount : INTEGER NOT NULL DEFAULT 0
+        isActive : BOOLEAN NOT NULL DEFAULT TRUE
+        createdAt : TIMESTAMP NOT NULL
+        updatedAt : TIMESTAMP NOT NULL
+    }
+}
+
+' ==================== DELIVERY SERVICE DATABASE ====================
+
+package "Delivery Service DB (Port 8087)" {
+    entity "delivery_agents" as delivery_agents {
+        primary_key(id) : BIGINT
+        --
+        foreign_key(userId) : BIGINT NOT NULL
+        fullName : VARCHAR(255) NOT NULL
+        unique(email) : VARCHAR(255) NOT NULL
+        unique(phone) : VARCHAR(20) NOT NULL
+        vehicleType : VARCHAR(50) NOT NULL
+        vehicleNumber : VARCHAR(50) NOT NULL
+        licenseNumber : VARCHAR(50) NOT NULL
+        aadharNumber : VARCHAR(20) NULL
+        currentLatitude : DOUBLE NULL
+        currentLongitude : DOUBLE NULL
+        lastKnownAddress : VARCHAR(500) NULL
+        lastLocationUpdateTime : TIMESTAMP NULL
+        lastStatusUpdateTime : TIMESTAMP NULL
+        averageRating : DOUBLE DEFAULT 0.0
+        totalDeliveries : BIGINT DEFAULT 0
+        totalEarnings : DOUBLE DEFAULT 0.0
+        todayEarnings : DOUBLE DEFAULT 0.0
+        todayDeliveries : INTEGER DEFAULT 0
+        isActive : BOOLEAN DEFAULT TRUE
+        isVerified : BOOLEAN DEFAULT FALSE
+        isOnline : BOOLEAN DEFAULT FALSE
+        createdAt : TIMESTAMP NOT NULL
+        updatedAt : TIMESTAMP NOT NULL
+    }
+
+    entity "delivery_history" as delivery_history {
+        primary_key(id) : BIGINT
+        --
+        foreign_key(deliveryAgentId) : BIGINT NOT NULL
+        foreign_key(orderId) : BIGINT NOT NULL
+        pickupTime : TIMESTAMP NULL
+        deliveryTime : TIMESTAMP NULL
+        distance : DOUBLE NULL
+        earnings : DOUBLE NULL
+        rating : INTEGER NULL
+        createdAt : TIMESTAMP NOT NULL
+    }
+}
+
+' ==================== REVIEW SERVICE DATABASE ====================
+
+package "Review Service DB (Port 8088)" {
+    entity "reviews" as reviews {
+        primary_key(id) : BIGINT
+        --
+        foreign_key(orderId) : BIGINT NOT NULL
+        foreign_key(customerId) : BIGINT NOT NULL
+        foreign_key(restaurantId) : BIGINT NOT NULL
+        restaurantRating : INTEGER NULL
+        restaurantReview : VARCHAR(500) NULL
+        deliveryRating : INTEGER NULL
+        deliveryReview : VARCHAR(500) NULL
+        foreign_key(deliveryAgentId) : BIGINT NULL
+        isAnonymous : BOOLEAN DEFAULT FALSE
+        createdAt : TIMESTAMP NOT NULL
+        updatedAt : TIMESTAMP NOT NULL
+    }
+}
+
+' ==================== NOTIFICATION SERVICE DATABASE ====================
+
+package "Notification Service DB (Port 8089)" {
+    entity "notifications" as notifications {
+        primary_key(id) : BIGINT
+        --
+        foreign_key(userId) : BIGINT NOT NULL
+        title : VARCHAR(255) NOT NULL
+        message : VARCHAR(1000) NOT NULL
+        type : VARCHAR(50) NOT NULL
+        eventType : VARCHAR(100) NOT NULL
+        referenceId : BIGINT NULL
+        isRead : BOOLEAN NOT NULL DEFAULT FALSE
+        createdAt : TIMESTAMP NOT NULL
+        readAt : TIMESTAMP NULL
+    }
+}
+
+' ==================== RELATIONSHIPS ====================
+
+' Auth Service Relationships
+users ||--o{ addresses : "has many"
+
+' Restaurant Service Relationships
+restaurants ||--o{ restaurant_cuisines : "has many"
+
+' Menu Service Relationships
+categories ||--o{ menu_items : "contains"
+
+' Cart Service Relationships
+carts ||--o{ cart_items : "contains"
+
+' Order Service Relationships
+orders ||--o{ order_items : "contains"
+
+' Payment Service Relationships
+wallets ||--o{ wallet_transactions : "has many"
+
+' Delivery Service Relationships
+delivery_agents ||--o{ delivery_history : "has many"
+
+' ==================== CROSS-SERVICE RELATIONSHIPS (Logical) ====================
+
+note right of users
+  Referenced by:
+  - restaurants.ownerId
+  - carts.customerId
+  - orders.customerId
+  - payments.customerId
+  - wallets.customerId
+  - delivery_agents.userId
+  - reviews.customerId
+  - notifications.userId
+end note
+
+note right of restaurants
+  Referenced by:
+  - categories.restaurantId
+  - menu_items.restaurantId
+  - carts.restaurantId
+  - orders.restaurantId
+  - reviews.restaurantId
+end note
+
+note right of menu_items
+  Referenced by:
+  - cart_items.menuItemId
+  - order_items.menuItemId
+end note
+
+note right of orders
+  Referenced by:
+  - payments.orderId
+  - reviews.orderId
+  - delivery_history.orderId
+end note
+
+note right of delivery_agents
+  Referenced by:
+  - orders.deliveryAgentId
+  - reviews.deliveryAgentId
+end note
+
+' ==================== INDEXES & CONSTRAINTS ====================
+
+note bottom of users
+  Indexes:
+  - UNIQUE INDEX on email
+  - UNIQUE INDEX on oauthId
+  - INDEX on role
+  - INDEX on isActive
+end note
+
+note bottom of addresses
+  Indexes:
+  - INDEX on userId
+  - INDEX on isDefault
+  - COMPOSITE INDEX on (latitude, longitude)
+end note
+
+note bottom of restaurants
+  Indexes:
+  - INDEX on ownerId
+  - INDEX on city
+  - INDEX on cuisineType
+  - INDEX on isActive, isOpen, isApproved
+  - SPATIAL INDEX on location (PostGIS)
+end note
+
+note bottom of menu_items
+  Indexes:
+  - INDEX on restaurantId
+  - INDEX on categoryId
+  - INDEX on isAvailable
+  - INDEX on isVegetarian
+  - COMPOSITE INDEX on (restaurantId, isAvailable)
+end note
+
+note bottom of carts
+  Indexes:
+  - UNIQUE INDEX on customerId
+  - INDEX on restaurantId
+  - INDEX on isActive
+end note
+
+note bottom of orders
+  Indexes:
+  - UNIQUE INDEX on orderNumber
+  - INDEX on customerId
+  - INDEX on restaurantId
+  - INDEX on deliveryAgentId
+  - INDEX on status
+  - INDEX on paymentStatus
+  - INDEX on createdAt
+  - COMPOSITE INDEX on (status, restaurantId)
+end note
+
+note bottom of payments
+  Indexes:
+  - UNIQUE INDEX on transactionId
+  - INDEX on orderId
+  - INDEX on customerId
+  - INDEX on status
+  - INDEX on paymentMethod
+  - INDEX on createdAt
+end note
+
+note bottom of wallets
+  Indexes:
+  - UNIQUE INDEX on customerId
+end note
+
+note bottom of delivery_agents
+  Indexes:
+  - UNIQUE INDEX on email
+  - UNIQUE INDEX on phone
+  - INDEX on userId
+  - INDEX on isOnline
+  - INDEX on isActive
+  - COMPOSITE INDEX on (currentLatitude, currentLongitude)
+end note
+
+note bottom of reviews
+  Indexes:
+  - UNIQUE INDEX on orderId
+  - INDEX on customerId
+  - INDEX on restaurantId
+  - INDEX on deliveryAgentId
+  - INDEX on createdAt
+end note
+
+note bottom of notifications
+  Indexes:
+  - INDEX on userId
+  - INDEX on isRead
+  - INDEX on eventType
+  - COMPOSITE INDEX on (userId, isRead)
+end note
+
+@enduml
+
+@startuml QuickBite_Database_Schema_Overview
+title QuickBite - Database Schema Overview by Service
+
+package "9 Microservices - 9 Separate Databases" {
+    
+    database "auth_db" {
+        frame "2 Tables" {
+            [users]
+            [addresses]
+        }
+    }
+    
+    database "restaurant_db" {
+        frame "2 Tables" {
+            [restaurants]
+            [restaurant_cuisines]
+        }
+    }
+    
+    database "menu_db" {
+        frame "2 Tables" {
+            [menu_categories]
+            [menu_items]
+        }
+    }
+    
+    database "cart_db" {
+        frame "2 Tables" {
+            [shopping_carts]
+            [cart_items]
+        }
+    }
+    
+    database "order_db" {
+        frame "2 Tables" {
+            [orders]
+            [order_items]
+        }
+    }
+    
+    database "payment_db" {
+        frame "4 Tables" {
+            [payments]
+            [wallets]
+            [wallet_transactions]
+            [promo_codes]
+        }
+    }
+    
+    database "delivery_db" {
+        frame "2 Tables" {
+            [delivery_agents]
+            [delivery_history]
+        }
+    }
+    
+    database "review_db" {
+        frame "1 Table" {
+            [reviews]
+        }
+    }
+    
+    database "notification_db" {
+        frame "1 Table" {
+            [notifications]
+        }
+    }
+}
+
+note right of auth_db
+  Port: 5432 (PostgreSQL)
+  Total Records: ~32 users
+  Features: OAuth2, JWT
+end note
+
+note right of restaurant_db
+  Port: 5433 (PostgreSQL)
+  Total Records: ~12 restaurants
+  Features: PostGIS for location
+end note
+
+note right of menu_db
+  Port: 5434 (PostgreSQL)
+  Total Records: ~60+ menu items
+  Features: Cloudinary integration
+end note
+
+note right of cart_db
+  Port: 5435 (PostgreSQL)
+  Features: Real-time cart updates
+end note
+
+note right of order_db
+  Port: 5436 (PostgreSQL)
+  Features: Order lifecycle tracking
+end note
+
+note right of payment_db
+  Port: 5437 (PostgreSQL)
+  Features: Razorpay, Wallet, COD
+end note
+
+note right of delivery_db
+  Port: 5438 (PostgreSQL)
+  Features: PostGIS, OSRM routing
+end note
+
+note right of review_db
+  Port: 5439 (PostgreSQL)
+  Features: Rating aggregation
+end note
+
+note right of notification_db
+  Port: 5440 (PostgreSQL)
+  Features: Real-time notifications
+end note
+
+@enduml
+
+@startuml QuickBite_Data_Flow_Diagram
+title QuickBite - Data Flow Between Services
+
+!define RECTANGLE class
+
+RECTANGLE "User Data" as user_data {
+    users (id, email, role)
+    addresses (userId, location)
+}
+
+RECTANGLE "Restaurant Data" as restaurant_data {
+    restaurants (id, ownerId, location)
+    menu_categories (restaurantId)
+    menu_items (restaurantId, categoryId)
+}
+
+RECTANGLE "Shopping Data" as shopping_data {
+    shopping_carts (customerId, restaurantId)
+    cart_items (cartId, menuItemId)
+}
+
+RECTANGLE "Order Data" as order_data {
+    orders (customerId, restaurantId, deliveryAgentId)
+    order_items (orderId, menuItemId)
+}
+
+RECTANGLE "Payment Data" as payment_data {
+    payments (orderId, customerId)
+    wallets (customerId)
+    wallet_transactions (walletId, customerId)
+}
+
+RECTANGLE "Delivery Data" as delivery_data {
+    delivery_agents (userId, location)
+    delivery_history (deliveryAgentId, orderId)
+}
+
+RECTANGLE "Review Data" as review_data {
+    reviews (orderId, customerId, restaurantId, deliveryAgentId)
+}
+
+RECTANGLE "Notification Data" as notification_data {
+    notifications (userId, referenceId)
+}
+
+user_data --> restaurant_data : ownerId
+user_data --> shopping_data : customerId
+user_data --> order_data : customerId
+user_data --> payment_data : customerId
+user_data --> delivery_data : userId
+user_data --> review_data : customerId
+user_data --> notification_data : userId
+
+restaurant_data --> shopping_data : restaurantId
+restaurant_data --> order_data : restaurantId
+restaurant_data --> review_data : restaurantId
+
+shopping_data --> order_data : cart checkout
+restaurant_data --> shopping_data : menuItemId
+
+order_data --> payment_data : orderId
+order_data --> delivery_data : orderId
+order_data --> review_data : orderId
+
+delivery_data --> order_data : deliveryAgentId
+delivery_data --> review_data : deliveryAgentId
+
+@enduml
+
+@startuml QuickBite_Database_Statistics
+title QuickBite - Database Statistics & Test Data Summary
+
+|= Service |= Database |= Tables |= Test Records |= Key Features |
+| Auth Service | auth_db | 2 | 32 users, ~50 addresses | OAuth2, JWT, BCrypt |
+| Restaurant Service | restaurant_db | 2 | 12 restaurants (Bhopal) | PostGIS spatial queries |
+| Menu Service | menu_db | 2 | 60+ menu items, 24 categories | Cloudinary image storage |
+| Cart Service | cart_db | 2 | Dynamic (session-based) | Real-time cart management |
+| Order Service | order_db | 2 | Dynamic (order history) | Order lifecycle tracking |
+| Payment Service | payment_db | 4 | Dynamic (transactions) | Razorpay, Wallet, COD |
+| Delivery Service | delivery_db | 2 | 10 delivery agents | PostGIS, OSRM routing |
+| Review Service | review_db | 1 | Dynamic (post-delivery) | Rating aggregation |
+| Notification Service | notification_db | 1 | Dynamic (real-time) | Event-driven notifications |
+
+note right
+  Total Databases: 9
+  Total Tables: 18
+  Total Entities: 14 main entities
+  Database Type: PostgreSQL 15+
+  Extensions: PostGIS (spatial data)
+  
+  Data Distribution:
+  - Users: 32 (10 customers, 10 owners, 10 agents, 2 admins)
+  - Restaurants: 12 (Bhopal city)
+  - Menu Items: 60+ items across 24 categories
+  - Delivery Agents: 10 active agents
+  
+  Key Relationships:
+  - 1 User → Many Addresses
+  - 1 Restaurant → Many Menu Items
+  - 1 Cart → Many Cart Items
+  - 1 Order → Many Order Items
+  - 1 Wallet → Many Transactions
+  - 1 Agent → Many Deliveries
+end note
+
+@enduml

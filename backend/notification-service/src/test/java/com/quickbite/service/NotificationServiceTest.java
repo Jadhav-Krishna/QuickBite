@@ -1,0 +1,243 @@
+package com.quickbite.service;
+
+import com.quickbite.entity.Notification;
+import com.quickbite.repository.NotificationRepository;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
+
+import static org.mockito.Mockito.doThrow;
+
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class NotificationServiceTest {
+
+    @Mock
+    private NotificationRepository notificationRepository;
+
+    @Mock
+    private JavaMailSender mailSender;
+
+    @InjectMocks
+    private NotificationService notificationService;
+
+    private Notification testNotification;
+
+    @BeforeEach
+    void setUp() {
+        testNotification = Notification.builder()
+                .id(1L)
+                .userId(1L)
+                .title("Test Notification")
+                .message("Test Message")
+                .type("IN_APP")
+                .eventType("ORDER_PLACED")
+                .isRead(false)
+                .build();
+    }
+
+    @Test
+    void getUserNotifications_Success() {
+        when(notificationRepository.findByUserIdOrderByCreatedAtDesc(anyLong()))
+                .thenReturn(Arrays.asList(testNotification));
+
+        List<Notification> results = notificationService.getUserNotifications(1L);
+
+        assertNotNull(results);
+        assertEquals(1, results.size());
+        verify(notificationRepository).findByUserIdOrderByCreatedAtDesc(1L);
+    }
+
+    @Test
+    void getUnreadNotifications_Success() {
+        when(notificationRepository.findByUserIdAndIsReadFalseOrderByCreatedAtDesc(anyLong()))
+                .thenReturn(Arrays.asList(testNotification));
+
+        List<Notification> results = notificationService.getUnreadNotifications(1L);
+
+        assertNotNull(results);
+        assertEquals(1, results.size());
+    }
+
+    @Test
+    void getUnreadCount_Success() {
+        when(notificationRepository.countByUserIdAndIsReadFalse(anyLong())).thenReturn(5L);
+
+        Long count = notificationService.getUnreadCount(1L);
+
+        assertEquals(5L, count);
+    }
+
+    @Test
+    void markAsRead_Success() {
+        doNothing().when(notificationRepository).markAsRead(anyLong());
+
+        notificationService.markAsRead(1L);
+
+        verify(notificationRepository).markAsRead(1L);
+    }
+
+    @Test
+    void deleteNotification_Success() {
+        doNothing().when(notificationRepository).deleteById(anyLong());
+
+        notificationService.deleteNotification(1L);
+
+        verify(notificationRepository).deleteById(1L);
+    }
+
+    @Test
+    void markAllAsRead_Success() {
+        doNothing().when(notificationRepository).markAllAsReadByUserId(anyLong());
+
+        notificationService.markAllAsRead(1L);
+
+        verify(notificationRepository).markAllAsReadByUserId(1L);
+    }
+
+    @Test
+    void clearAllNotifications_Success() {
+        doNothing().when(notificationRepository).deleteByUserId(anyLong());
+
+        notificationService.clearAllNotifications(1L);
+
+        verify(notificationRepository).deleteByUserId(1L);
+    }
+
+    @Test
+    void processNotification_Success() {
+        Map<String, Object> event = new HashMap<>();
+        event.put("userId", 1L);
+        event.put("title", "Test");
+        event.put("message", "Message");
+        event.put("type", "INFO");
+        event.put("eventType", "ORDER");
+
+        when(notificationRepository.save(any(Notification.class))).thenReturn(testNotification);
+
+        notificationService.processNotification(event);
+
+        verify(notificationRepository).save(any(Notification.class));
+    }
+
+    @Test
+    void processNotification_WithEmail() {
+        Map<String, Object> event = new HashMap<>();
+        event.put("userId", 1L);
+        event.put("title", "Test");
+        event.put("message", "Message");
+        event.put("sendEmail", true);
+        event.put("email", "test@mail.com");
+
+        when(notificationRepository.save(any(Notification.class))).thenReturn(testNotification);
+
+        notificationService.processNotification(event);
+
+        verify(notificationRepository).save(any(Notification.class));
+        verify(mailSender).send(any(SimpleMailMessage.class));
+    }
+
+    @Test
+    void processNotification_WithIntegerUserId() {
+        Map<String, Object> event = new HashMap<>();
+        event.put("userId", 1); // Integer instead of Long
+        event.put("title", "Test");
+        event.put("message", "Message");
+
+        when(notificationRepository.save(any(Notification.class))).thenReturn(testNotification);
+
+        notificationService.processNotification(event);
+
+        verify(notificationRepository).save(any(Notification.class));
+    }
+
+    @Test
+    void processNotification_WithStringBoolean() {
+        Map<String, Object> event = new HashMap<>();
+        event.put("userId", 1L);
+        event.put("title", "Test");
+        event.put("message", "Message");
+        event.put("sendEmail", "true"); // String instead of Boolean
+        event.put("email", "test@mail.com");
+
+        when(notificationRepository.save(any(Notification.class))).thenReturn(testNotification);
+
+        notificationService.processNotification(event);
+
+        verify(notificationRepository).save(any(Notification.class));
+        verify(mailSender).send(any(SimpleMailMessage.class));
+    }
+
+    @Test
+    void processNotification_WithNullValues() {
+        Map<String, Object> event = new HashMap<>();
+        event.put("userId", null);
+        event.put("title", null);
+        event.put("message", null);
+
+        when(notificationRepository.save(any(Notification.class))).thenReturn(testNotification);
+
+        notificationService.processNotification(event);
+
+        verify(notificationRepository).save(any(Notification.class));
+    }
+
+    @Test
+    void processNotification_WithInvalidNumber() {
+        Map<String, Object> event = new HashMap<>();
+        event.put("userId", "invalid");
+        event.put("title", "Test");
+        event.put("message", "Message");
+
+        when(notificationRepository.save(any(Notification.class))).thenReturn(testNotification);
+
+        notificationService.processNotification(event);
+
+        verify(notificationRepository).save(any(Notification.class));
+    }
+
+    @Test
+    void processNotification_EmailFailure() {
+        Map<String, Object> event = new HashMap<>();
+        event.put("userId", 1L);
+        event.put("title", "Test");
+        event.put("message", "Message");
+        event.put("sendEmail", true);
+        event.put("email", "test@mail.com");
+
+        when(notificationRepository.save(any(Notification.class))).thenReturn(testNotification);
+        doThrow(new RuntimeException("Email error")).when(mailSender).send(any(SimpleMailMessage.class));
+
+        notificationService.processNotification(event);
+
+        verify(notificationRepository).save(any(Notification.class));
+        verify(mailSender).send(any(SimpleMailMessage.class));
+    }
+
+    @Test
+    void processNotification_ExceptionHandling() {
+        Map<String, Object> event = new HashMap<>();
+        event.put("userId", 1L);
+        event.put("title", "Test");
+        event.put("message", "Message");
+
+        when(notificationRepository.save(any(Notification.class))).thenThrow(new RuntimeException("DB error"));
+
+        notificationService.processNotification(event);
+
+        verify(notificationRepository).save(any(Notification.class));
+    }
+}

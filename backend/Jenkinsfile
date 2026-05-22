@@ -1,0 +1,511 @@
+pipeline {
+    agent any
+
+    environment {
+        JAVA_HOME         = '/usr/lib/jvm/java-21-openjdk-amd64'
+        PATH              = "${JAVA_HOME}/bin:/usr/local/bin:/usr/bin:/bin:${env.PATH}"
+
+        GIT_REPO          = 'https://github.com/Jadhav-Krishna/QuickBite.git'
+        GIT_BRANCH        = 'dev'
+        GIT_CREDENTIALS   = 'github-credentials'
+
+        DOCKERHUB_USERNAME = credentials('dockerhub-username')
+        DOCKERHUB_TOKEN    = credentials('dockerhub-token')
+        IMAGE_TAG          = "${env.BUILD_NUMBER}"
+
+        SONAR_HOST_URL    = 'http://localhost:9000'
+        SONAR_TOKEN       = credentials('sonarqube-token')
+        SONAR_PROJECT_KEY = 'quickbite'
+
+        TRIVY_SEVERITY    = 'CRITICAL,HIGH'
+        TRIVY_TIMEOUT     = '10m'
+
+        BACKEND_DIR       = 'backend'
+        FRONTEND_DIR      = 'frontend'
+    }
+
+    options {
+        timeout(time: 90, unit: 'MINUTES')
+        disableConcurrentBuilds()
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+    }
+
+    stages {
+
+        stage('Clone Repository') {
+            steps {
+                cleanWs()
+                git branch: "${GIT_BRANCH}",
+                    credentialsId: "${GIT_CREDENTIALS}",
+                    url: "${GIT_REPO}"
+                sh 'git log -1 --oneline'
+            }
+        }
+
+        stage('Environment Setup') {
+            steps {
+                sh '''
+                    echo "=== Java ===" && java -version
+                    echo "=== Maven ===" && (mvn -version || echo "Maven not found")
+                    echo "=== Docker ===" && docker --version
+                    echo "=== Node ===" && (node --version || echo "Node not found")
+                    echo "=== NPM ===" && (npm --version || echo "NPM not found")
+                    echo "=== Trivy ===" && (trivy --version || echo "Trivy not installed")
+                    echo "=== Docker Compose ===" && (docker compose version || docker-compose --version || echo "Compose not found")
+                '''
+            }
+        }
+
+        stage('Setup Environment File') {
+            steps {
+                withCredentials([
+                    string(credentialsId: 'mysql-root-password',   variable: 'MYSQL_ROOT_PASSWORD'),
+                    string(credentialsId: 'mysql-password',        variable: 'MYSQL_PASSWORD'),
+                    string(credentialsId: 'jwt-secret',            variable: 'JWT_SECRET'),
+                    string(credentialsId: 'google-client-id',      variable: 'GOOGLE_CLIENT_ID'),
+                    string(credentialsId: 'google-client-secret',  variable: 'GOOGLE_CLIENT_SECRET'),
+                    string(credentialsId: 'github-client-id',      variable: 'GITHUB_CLIENT_ID'),
+                    string(credentialsId: 'github-client-secret',  variable: 'GITHUB_CLIENT_SECRET'),
+                    string(credentialsId: 'razorpay-key-id',       variable: 'RAZORPAY_KEY_ID'),
+                    string(credentialsId: 'razorpay-key-secret',   variable: 'RAZORPAY_KEY_SECRET'),
+                    string(credentialsId: 'mail-username',         variable: 'MAIL_USERNAME'),
+                    string(credentialsId: 'mail-password',         variable: 'MAIL_PASSWORD'),
+                    string(credentialsId: 'twilio-account-sid',    variable: 'TWILIO_ACCOUNT_SID'),
+                    string(credentialsId: 'twilio-auth-token',     variable: 'TWILIO_AUTH_TOKEN'),
+                    string(credentialsId: 'twilio-from-phone',     variable: 'TWILIO_FROM_PHONE'),
+                    string(credentialsId: 'locationiq-api-key',    variable: 'LOCATIONIQ_API_KEY'),
+                    string(credentialsId: 'cloudinary-cloud-name', variable: 'CLOUDINARY_CLOUD_NAME'),
+                    string(credentialsId: 'cloudinary-api-key',    variable: 'CLOUDINARY_API_KEY'),
+                    string(credentialsId: 'cloudinary-api-secret', variable: 'CLOUDINARY_API_SECRET')
+                ]) {
+                    sh '''
+                        cat > backend/.env <<EOF
+DOCKERHUB_USERNAME=${DOCKERHUB_USERNAME}
+DOCKER_USERNAME=${DOCKERHUB_USERNAME}
+IMAGE_TAG=latest
+
+MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+MYSQL_USER=quickbite
+MYSQL_PASSWORD=${MYSQL_PASSWORD}
+MYSQL_PORT=3306
+
+DB_HOST=mysql
+DB_PORT=3306
+
+REDIS_HOST=redis
+REDIS_PORT=6379
+
+RABBITMQ_HOST=rabbitmq
+RABBITMQ_PORT=5672
+RABBITMQ_USER=guest
+RABBITMQ_PASSWORD=guest
+RABBITMQ_MANAGEMENT_PORT=15672
+
+KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+ZOOKEEPER_PORT=2181
+
+EUREKA_HOST=eureka-server
+EUREKA_PORT=8761
+EUREKA_URL=http://eureka-server:8761/eureka/
+
+GATEWAY_PORT=8000
+AUTH_SERVICE_PORT=8001
+RESTAURANT_SERVICE_PORT=8002
+MENU_SERVICE_PORT=8003
+CART_SERVICE_PORT=8004
+ORDER_SERVICE_PORT=8005
+PAYMENT_SERVICE_PORT=8006
+DELIVERY_SERVICE_PORT=8007
+REVIEW_SERVICE_PORT=8008
+NOTIFICATION_SERVICE_PORT=8009
+ADMIN_SERVER_PORT=8762
+ADMIN_BASE_URL=http://admin-server:8762
+ADMIN_SERVER_HOST=admin-server
+FRONTEND_BASE_URL=http://${EC2_HOST}
+OAUTH2_REDIRECT_BASE_URL=http://${EC2_HOST}
+
+JWT_SECRET=${JWT_SECRET}
+JWT_EXPIRATION_MS=3600000
+JWT_REFRESH_EXPIRATION_MS=604800000
+
+GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+
+GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID}
+GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET}
+
+RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID}
+RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET}
+
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USERNAME=${MAIL_USERNAME}
+MAIL_PASSWORD=$(echo "${MAIL_PASSWORD}" | tr -d ' ')
+MAIL_FROM=${MAIL_USERNAME}
+
+TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+TWILIO_FROM_PHONE=${TWILIO_FROM_PHONE}
+
+LOCATIONIQ_API_KEY=${LOCATIONIQ_API_KEY}
+
+CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
+CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
+CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
+
+CORS_ALLOWED_ORIGINS=*
+JAVA_OPTS=-Xmx512m
+EOF
+
+                        cat > frontend/.env <<EOF
+VITE_API_BASE_URL=/api
+VITE_RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID}
+VITE_WS_DELIVERY_URL=/ws/tracking
+VITE_OSRM_URL=https://router.project-osrm.org/route/v1/driving
+VITE_GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+VITE_GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID}
+VITE_LOCATIONIQ_API_KEY=${LOCATIONIQ_API_KEY}
+VITE_OAUTH_REDIRECT_BASE_URL=http://${EC2_HOST}
+EOF
+
+                        echo ".env files created"
+                    '''
+                }
+            }
+        }
+
+        stage('Backend - Build JARs') {
+            steps {
+                dir("${BACKEND_DIR}") {
+                    script {
+                        def services = [
+                            'eureka-server', 'admin-server', 'quickbite-gateway',
+                            'auth-service', 'restaurant-service', 'menu-service',
+                            'cart-service', 'order-service', 'payment-service',
+                            'delivery-service', 'review-service', 'notification-service'
+                        ]
+                        for (String svc : services) {
+                            echo "Building JAR: ${svc}"
+                            dir(svc) {
+                                sh 'mvn clean package -DskipTests -q'
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Backend - Unit Tests') {
+            steps {
+                dir("${BACKEND_DIR}") {
+                    script {
+                        def services = [
+                            'eureka-server', 'admin-server', 'quickbite-gateway',
+                            'auth-service', 'restaurant-service', 'menu-service',
+                            'cart-service', 'order-service', 'payment-service',
+                            'delivery-service', 'review-service', 'notification-service'
+                        ]
+                        def failed = []
+                        for (String svc : services) {
+                            try {
+                                dir(svc) { sh 'mvn test -q' }
+                            } catch (e) {
+                                echo "  Tests failed for ${svc}: ${e.message}"
+                                failed << svc
+                            }
+                        }
+                        if (failed) echo " Failed: ${failed.join(', ')}"
+                    }
+                }
+            }
+            post {
+                always {
+                    junit allowEmptyResults: true,
+                          testResults: "${BACKEND_DIR}/**/target/surefire-reports/*.xml"
+                }
+            }
+        }
+
+        stage('Frontend - Install & Build') {
+            steps {
+                dir("${FRONTEND_DIR}") {
+                    sh '''
+                        npm ci --prefer-offline || npm install --legacy-peer-deps
+                        npm run build
+                        ls -lh dist/
+                    '''
+                }
+            }
+        }
+
+        stage('SonarQube - Backend') {
+            steps {
+                script {
+                    try {
+                        withSonarQubeEnv('SonarQube') {
+                            dir("${BACKEND_DIR}") {
+                                sh """
+                                    mvn clean verify sonar:sonar \\
+                                      -DskipTests \\
+                                      -Dsonar.projectKey=${SONAR_PROJECT_KEY}-backend \\
+                                      -Dsonar.projectName=QuickBite-Backend \\
+                                      -Dsonar.host.url=${SONAR_HOST_URL} \\
+                                      -Dsonar.token=${SONAR_TOKEN} \\
+                                      -q
+                                """
+                            }
+                        }
+                        timeout(time: 5, unit: 'MINUTES') {
+                            def qg = waitForQualityGate()
+                            echo "Backend Quality Gate: ${qg.status}"
+                        }
+                    } catch (e) {
+                        echo " SonarQube backend failed (non-blocking): ${e.message}"
+                    }
+                }
+            }
+        }
+
+        stage('SonarQube - Frontend') {
+            steps {
+                script {
+                    try {
+                        withSonarQubeEnv('SonarQube') {
+                            dir("${FRONTEND_DIR}") {
+                                sh """
+                                    npx sonar-scanner \\
+                                      -Dsonar.projectKey=${SONAR_PROJECT_KEY}-frontend \\
+                                      -Dsonar.projectName=QuickBite-Frontend \\
+                                      -Dsonar.sources=src \\
+                                      -Dsonar.exclusions=**/*.test.ts,**/*.test.tsx,**/node_modules/**,**/dist/**,**/coverage/** \\
+                                      -Dsonar.host.url=${SONAR_HOST_URL} \\
+                                      -Dsonar.token=${SONAR_TOKEN}
+                                """
+                            }
+                        }
+                        timeout(time: 5, unit: 'MINUTES') {
+                            def qg = waitForQualityGate()
+                            echo "Frontend Quality Gate: ${qg.status}"
+                        }
+                    } catch (e) {
+                        echo "  SonarQube frontend failed (non-blocking): ${e.message}"
+                    }
+                }
+            }
+        }
+
+        stage('Docker - Login') {
+            steps {
+                sh 'echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin'
+            }
+        }
+
+        stage('Docker - Cleanup') {
+            steps {
+                sh '''
+                    docker image prune -f || true
+                    docker images --format "{{.Repository}}:{{.Tag}}" | grep "^${DOCKERHUB_USERNAME}/" | xargs -r docker rmi -f || true
+                '''
+            }
+        }
+
+        stage('Docker - Build Backend Images') {
+            steps {
+                dir("${BACKEND_DIR}") {
+                    script {
+                        def services = [
+                            'eureka-server', 'admin-server', 'quickbite-gateway',
+                            'auth-service', 'restaurant-service', 'menu-service',
+                            'cart-service', 'order-service', 'payment-service',
+                            'delivery-service', 'review-service', 'notification-service'
+                        ]
+                        for (String svc : services) {
+                            sh """
+                                docker build \\
+                                  -t ${DOCKERHUB_USERNAME}/${svc}:${IMAGE_TAG} \\
+                                  -t ${DOCKERHUB_USERNAME}/${svc}:latest \\
+                                  ./${svc}
+                            """
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Docker - Build Frontend Image') {
+            steps {
+                dir("${FRONTEND_DIR}") {
+                    sh """
+                        docker build \\
+                          -t ${DOCKERHUB_USERNAME}/frontend:${IMAGE_TAG} \\
+                          -t ${DOCKERHUB_USERNAME}/frontend:latest \\
+                          .
+                    """
+                }
+            }
+        }
+
+        stage('Trivy - Security Scan') {
+            steps {
+                script {
+                    def trivyAvailable = sh(script: 'which trivy', returnStatus: true) == 0
+                    if (!trivyAvailable) {
+                        echo "  Trivy not installed — skipping"
+                        return
+                    }
+                    def services = [
+                        'eureka-server', 'admin-server', 'quickbite-gateway',
+                        'auth-service', 'restaurant-service', 'menu-service',
+                        'cart-service', 'order-service', 'payment-service',
+                        'delivery-service', 'review-service', 'notification-service',
+                        'frontend'
+                    ]
+                    for (String svc : services) {
+                        sh """
+                            trivy image \\
+                              --severity ${TRIVY_SEVERITY} \\
+                              --timeout ${TRIVY_TIMEOUT} \\
+                              --exit-code 0 \\
+                              --format table \\
+                              --output trivy-${svc}.txt \\
+                              ${DOCKERHUB_USERNAME}/${svc}:${IMAGE_TAG} || true
+                        """
+                    }
+                }
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'trivy-*.txt', allowEmptyArchive: true
+                }
+            }
+        }
+
+        stage('Docker - Push Images') {
+            steps {
+                script {
+                    def services = [
+                        'eureka-server', 'admin-server', 'quickbite-gateway',
+                        'auth-service', 'restaurant-service', 'menu-service',
+                        'cart-service', 'order-service', 'payment-service',
+                        'delivery-service', 'review-service', 'notification-service',
+                        'frontend'
+                    ]
+                    for (String svc : services) {
+                        sh """
+                            docker push ${DOCKERHUB_USERNAME}/${svc}:${IMAGE_TAG}
+                            docker push ${DOCKERHUB_USERNAME}/${svc}:latest
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                dir("${BACKEND_DIR}") {
+                    sh '''
+                        echo "=== Stopping existing containers ==="
+                        docker compose down --remove-orphans || true
+
+                        echo "=== Starting all services ==="
+                        docker compose up -d
+
+                        echo "=== Container status ==="
+                        docker compose ps
+                    '''
+                }
+            }
+        }
+
+        stage('Health Checks') {
+            steps {
+                script {
+                    echo 'Waiting 90s for services to start...'
+                    sleep 90
+                    def endpoints = [
+                        [name: 'Eureka',       url: 'http://localhost:8761/actuator/health'],
+                        [name: 'Gateway',      url: 'http://localhost:8000/actuator/health'],
+                        [name: 'Auth',         url: 'http://localhost:8001/actuator/health'],
+                        [name: 'Restaurant',   url: 'http://localhost:8002/actuator/health'],
+                        [name: 'Menu',         url: 'http://localhost:8003/actuator/health'],
+                        [name: 'Cart',         url: 'http://localhost:8004/actuator/health'],
+                        [name: 'Order',        url: 'http://localhost:8005/actuator/health'],
+                        [name: 'Payment',      url: 'http://localhost:8006/actuator/health'],
+                        [name: 'Delivery',     url: 'http://localhost:8007/actuator/health'],
+                        [name: 'Review',       url: 'http://localhost:8008/actuator/health'],
+                        [name: 'Notification', url: 'http://localhost:8009/actuator/health'],
+                        [name: 'Frontend',     url: 'http://localhost:80']
+                    ]
+                    int healthy = 0
+                    for (ep in endpoints) {
+                        def code = sh(
+                            script: "curl -s -o /dev/null -w '%{http_code}' --connect-timeout 15 --retry 3 ${ep.url} || echo '000'",
+                            returnStdout: true
+                        ).trim()
+                        if (code == '200') { echo " ${ep.name}"; healthy++ }
+                        else               { echo " ${ep.name} → HTTP ${code}" }
+                    }
+                    echo "Health: ${healthy}/${endpoints.size()} services UP"
+                    if (healthy == 0) error('All services are down — check docker compose logs')
+                }
+            }
+        }
+
+        stage('Smoke Tests') {
+            steps {
+                sh '''
+                    echo "--- Gateway ---"
+                    curl -sf http://localhost:8000/actuator/health && echo " OK" || echo " FAIL"
+
+                    echo "--- JWT Login ---"
+                    RESP=$(curl -s -X POST http://localhost:8000/api/auth/login \
+                      -H "Content-Type: application/json" \
+                      -d '{"email":"customer1@gmail.com","password":"Password@123"}')
+                    echo "$RESP" | grep -q "accessToken" && echo "JWT login OK" || echo "JWT login FAIL: $RESP"
+
+                    echo "--- Restaurants ---"
+                    curl -sf "http://localhost:8000/api/v1/restaurants/active" | grep -q "\\[" && echo " OK" || echo " FAIL"
+
+                    echo "--- Frontend ---"
+                    curl -sf http://localhost:80 | grep -qi "html" && echo " OK" || echo " FAIL"
+                '''
+            }
+        }
+    }
+
+    post {
+        always {
+            sh 'docker logout || true'
+            archiveArtifacts artifacts: "${BACKEND_DIR}/**/target/surefire-reports/**/*.xml", allowEmptyArchive: true
+            archiveArtifacts artifacts: 'trivy-*.txt', allowEmptyArchive: true
+        }
+        success {
+            script {
+                def ec2Ip = sh(
+                    script: "curl -s --connect-timeout 3 http://169.254.169.254/latest/meta-data/public-ipv4 || echo 'your-ec2-ip'",
+                    returnStdout: true
+                ).trim()
+                echo """
+==========================================
+✅ PIPELINE SUCCEEDED — Build #${IMAGE_TAG}
+==========================================
+  Frontend  : http://${ec2Ip}
+  Gateway   : http://${ec2Ip}:8000
+  Eureka    : http://${ec2Ip}:8761
+  RabbitMQ  : http://${ec2Ip}:15672
+  SonarQube : http://${ec2Ip}:9000
+========================================="""
+            }
+        }
+        failure {
+            sh '''
+                echo "=== Container Status ==="
+                docker ps -a || true
+                echo "=== Gateway Logs ==="
+                docker logs quickbite-gateway --tail 50 || true
+                echo "=== Eureka Logs ==="
+                docker logs quickbite-eureka-server --tail 50 || true
+            '''
+        }
+    }
+}

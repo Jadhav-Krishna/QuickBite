@@ -1,0 +1,66 @@
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_FIRST
+      globalcors:
+        add-to-simple-url-handler-mapping: true
+        cors-configurations:
+          '[/**]':
+            allowedOriginPatterns: "*"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - PATCH
+              - OPTIONS
+            allowedHeaders: "*"
+            allowCredentials: true
+            maxAge: 3600
+
+server:
+  port: ${GATEWAY_PORT:8080}
+
+eureka:
+  instance:
+    hostname: ${EUREKA_HOST:localhost}
+    prefer-ip-address: true
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+    register-with-eureka: true
+    fetch-registry: true
+
+logging:
+  level:
+    root: INFO
+    org.springframework.cloud.gateway: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+
+springdoc:
+  swagger-ui:
+    cors: false
+    path: /swagger-ui.html
+    urls:
+      - name: Auth Service
+        url: /v3/api-docs/auth-service
+      - name: Restaurant Service
+        url: /v3/api-docs/restaurant-service
+      - name: Menu Service
+        url: /v3/api-docs/menu-service
+      - name: Cart Service
+        url: /v3/api-docs/cart-service
+      - name: Order Service
+        url: /v3/api-docs/order-service
+      - name: Payment Service
+        url: /v3/api-docs/payment-service
+      - name: Delivery Service
+        url: /v3/api-docs/delivery-service
+      - name: Review Service
+        url: /v3/api-docs/review-service
+      - name: Notification Service
+        url: /v3/api-docs/notification-service

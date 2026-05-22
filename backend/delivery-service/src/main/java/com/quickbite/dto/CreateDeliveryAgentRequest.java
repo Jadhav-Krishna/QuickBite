@@ -1,0 +1,41 @@
+package com.quickbite.dto;
+
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class CreateDeliveryAgentRequest {
+    @NotNull(message = "User ID is required")
+    private Long userId;
+    
+    @NotBlank(message = "Full name is required")
+    private String fullName;
+    
+    @NotBlank(message = "Email is required")
+    @Email(message = "Email must be valid")
+    private String email;
+    
+    @NotBlank(message = "Phone is required")
+    @Pattern(regexp = "^[6-9][0-9]{9}$", message = "Phone must be a valid 10-digit number")
+    private String phone;
+    
+    @NotBlank(message = "Vehicle type is required")
+    private String vehicleType;
+    
+    @NotBlank(message = "Vehicle number is required")
+    private String vehicleNumber;
+    
+    @NotBlank(message = "License number is required")
+    private String licenseNumber;
+    
+    private String aadharNumber;
+}

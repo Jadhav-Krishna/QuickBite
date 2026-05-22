@@ -1,6 +1,7 @@
+import { API_BASE_URL } from './auth';
+
 export type LatLng = [number, number];
 
-const LOCATIONIQ_API_KEY = import.meta.env.VITE_LOCATIONIQ_API_KEY;
 const OSRM_URL = import.meta.env.VITE_OSRM_URL || 'https://router.project-osrm.org/route/v1/driving';
 
 export interface DrivingRouteResult {
@@ -14,17 +15,16 @@ export const geocodeAddress = async (address: string): Promise<LatLng | null> =>
 
   try {
     const response = await fetch(
-      `https://us1.locationiq.com/v1/search?key=${LOCATIONIQ_API_KEY}&q=${encodeURIComponent(address)}&format=json&limit=1`,
+      `${API_BASE_URL}/v1/auth/addresses/geocode?address=${encodeURIComponent(address)}`,
       { headers: { Accept: 'application/json' } }
     );
 
     if (!response.ok) return null;
 
-    const data = (await response.json()) as Array<{ lat: string; lon: string }>;
-    if (!Array.isArray(data) || data.length === 0) return null;
+    const data = (await response.json()) as { latitude?: number; longitude?: number };
 
-    const lat = Number(data[0].lat);
-    const lng = Number(data[0].lon);
+    const lat = Number(data.latitude);
+    const lng = Number(data.longitude);
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
 
     return [lat, lng];

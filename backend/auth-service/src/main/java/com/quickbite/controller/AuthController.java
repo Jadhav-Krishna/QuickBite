@@ -119,8 +119,8 @@ public class AuthController {
             return baseUrl + request.getRequestURI();
         }
 
-        String forwardedProto = request.getHeader("X-Forwarded-Proto");
-        String forwardedHost = request.getHeader("X-Forwarded-Host");
+        String forwardedProto = readOptionalHeader(request, "X-Forwarded-Proto");
+        String forwardedHost = readOptionalHeader(request, "X-Forwarded-Host");
         String proto = forwardedProto != null && !forwardedProto.isBlank() ? forwardedProto : request.getScheme();
         String host = forwardedHost != null && !forwardedHost.isBlank() ? forwardedHost : request.getHeader("Host");
 
@@ -130,8 +130,16 @@ public class AuthController {
                 .toUriString();
     }
 
+    private String readOptionalHeader(HttpServletRequest request, String name) {
+        try {
+            return request.getHeader(name);
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
     private String buildFrontendCallbackUrl(AuthResponse response) {
-        return UriComponentsBuilder.fromHttpUrl(frontendBaseUrl)
+        return UriComponentsBuilder.fromHttpUrl(resolveFrontendBaseUrl())
                 .path("/auth/callback")
                 .queryParam("token", response.getAccessToken())
                 .queryParam("refreshToken", response.getRefreshToken())
@@ -145,12 +153,18 @@ public class AuthController {
     }
 
     private String buildFrontendErrorUrl(String message) {
-        return UriComponentsBuilder.fromHttpUrl(frontendBaseUrl)
+        return UriComponentsBuilder.fromHttpUrl(resolveFrontendBaseUrl())
                 .path("/login")
                 .queryParam("error", message)
                 .build()
                 .encode()
                 .toUriString();
+    }
+
+    private String resolveFrontendBaseUrl() {
+        return frontendBaseUrl == null || frontendBaseUrl.isBlank()
+                ? "http://localhost:5173"
+                : frontendBaseUrl;
     }
 
     @PostMapping("/forgot-password")

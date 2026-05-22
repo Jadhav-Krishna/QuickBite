@@ -1,4 +1,5 @@
-import { API_BASE_URL, getAuthHeader } from '../../api/auth';
+import { addressService } from '../../api/address';
+import { API_BASE_URL, getAuthHeader, getOptionalAuthHeader } from '../../api/auth';
 
 export interface LocationUpdate {
   agentId: number;
@@ -71,66 +72,84 @@ export interface MultiRouteResponse {
   totalDurationMinutes: number;
 }
 
-const LOCATION_SERVICE_URL = `${API_BASE_URL}/v1/location`;
-const ROUTING_SERVICE_URL = `${API_BASE_URL}/v1/routing`;
+const ADDRESS_SERVICE_URL = `${API_BASE_URL}/v1/auth/addresses`;
+const DELIVERY_SERVICE_URL = `${API_BASE_URL}/v1/delivery`;
 
 export const locationService = {
   // Address Management
   async saveAddress(address: Address): Promise<Address> {
-    const response = await fetch(`${LOCATION_SERVICE_URL}/address`, {
+    const response = await fetch(ADDRESS_SERVICE_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         ...getAuthHeader(),
       },
-      body: JSON.stringify(address),
+      body: JSON.stringify({
+        label: address.isDefault ? 'Default' : 'Saved',
+        addressLine1: address.addressLine1,
+        addressLine2: address.addressLine2,
+        city: address.city,
+        state: address.state,
+        pincode: address.pincode,
+        latitude: address.latitude,
+        longitude: address.longitude,
+        isDefault: address.isDefault,
+      }),
     });
     if (!response.ok) throw new Error('Failed to save address');
     return response.json();
   },
 
-  async getUserAddresses(userId: number): Promise<Address[]> {
-    const response = await fetch(`${LOCATION_SERVICE_URL}/address/user/${userId}`, {
+  async getUserAddresses(_userId: number): Promise<Address[]> {
+    const response = await fetch(ADDRESS_SERVICE_URL, {
       headers: getAuthHeader(),
     });
     if (!response.ok) throw new Error('Failed to fetch addresses');
     return response.json();
   },
 
-  async getDefaultAddress(userId: number): Promise<Address | null> {
-    const response = await fetch(`${LOCATION_SERVICE_URL}/address/user/${userId}/default`, {
-      headers: getAuthHeader(),
-    });
-    if (response.status === 404) return null;
-    if (!response.ok) throw new Error('Failed to fetch default address');
-    return response.json();
+  async getDefaultAddress(_userId: number): Promise<Address | null> {
+    const addresses = await this.getUserAddresses(_userId);
+    return addresses.find((address) => address.isDefault) || null;
   },
 
   // Agent Location
   async updateAgentLocation(location: LocationUpdate): Promise<void> {
-    const response = await fetch(`${LOCATION_SERVICE_URL}/agent/update`, {
-      method: 'POST',
+    const response = await fetch(`${DELIVERY_SERVICE_URL}/agents/${location.agentId}/location`, {
+      method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        ...getAuthHeader(),
+        ...getOptionalAuthHeader(),
       },
-      body: JSON.stringify(location),
+      body: JSON.stringify({
+        orderId: location.orderId ?? 0,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        accuracy: location.accuracy?.toString(),
+        address: location.orderId ? 'Live GPS update' : 'Current agent location',
+        status: location.orderId ? 'IN_TRANSIT' : 'ONLINE',
+      }),
     });
     if (!response.ok) throw new Error('Failed to update location');
   },
 
   async getAgentLocation(agentId: number): Promise<LocationUpdate> {
-    const response = await fetch(`${LOCATION_SERVICE_URL}/agent/${agentId}`, {
+    const response = await fetch(`${DELIVERY_SERVICE_URL}/agents/${agentId}`, {
       headers: getAuthHeader(),
     });
     if (!response.ok) throw new Error('Failed to fetch agent location');
-    return response.json();
+    const agent = await response.json();
+    return {
+      agentId,
+      latitude: agent.currentLatitude || 0,
+      longitude: agent.currentLongitude || 0,
+    };
   },
 
   async markAgentOffline(agentId: number): Promise<void> {
-    const response = await fetch(`${LOCATION_SERVICE_URL}/agent/${agentId}/offline`, {
-      method: 'POST',
-      headers: getAuthHeader(),
+    const response = await fetch(`${DELIVERY_SERVICE_URL}/agents/${agentId}/availability?isOnline=false`, {
+      method: 'PUT',
+      headers: getOptionalAuthHeader(),
     });
     if (!response.ok) throw new Error('Failed to mark agent offline');
   },
@@ -141,9 +160,9 @@ export const locationService = {
     radiusKm: number = 10
   ): Promise<NearbyAgent[]> {
     const response = await fetch(
-      `${LOCATION_SERVICE_URL}/agent/nearby?latitude=${latitude}&longitude=${longitude}&radiusKm=${radiusKm}`,
+      `${DELIVERY_SERVICE_URL}/agents/nearby?latitude=${latitude}&longitude=${longitude}&radiusKm=${radiusKm}`,
       {
-        headers: getAuthHeader(),
+        headers: getOptionalAuthHeader(),
       }
     );
     if (!response.ok) throw new Error('Failed to find nearby agents');
@@ -152,45 +171,63 @@ export const locationService = {
 
   // Routing
   async getRoute(request: RouteRequest): Promise<RouteResponse> {
-    const response = await fetch(`${ROUTING_SERVICE_URL}/route`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(request),
-    });
+    const response = await fetch(
+      `${DELIVERY_SERVICE_URL}/route?startLon=${request.originLng}&startLat=${request.originLat}&endLon=${request.destLng}&endLat=${request.destLat}`,
+      { headers: { Accept: 'application/json' } }
+    );
     if (!response.ok) throw new Error('Failed to get route');
-    return response.json();
+    const data = await response.json();
+    const route = data.routes?.[0];
+    const geometry = route?.geometry?.coordinates?.map(([lng, lat]: [number, number]) => [lat, lng] as [number, number]) || [];
+    return {
+      distanceKm: Number(route?.distance || 0) / 1000,
+      durationMinutes: Number(route?.duration || 0) / 60,
+      geometry,
+    };
   },
 
   async getMultiRoute(request: MultiRouteRequest): Promise<MultiRouteResponse> {
-    const response = await fetch(`${ROUTING_SERVICE_URL}/multi-route`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(request),
-    });
-    if (!response.ok) throw new Error('Failed to get multi-route');
-    return response.json();
+    const [agentToRestaurant, restaurantToCustomer] = await Promise.all([
+      this.getRoute({
+        originLat: request.agentLat,
+        originLng: request.agentLng,
+        destLat: request.restaurantLat,
+        destLng: request.restaurantLng,
+      }),
+      this.getRoute({
+        originLat: request.restaurantLat,
+        originLng: request.restaurantLng,
+        destLat: request.customerLat,
+        destLng: request.customerLng,
+      }),
+    ]);
+
+    return {
+      agentToRestaurant: { ...agentToRestaurant, color: '#2563eb' },
+      restaurantToCustomer: { ...restaurantToCustomer, color: '#f97316' },
+      totalDistanceKm: agentToRestaurant.distanceKm + restaurantToCustomer.distanceKm,
+      totalDurationMinutes: agentToRestaurant.durationMinutes + restaurantToCustomer.durationMinutes,
+    };
   },
 };
 
 // Geolocation utilities
 export const geolocationUtils = {
   getCurrentPosition(): Promise<GeolocationPosition> {
-    return new Promise((resolve, reject) => {
-      if (!navigator.geolocation) {
-        reject(new Error('Geolocation is not supported'));
-        return;
-      }
-
-      navigator.geolocation.getCurrentPosition(resolve, reject, {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0,
-      });
-    });
+    return addressService.getCurrentLocation().then((coords) => ({
+      coords: {
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+        accuracy: 0,
+        altitude: null,
+        altitudeAccuracy: null,
+        heading: null,
+        speed: null,
+        toJSON: () => ({}),
+      },
+      timestamp: Date.now(),
+      toJSON: () => ({}),
+    } as GeolocationPosition));
   },
 
   watchPosition(
@@ -213,12 +250,9 @@ export const geolocationUtils = {
   },
 
   async reverseGeocode(lat: number, lng: number): Promise<string> {
-    // Using Nominatim (OpenStreetMap) for reverse geocoding
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
-    );
-    if (!response.ok) throw new Error('Failed to reverse geocode');
-    const data = await response.json();
-    return data.display_name;
+    const address = await addressService.reverseGeocode(lat, lng);
+    return [address.addressLine1, address.city, address.state, address.pincode]
+      .filter(Boolean)
+      .join(', ');
   },
 };

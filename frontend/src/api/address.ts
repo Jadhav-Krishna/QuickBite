@@ -1,6 +1,7 @@
 import { API_BASE_URL } from './auth';
 
-const LOCATIONIQ_API_KEY = import.meta.env.VITE_LOCATIONIQ_API_KEY;
+const CURRENT_LOCATION_CACHE_KEY = 'quickbite:last-browser-location';
+let inFlightLocationRequest: Promise<{ latitude: number; longitude: number }> | null = null;
 
 export interface AddressDTO {
   id: number;
@@ -97,10 +98,10 @@ export const addressService = {
   async geocodeAddress(address: string): Promise<{ latitude: number; longitude: number }> {
     try {
       const response = await fetch(
-        `https://us1.locationiq.com/v1/search?key=${LOCATIONIQ_API_KEY}&q=${encodeURIComponent(address)}&format=json&limit=1`,
+        `${API_BASE_URL}/v1/auth/addresses/geocode?address=${encodeURIComponent(address)}`,
         {
           headers: {
-            'Accept': 'application/json'
+            Accept: 'application/json',
           }
         }
       );
@@ -108,13 +109,15 @@ export const addressService = {
       if (!response.ok) throw new Error('Failed to geocode address');
       
       const data = await response.json();
-      if (!data || data.length === 0) {
+      const latitude = Number(data.latitude);
+      const longitude = Number(data.longitude);
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
         throw new Error('Address not found');
       }
       
       return {
-        latitude: parseFloat(data[0].lat),
-        longitude: parseFloat(data[0].lon),
+        latitude,
+        longitude,
       };
     } catch (error) {
       throw new Error('Unable to find coordinates for this address. Address will be saved without location.');
@@ -122,53 +125,49 @@ export const addressService = {
   },
 
   async getCurrentLocation(): Promise<{ latitude: number; longitude: number }> {
-    return new Promise((resolve, reject) => {
+    if (inFlightLocationRequest) {
+      return inFlightLocationRequest;
+    }
+
+    inFlightLocationRequest = new Promise((resolve, reject) => {
       if (!navigator.geolocation) {
+        inFlightLocationRequest = null;
         reject(new Error('Geolocation is not supported by your browser'));
         return;
       }
 
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          resolve({
+          const coords = {
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
-          });
+          };
+          console.log(`Latitude: ${coords.latitude}, Longitude: ${coords.longitude}`);
+          localStorage.setItem(CURRENT_LOCATION_CACHE_KEY, JSON.stringify({
+            ...coords,
+            updatedAt: new Date().toISOString(),
+          }));
+          inFlightLocationRequest = null;
+          resolve(coords);
         },
-        async (_error) => {
-          try {
-            const response = await fetch(`https://us1.locationiq.com/v1/balance?key=${LOCATIONIQ_API_KEY}`);
-            
-            if (!response.ok) {
-              throw new Error('LocationIQ request failed');
-            }
-            
-            const ipResponse = await fetch('https://ipapi.co/json/');
-            if (!ipResponse.ok) {
-              throw new Error('IP geolocation failed');
-            }
-            
-            const ipData = await ipResponse.json();
-            
-            if (ipData.latitude && ipData.longitude) {
-              resolve({
-                latitude: parseFloat(ipData.latitude),
-                longitude: parseFloat(ipData.longitude),
-              });
-            } else {
-              reject(new Error('Unable to detect location. Please enter address manually.'));
-            }
-          } catch (err) {
-            reject(new Error('Unable to detect location. Please enter address manually.'));
+        (error) => {
+          const cached = getCachedCurrentLocation();
+          inFlightLocationRequest = null;
+          if (cached) {
+            resolve(cached);
+            return;
           }
+          reject(new Error(getGeolocationErrorMessage(error)));
         },
         {
           enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0
+          timeout: 15000,
+          maximumAge: 30000,
         }
       );
     });
+
+    return inFlightLocationRequest;
   },
 
   async reverseGeocode(latitude: number, longitude: number): Promise<{
@@ -179,10 +178,10 @@ export const addressService = {
   }> {
     try {
       const response = await fetch(
-        `https://us1.locationiq.com/v1/reverse?key=${LOCATIONIQ_API_KEY}&lat=${latitude}&lon=${longitude}&format=json`,
+        `${API_BASE_URL}/v1/auth/addresses/reverse-geocode?latitude=${latitude}&longitude=${longitude}`,
         {
           headers: {
-            'Accept': 'application/json'
+            Accept: 'application/json',
           }
         }
       );
@@ -190,22 +189,48 @@ export const addressService = {
       if (!response.ok) throw new Error('Failed to reverse geocode');
       
       const data = await response.json();
-      const addr = data.address || {};
-      
-      const addressParts = [
-        addr.house_number,
-        addr.road || addr.street,
-        addr.neighbourhood || addr.suburb || addr.quarter
-      ].filter(Boolean);
-      
+
       return {
-        addressLine1: addressParts.join(', ') || data.display_name?.split(',')[0] || 'Address not found',
-        city: addr.city || addr.town || addr.village || addr.municipality || '',
-        state: addr.state || addr.province || '',
-        pincode: addr.postcode || '',
+        addressLine1: data.addressLine1 || data.displayName?.split(',')[0] || 'Address not found',
+        city: data.city || '',
+        state: data.state || '',
+        pincode: data.pincode || '',
       };
     } catch (error) {
       throw new Error('Unable to convert location to address. Please enter manually.');
     }
   },
+};
+
+const getCachedCurrentLocation = (): { latitude: number; longitude: number } | null => {
+  try {
+    const raw = localStorage.getItem(CURRENT_LOCATION_CACHE_KEY);
+    if (!raw) return null;
+
+    const cached = JSON.parse(raw) as { latitude?: unknown; longitude?: unknown; updatedAt?: string };
+    const latitude = Number(cached.latitude);
+    const longitude = Number(cached.longitude);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+
+    const updatedAt = cached.updatedAt ? new Date(cached.updatedAt).getTime() : 0;
+    const cacheAgeMs = Date.now() - updatedAt;
+    if (cacheAgeMs > 10 * 60 * 1000) return null;
+
+    return { latitude, longitude };
+  } catch {
+    return null;
+  }
+};
+
+const getGeolocationErrorMessage = (error: GeolocationPositionError) => {
+  switch (error.code) {
+    case error.PERMISSION_DENIED:
+      return 'Location permission denied. Please allow location access in your browser.';
+    case error.POSITION_UNAVAILABLE:
+      return 'Your current location is unavailable. Please try again or enter the address manually.';
+    case error.TIMEOUT:
+      return 'Location detection timed out. Please try again.';
+    default:
+      return error.message || 'Unable to detect location. Please enter address manually.';
+  }
 };

@@ -2,6 +2,10 @@ package com.quickbite.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.quickbite.client.GitHubApiClient;
+import com.quickbite.client.GitHubOAuthClient;
+import com.quickbite.client.GoogleOAuthClient;
+import com.quickbite.client.GoogleTokenInfoClient;
 import com.quickbite.dto.*;
 import com.quickbite.entity.User;
 import com.quickbite.entity.UserRole;
@@ -59,6 +63,18 @@ public class AuthService {
 
     @Autowired
     private RestTemplate restTemplate;
+
+    @Autowired(required = false)
+    private GoogleTokenInfoClient googleTokenInfoClient;
+
+    @Autowired(required = false)
+    private GoogleOAuthClient googleOAuthClient;
+
+    @Autowired(required = false)
+    private GitHubApiClient gitHubApiClient;
+
+    @Autowired(required = false)
+    private GitHubOAuthClient gitHubOAuthClient;
 
     @Autowired(required = false)
     private RabbitTemplate rabbitTemplate;
@@ -231,7 +247,9 @@ public class AuthService {
             }
 
             log.info("Validating Google access token");
-            String response = restTemplate.getForObject(GOOGLE_TOKEN_INFO_URL + accessToken, String.class);
+            String response = googleTokenInfoClient != null
+                    ? googleTokenInfoClient.getTokenInfo(accessToken)
+                    : restTemplate.getForObject(GOOGLE_TOKEN_INFO_URL + accessToken, String.class);
             JsonNode node = objectMapper.readTree(response);
 
             if (!node.has(EMAIL_KEY)) {
@@ -273,10 +291,12 @@ public class AuthService {
             headers.setBearerAuth(accessToken);
             var entity = new org.springframework.http.HttpEntity<>(headers);
 
-            String response = restTemplate.exchange(GITHUB_USER_API, org.springframework.http.HttpMethod.GET, entity, String.class).getBody();
+            String response = gitHubApiClient != null
+                    ? gitHubApiClient.getUser(BEARER + " " + accessToken)
+                    : restTemplate.exchange(GITHUB_USER_API, org.springframework.http.HttpMethod.GET, entity, String.class).getBody();
             JsonNode node = objectMapper.readTree(response);
 
-            String email = resolveGitHubEmail(node, entity);
+            String email = resolveGitHubEmail(node, accessToken, entity);
             if (email == null || email.isEmpty()) {
                 throw new AuthenticationException("Unable to retrieve email from GitHub");
             }
@@ -304,19 +324,21 @@ public class AuthService {
         }
     }
 
-    private String resolveGitHubEmail(JsonNode userNode, org.springframework.http.HttpEntity<?> entity) {
+    private String resolveGitHubEmail(JsonNode userNode, String accessToken, org.springframework.http.HttpEntity<?> entity) {
         String email = extractNodeText(userNode, EMAIL_KEY, null);
         if (email != null && !email.isEmpty()) {
             return email;
         }
 
         try {
-            String emailsResponse = restTemplate.exchange(
-                    "https://api.github.com/user/emails",
-                    org.springframework.http.HttpMethod.GET,
-                    entity,
-                    String.class
-            ).getBody();
+            String emailsResponse = gitHubApiClient != null
+                    ? gitHubApiClient.getUserEmails(BEARER + " " + accessToken)
+                    : restTemplate.exchange(
+                            "https://api.github.com/user/emails",
+                            org.springframework.http.HttpMethod.GET,
+                            entity,
+                            String.class
+                    ).getBody();
             JsonNode emailsNode = objectMapper.readTree(emailsResponse);
 
             if (emailsNode == null || !emailsNode.isArray() || emailsNode.isEmpty()) {
@@ -370,7 +392,9 @@ public class AuthService {
             headers.set("Accept", "application/json");
 
             var entity = new org.springframework.http.HttpEntity<>(params, headers);
-            String response = restTemplate.postForObject(tokenUrl, entity, String.class);
+            String response = gitHubOAuthClient != null
+                    ? gitHubOAuthClient.exchangeCode("application/json", params)
+                    : restTemplate.postForObject(tokenUrl, entity, String.class);
             JsonNode node = objectMapper.readTree(response);
 
             if (node.has(ERROR_KEY)) {
@@ -417,7 +441,9 @@ public class AuthService {
             headers.setContentType(org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED);
 
             var entity = new org.springframework.http.HttpEntity<>(params, headers);
-            String response = restTemplate.postForObject(tokenUrl, entity, String.class);
+            String response = googleOAuthClient != null
+                    ? googleOAuthClient.exchangeCode(params)
+                    : restTemplate.postForObject(tokenUrl, entity, String.class);
             JsonNode node = objectMapper.readTree(response);
 
             if (node.has(ERROR_KEY)) {
@@ -445,9 +471,12 @@ public class AuthService {
             return request.getRedirectUri();
         }
 
-        String baseUrl = oauthRedirectBaseUrl.endsWith("/")
-                ? oauthRedirectBaseUrl.substring(0, oauthRedirectBaseUrl.length() - 1)
+        String configuredBaseUrl = oauthRedirectBaseUrl == null || oauthRedirectBaseUrl.isBlank()
+                ? "http://localhost:8000"
                 : oauthRedirectBaseUrl;
+        String baseUrl = configuredBaseUrl.endsWith("/")
+                ? configuredBaseUrl.substring(0, configuredBaseUrl.length() - 1)
+                : configuredBaseUrl;
         return baseUrl + "/api/auth/oauth2/callback/" + provider;
     }
 

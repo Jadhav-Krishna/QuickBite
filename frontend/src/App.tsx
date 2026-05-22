@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 // Contexts
 import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
+import LocationPermissionBootstrap from './components/location/LocationPermissionBootstrap';
 
 // Import all pages and components from centralized routes
 import {
@@ -66,6 +67,7 @@ function App() {
     <AuthProvider>
       <CartProvider>
         <BrowserRouter>
+      <LocationPermissionBootstrap />
       <Routes>
         {/* Auth / Role Selection */}
         <Route path="/auth" element={<AuthLanding />} />

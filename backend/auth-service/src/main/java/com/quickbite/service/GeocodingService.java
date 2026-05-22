@@ -1,6 +1,8 @@
 package com.quickbite.service;
 
+import com.quickbite.client.LocationIqClient;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -20,6 +22,9 @@ public class GeocodingService {
     
     private final RestTemplate restTemplate = new RestTemplate();
 
+    @Autowired(required = false)
+    private LocationIqClient locationIqClient;
+
     /**
      * Forward Geocoding: Convert address to coordinates
      */
@@ -31,7 +36,9 @@ public class GeocodingService {
                     .queryParam("format", "json")
                     .toUriString();
 
-            List<Map<String, Object>> response = restTemplate.getForObject(url, List.class);
+            List<Map<String, Object>> response = locationIqClient != null
+                    ? locationIqClient.search(apiKey, address, "json")
+                    : restTemplate.getForObject(url, List.class);
             
             if (response != null && !response.isEmpty()) {
                 Map<String, Object> result = response.get(0);
@@ -53,7 +60,9 @@ public class GeocodingService {
     public Map<String, String> reverseGeocode(double latitude, double longitude) {
         try {
             String url = buildReverseGeocodeUrl(latitude, longitude);
-            Map<String, Object> response = restTemplate.getForObject(url, Map.class);
+            Map<String, Object> response = locationIqClient != null
+                    ? locationIqClient.reverse(apiKey, latitude, longitude, "json")
+                    : restTemplate.getForObject(url, Map.class);
             
             if (response == null || !response.containsKey("address")) {
                 return Map.of();
